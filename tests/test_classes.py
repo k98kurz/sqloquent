@@ -8,12 +8,17 @@ import sqlite3
 import unittest
 
 
+# uncoupled original for subclass checking
+original_HashedModel = classes.HashedModel
+
+
 class TestClasses(unittest.TestCase):
     db_filepath: str = 'test.db'
     db: sqlite3.Connection = None
     cursor: sqlite3.Cursor = None
 
     def setUp(self) -> None:
+        """Set up the test database."""
         try:
             if isfile(self.db_filepath):
                 os.remove(self.db_filepath)
@@ -21,12 +26,27 @@ class TestClasses(unittest.TestCase):
             ...
         self.db = sqlite3.connect(self.db_filepath)
         self.cursor = self.db.cursor()
-        # self.cursor.execute('create table deleted_records (id text not null, ' +
-        #     'model_class text not null, record_id text not null, record text not null)')
-        # classes.DeletedModel.file_path = self.db_filepath
+        self.cursor.execute('create table deleted_records (id text not null, ' +
+            'model_class text not null, record_id text not null, record text not null)')
+
         return super().setUp()
 
+    def setUpClass() -> None:
+        """Couple these models to sqlite for testing purposes."""
+        class HashedModel(classes.HashedModel, classes.SqliteModel):
+            file_path = TestClasses.db_filepath
+        classes.HashedModel = HashedModel
+
+        class DeletedModel(classes.DeletedModel, classes.SqliteModel):
+            file_path = TestClasses.db_filepath
+        classes.DeletedModel = DeletedModel
+
+        class Attachment(classes.Attachment, classes.SqliteModel):
+            file_path = TestClasses.db_filepath
+        classes.Attachment = Attachment
+
     def tearDown(self) -> None:
+        """Close cursor and delete test database."""
         self.cursor.close()
         self.db.close()
         os.remove(self.db_filepath)
@@ -45,12 +65,12 @@ class TestClasses(unittest.TestCase):
         assert type(classes.SqlModel) is type
         assert hasattr(classes, 'SqliteModel')
         assert type(classes.SqliteModel) is type
-        # assert hasattr(classes, 'DeletedModel')
-        # assert type(classes.DeletedModel) is type
-        # assert hasattr(classes, 'HashedModel')
-        # assert type(classes.HashedModel) is type
-        # assert hasattr(classes, 'Attachment')
-        # assert type(classes.Attachment) is type
+        assert hasattr(classes, 'DeletedModel')
+        assert type(classes.DeletedModel) is type
+        assert hasattr(classes, 'HashedModel')
+        assert type(classes.HashedModel) is type
+        assert hasattr(classes, 'Attachment')
+        assert type(classes.Attachment) is type
 
 
     # context manager test
@@ -401,6 +421,141 @@ class TestClasses(unittest.TestCase):
         assert type(deleted) is int
         assert deleted == 1
         assert sqb.reset().find('123') is None
+
+
+    # HashedModel tests
+    def test_HashedModel_issubclass_of_SqlModel(self):
+        assert issubclass(classes.HashedModel, classes.SqlModel)
+
+    def test_HashedModel_generated_id_is_sha256_of_json_data(self):
+        self.cursor.execute('create table hashed_records (id text, data text)')
+        data = { 'data': token_bytes(8).hex() }
+        observed = classes.HashedModel.generate_id(data)
+        preimage = json.dumps(
+            classes.HashedModel.encode_value(data),
+            sort_keys=True
+        )
+        expected = sha256(bytes(preimage, 'utf-8')).digest().hex()
+        assert observed == expected, 'wrong hash encountered'
+
+    def test_HashedModel_insert_generates_id_and_makes_record(self):
+        self.cursor.execute('create table hashed_records (id text, data text)')
+        data = { 'data': token_bytes(8).hex() }
+        inserted = classes.HashedModel.insert(data)
+        assert isinstance(inserted, classes.HashedModel)
+        assert 'data' in inserted.data
+        assert inserted.data['data'] == data['data']
+        assert classes.HashedModel.id_column in inserted.data
+        assert type(inserted.data[classes.HashedModel.id_column]) == str
+        assert len(inserted.data[classes.HashedModel.id_column]) == 64
+        assert len(bytes.fromhex(inserted.data[classes.HashedModel.id_column])) == 32
+
+        found = classes.HashedModel.find(inserted.data[classes.HashedModel.id_column])
+        assert isinstance(found, classes.HashedModel)
+        assert found == inserted
+
+    def test_HashedModel_insert_many_generates_ids_and_makes_records(self):
+        self.cursor.execute('create table hashed_records (id text, data text)')
+        data1 = { 'data': token_bytes(8).hex() }
+        data2 = { 'data': token_bytes(8).hex() }
+        inserted = classes.HashedModel.insert_many([data1, data2])
+        assert type(inserted) == int
+        assert inserted == 2
+
+        items = classes.HashedModel.query().get()
+        assert type(items) is list
+        assert len(items) == 2
+        for item in items:
+            assert item.data['data'] in (data1['data'], data2['data'])
+            assert classes.HashedModel.id_column in item.data
+            assert type(item.data[classes.HashedModel.id_column]) == str
+            assert len(item.data[classes.HashedModel.id_column]) == 64
+            assert len(bytes.fromhex(item.data[classes.HashedModel.id_column])) == 32
+
+    def test_HashedModel_save_and_update_delete_original_and_makes_new_record(self):
+        self.cursor.execute('create table hashed_records (id text, data text)')
+        data1 = { 'data': token_bytes(8).hex() }
+        data2 = { 'data': token_bytes(8).hex() }
+        data3 = { 'data': token_bytes(8).hex() }
+
+        inserted = classes.HashedModel.insert(data1)
+        id1 = inserted.data['id']
+        assert classes.DeletedModel.query().count() == 0
+
+        updated = inserted.update(data2)
+        assert classes.DeletedModel.query().count() == 1
+        assert updated.data['id'] != id1
+
+        updated.data['data'] = data3['data']
+        saved = updated.save()
+        assert classes.DeletedModel.query().count() == 2
+        assert saved.data['id'] not in (id1, updated.data['id'])
+
+
+    # DeletedModel tests
+    def test_DeletedModel_issubclass_of_SqlModel(self):
+        assert issubclass(classes.DeletedModel, classes.SqlModel)
+
+    def test_DeletedModel_created_when_HashedModel_is_deleted(self):
+        self.cursor.execute('create table hashed_records (id text, data text)')
+        item = classes.HashedModel.insert({'data': '123'})
+        deleted = item.delete()
+        assert isinstance(deleted, classes.DeletedModel)
+        assert type(deleted.data[deleted.id_column]) is str
+        assert classes.DeletedModel.find(deleted.data[deleted.id_column]) != None
+
+    def test_DeletedModel_restore_returns_SqlModel_and_deleted_records_row(self):
+        self.cursor.execute('create table hashed_records (id text, data text)')
+        item = classes.HashedModel.insert({'data': '123'})
+        deleted = item.delete()
+        restored = deleted.restore()
+        assert isinstance(restored, classes.SqlModel)
+        assert classes.DeletedModel.find(restored.data[restored.id_column]) is None
+        assert classes.HashedModel.find(restored.data[restored.id_column]) is not None
+
+
+    # Attachment tests
+    def test_Attachment_issubclass_of_HashedModel(self):
+        assert issubclass(classes.Attachment, original_HashedModel)
+
+    def test_Attachment_attach_to_sets_related_model_and_related_id(self):
+        self.cursor.execute('create table hashed_records (id text, data text)')
+        data = { 'data': token_bytes(8).hex() }
+        hashedmodel = classes.HashedModel.insert(data)
+        attachment = classes.Attachment()
+        attachment.attach_to(hashedmodel)
+
+        assert 'related_model' in attachment.data
+        assert attachment.data['related_model'] == hashedmodel.__class__.__name__
+        assert 'related_id' in attachment.data
+        assert attachment.data['related_id'] == hashedmodel.data['id']
+
+    def test_Attachment_set_details_encodes_json_and_details_decodes_json(self):
+        details = {'123': 'some information'}
+        attachment = classes.Attachment()
+
+        assert 'details' not in attachment.data
+
+        attachment.set_details(details)
+        assert 'details' in attachment.data
+        assert type(attachment.data['details']) is str
+
+        assert type(attachment.details()) is dict
+        assert attachment.details(True) == details
+
+    def test_Attachment_related_returns_SqlModel_instance(self):
+        self.cursor.execute('create table hashed_records (id text, data text)')
+        self.cursor.execute('create table attachments (id text, ' +
+            'related_model text, related_id text, details text)')
+        data = { 'data': token_bytes(8).hex() }
+        hashedmodel = classes.HashedModel.insert(data)
+        details = {'123': 'some information'}
+        attachment = classes.Attachment({'details': json.dumps(details)})
+        attachment.attach_to(hashedmodel)
+        attachment.save()
+
+        related = attachment.related(True)
+        assert isinstance(related, classes.SqlModel)
 
 
 if __name__ == '__main__':
