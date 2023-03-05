@@ -5,6 +5,7 @@ from .interfaces import (
     QueryBuilderProtocol
 )
 from dataclasses import dataclass, field
+from hashlib import sha256
 from types import TracebackType
 from typing import Any, Optional, Type, Union
 from uuid import uuid1
@@ -44,7 +45,7 @@ class SqlModel:
     table: str = 'example'
     id_column: str = 'id'
     fields: tuple = ('id', 'name')
-    query_builder_class: type
+    query_builder_class: Type[QueryBuilderProtocol]
     data: dict
 
     def __init__(self, data: dict = {}) -> None:
@@ -479,3 +480,134 @@ class SqlQueryBuilder:
 class SqliteQueryBuilder(SqlQueryBuilder):
     def __init__(self, model: type, *args, **kwargs) -> None:
         super().__init__(model, SqliteContext, *args, **kwargs)
+
+
+class DeletedModel(SqlModel):
+    """Model for preserving and restoring deleted HashedModel records."""
+    table: str = 'deleted_records'
+    fields: tuple = ('id', 'model_class', 'record_id', 'record')
+
+    def restore(self) -> SqlModel:
+        """Restore a deleted record, remove from deleted_records, and
+            return the restored model.
+        """
+        model_class = globals()[self.data['model_class']]
+        decoded = json.loads(self.data['record'])
+
+        assert issubclass(model_class, SqlModel), \
+            'related_model must inherit from SqlModel'
+
+        if model_class.id_column not in decoded:
+            decoded[model_class.id_column] = self.data['record_id']
+
+        model = model_class.insert(decoded)
+        self.delete()
+
+        return model
+
+
+class HashedModel(SqlModel):
+    """Model for interacting with sqlite database using hash for id."""
+    table: str = 'hashed_records'
+    fields: tuple = ('id', 'data')
+
+    @classmethod
+    def generate_id(cls, data: dict) -> str:
+        data = { k: data[k] for k in data if k in cls.fields and k != cls.id_column }
+        preimage = json.dumps(
+            cls.encode_value(data),
+            sort_keys=True
+        )
+        return sha256(bytes(preimage, 'utf-8')).digest().hex()
+
+    @classmethod
+    def insert(cls, data: dict) -> Optional[HashedModel]:
+        """Insert a new record to the datastore. Return instance."""
+        assert isinstance(data, dict), 'data must be dict'
+        data[cls.id_column] = cls.generate_id(data)
+
+        return SqliteQueryBuilder(model=cls).insert(data)
+
+    @classmethod
+    def insert_many(cls, items: list[dict]) -> int:
+        """Insert a batch of records and return the number of items inserted."""
+        assert isinstance(items, list), 'items must be type list[dict]'
+        for item in items:
+            assert isinstance(item, dict), 'items must be type list[dict]'
+            item[cls.id_column] = cls.generate_id(item)
+
+        return SqliteQueryBuilder(model=cls).insert_many(items)
+
+    def update(self, updates: dict) -> HashedModel:
+        """Persist the specified changes to the datastore, creating a new
+            record in the process. Return new record in monad pattern.
+        """
+        assert type(updates) is dict, 'updates must be dict'
+
+        # merge data into updates
+        for key in self.data:
+            if key in self.fields and not key in updates:
+                updates[key] = self.data[key]
+
+        # insert new record or update and return
+        if self.data[self.id_column]:
+            instance = self.insert(updates)
+            self.delete()
+        else:
+            instance = self.insert(updates)
+        return instance
+
+    def delete(self) -> DeletedModel:
+        """Delete the model, putting it in the deleted_records table,
+            then return the DeletedModel.
+        """
+        model_class = self.__class__.__name__
+        record_id = self.data[self.id_column]
+        record = json.dumps(self.data)
+        deleted = DeletedModel.insert({
+            'model_class': model_class,
+            'record_id': record_id,
+            'record': record
+        })
+        super().delete()
+        return deleted
+
+
+class Attachment(HashedModel):
+    table: str = 'attachments'
+    fields: tuple = ('id', 'related_model', 'related_id', 'details')
+    _related: SqlModel = None
+    _details: dict = None
+
+    def related(self, reload: bool = False) -> SqlModel:
+        """Return the related record."""
+        if self._related is None or reload:
+            model_class = globals()[self.data['related_model']]
+            assert issubclass(model_class, SqlModel), \
+                'related_model must inherit from SqlModel'
+            self._related = model_class.find(self.data['related_id'])
+        return self._related
+
+    def attach_to(self, related: SqlModel) -> Attachment:
+        """Attach to related model then return self."""
+        assert issubclass(related.__class__, SqlModel), \
+            'related_model must inherit from SqlModel'
+        self.data['related_model'] = related.__class__.__name__
+        self.data['related_id'] = related.data[related.id_column]
+        return self
+
+    def details(self, reload: bool = False) -> dict:
+        """Decode json str to dict."""
+        if self._details is None or reload:
+            self._details = json.loads(self.data['details'])
+        return self._details
+
+    def set_details(self, details: dict = {}) -> Attachment:
+        """Set the details field using either a supplied dict or by
+            encoding the self._details dict to json. Return self in monad
+            pattern.
+        """
+        if details:
+            self._details = details
+        self.data['details'] = json.dumps(self._details)
+        return self

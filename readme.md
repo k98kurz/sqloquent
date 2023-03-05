@@ -8,10 +8,10 @@ This is a simple and hopefully rather SOLID SQL ORM system.
 
 ## Status
 
-- [ ] Base interfaces
-- [ ] Base test suite
-- [ ] Base classes
-- [ ] Cryptographic bonus code
+- [x] Base interfaces
+- [x] Base test suite
+- [x] Base classes
+- [x] Cryptographic bonus code
 - [ ] Decent documentation
 - [ ] Publish to pypi
 
