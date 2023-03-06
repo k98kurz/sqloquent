@@ -1,6 +1,6 @@
 from __future__ import annotations
 from types import TracebackType
-from typing import Any, Optional, Protocol, Type, Union, runtime_checkable
+from typing import Any, Generator, Optional, Protocol, Type, Union, runtime_checkable
 
 
 @runtime_checkable
@@ -123,6 +123,10 @@ class QueryBuilderProtocol(Protocol):
         """Sets query order."""
         ...
 
+    def skip(self, offset: int) -> QueryBuilderProtocol:
+        """Sets the number of rows to skip."""
+        ...
+
     def reset(self) -> QueryBuilderProtocol:
         """Returns a fresh instance using the configured model."""
         ...
@@ -145,6 +149,14 @@ class QueryBuilderProtocol(Protocol):
 
     def count(self) -> int:
         """Returns the number of records matching the query."""
+        ...
+
+    def take(self, number: int) -> Optional[list[ModelProtocol]]:
+        """Takes the specified number of rows."""
+        ...
+
+    def chunk(self, number: int) -> Generator[list[ModelProtocol], None, None]:
+        """Chunk all matching rows the specified number of rows at a time."""
         ...
 
     def first(self) -> Optional[ModelProtocol]:

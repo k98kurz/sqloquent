@@ -27,7 +27,7 @@ restore the deleted record.
 - [x] Base test suite
 - [x] Base classes
 - [x] Cryptographic bonus code
-- [ ] Add chunk generator to `QueryBuilderProtocol` and `SqlQueryBuilder`
+- [x] Add chunk generator to `QueryBuilderProtocol` and `SqlQueryBuilder`
 - [x] Decent documentation
 - [ ] Publish to pypi
 
@@ -269,12 +269,15 @@ style monad pattern.
     - `ends_with(self, field: str, data: str) -> QueryBuilderProtocol`
     - `is_in(self, field: str, data: Union[tuple, list]) -> QueryBuilderProtocol`
     - `order_by(self, field: str, direction: str = 'desc') -> QueryBuilderProtocol`
+    - `skip(self, offset: int) -> QueryBuilderProtocol`
     - `reset(self) -> QueryBuilderProtocol`
     - `insert(self, data: dict) -> Optional[ModelProtocol]`
     - `insert_many(self, items: list[dict]) -> int`
     - `find(self, id: str) -> Optional[ModelProtocol]`
     - `get(self) -> list[ModelProtocol]`
     - `count(self) -> int`
+    - `take(self, number: int) -> Optional[list[ModelProtocol]]`
+    - `chunk(self, number: int) -> Generator[list[ModelProtocol], None, None]`
     - `first(self) -> Optional[ModelProtocol]`
     - `update(self, updates: dict, conditions: dict = {}) -> int`
     - `delete(self) -> int`

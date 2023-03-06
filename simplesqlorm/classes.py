@@ -7,7 +7,7 @@ from .interfaces import (
 from dataclasses import dataclass, field
 from hashlib import sha256
 from types import TracebackType
-from typing import Any, Optional, Type, Union
+from typing import Any, Generator, Optional, Type, Union
 from uuid import uuid1
 import json
 import sqlite3
@@ -195,6 +195,8 @@ class SqlQueryBuilder:
     params: list = field(default_factory=list)
     order_field: str = field(default=None)
     order_dir: str = field(default='desc')
+    limit: int = field(default=None)
+    offset: int = field(default=None)
 
     @property
     def model(self) -> type:
@@ -294,6 +296,12 @@ class SqlQueryBuilder:
 
         return self
 
+    def skip(self, offset: int) -> QueryBuilderProtocol:
+        """Sets the number of rows to skip."""
+        assert type(offset) is int and offset >= 0, 'offset must be positive int'
+        self.offset = offset
+        return self
+
     def reset(self) -> SqlQueryBuilder:
         """Returns a fresh instance using the configured model."""
         return self.__class__(model=self.model)
@@ -369,6 +377,12 @@ class SqlQueryBuilder:
         if self.order_field is not None:
             sql += f' order by {self.order_field} {self.order_dir}'
 
+        if type(self.limit) is int and self.limit > 0:
+            sql += f' limit {self.limit}'
+
+            if type(self.offset) is int and self.offset > 0:
+                sql += f' offset {self.offset}'
+
         with self.context_manager(self.model) as cursor:
             cursor.execute(sql, self.params)
             rows = cursor.fetchall()
@@ -391,6 +405,26 @@ class SqlQueryBuilder:
         with self.context_manager(self.model) as cursor:
             cursor.execute(sql, self.params)
             return cursor.fetchone()[0]
+
+    def take(self, limit: int) -> Optional[list[SqlModel]]:
+        """Takes the specified number of rows."""
+        assert type(limit) is int and limit >= 0, 'limit must be positive int'
+        self.limit = limit
+        return self.get()
+
+    def chunk(self, number: int) -> Generator[list[SqlModel], None, None]:
+        """Chunk all matching rows the specified number of rows at a time."""
+        assert type(number) is int and number > 0, 'number must be int > 0'
+        original_offset = self.offset
+        self.offset = self.offset or 0
+        result = self.take(number)
+
+        while len(result) > 0:
+            yield result
+            self.offset += number
+            result = self.take(number)
+
+        self.offset = original_offset
 
     def first(self) -> Optional[SqlModel]:
         """Run the query on the datastore and return the first result."""
@@ -472,6 +506,12 @@ class SqlQueryBuilder:
 
         if self.order_field is not None:
             sql += f' order by {self.order_field} {self.order_dir}'
+
+        if type(self.limit) is int and self.limit > 0:
+            sql += f' limit {self.limit}'
+
+            if type(self.offset) is int and self.offset > 0:
+                sql += f' offset {self.offset}'
 
         return sql
 

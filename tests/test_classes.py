@@ -2,6 +2,7 @@ from secrets import token_bytes
 from context import classes, interfaces
 from genericpath import isfile
 from hashlib import sha256
+from types import GeneratorType
 import json
 import os
 import sqlite3
@@ -271,6 +272,11 @@ class TestClasses(unittest.TestCase):
         assert sqb.order_field == 'name', 'order_field must become name'
         assert sqb.order_dir == 'asc', 'order_dir must become asc'
 
+    def test_SqlQueryBuilder_skip_sets_offset(self):
+        sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
+        assert sqb.offset is None, 'offset must initialize as None'
+        assert sqb.skip(5).offset == 5, 'offset must become 5'
+
     def test_SqlQueryBuilder_to_sql_returns_str(self):
         sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
         assert type(sqb.to_sql()) is str, 'to_sql() must return str'
@@ -281,6 +287,17 @@ class TestClasses(unittest.TestCase):
 
         sqb.order_by('id')
         assert sqb.to_sql() == ' where name = foo order by id desc'
+
+        sqb.skip(3)
+        assert sqb.to_sql() == ' where name = foo order by id desc'
+
+        sqb.offset = None
+        sqb.limit = 5
+        assert sqb.to_sql() == ' where name = foo order by id desc limit 5'
+
+        sqb.skip(3)
+        assert sqb.to_sql() == ' where name = foo order by id desc limit 5 offset 3'
+
 
     def test_SqlQueryBuilder_reset_returns_fresh_instance(self):
         sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
@@ -377,6 +394,60 @@ class TestClasses(unittest.TestCase):
         assert sqb.starts_with('name', 'test').count() == 2
         assert sqb.reset().excludes('name', '1').count() == 2
         assert sqb.reset().is_in('name', ['other']).count() == 1
+
+    def test_SqliteQueryBuilder_skip_skips_records(self):
+        # setup
+        self.cursor.execute('create table example (id text, name text)')
+        classes.SqliteModel.file_path = self.db_filepath
+
+        # e2e test
+        sqb = classes.SqliteQueryBuilder(model=classes.SqliteModel)
+        sqb.insert({'name': 'test1', 'id': '123'})
+        sqb.insert({'name': 'test2', 'id': '321'})
+        sqb.insert({'name': 'other', 'id': 'other'})
+
+        list1 = sqb.take(2)
+        assert list1 == sqb.take(2), 'same limit/offset should return same results'
+        list2 = sqb.skip(1).take(2)
+        assert list1 != list2, 'different offsets should return different results'
+
+    def test_SqliteQueryBuilder_take_limits_results(self):
+        # setup
+        self.cursor.execute('create table example (id text, name text)')
+        classes.SqliteModel.file_path = self.db_filepath
+
+        # e2e test
+        sqb = classes.SqliteQueryBuilder(model=classes.SqliteModel)
+        sqb.insert({'name': 'test1', 'id': '123'})
+        sqb.insert({'name': 'test2', 'id': '321'})
+        sqb.insert({'name': 'other', 'id': 'other'})
+
+        assert sqb.count() == 3
+        assert len(sqb.take(1)) == 1
+        assert len(sqb.take(2)) == 2
+        assert len(sqb.take(3)) == 3
+        assert len(sqb.take(5)) == 3
+
+    def test_SqliteQueryBuilder_chunk_returns_generator_that_yields_list_of_SqliteModel(self):
+        # setup
+        self.cursor.execute('create table example (id text, name text)')
+        classes.SqliteModel.file_path = self.db_filepath
+
+        # e2e test
+        sqb = classes.SqliteQueryBuilder(model=classes.SqliteModel)
+        dicts = [{'name': i, 'id': i} for i in range(0, 25)]
+        expected = [i for i in range(0, 25)]
+        observed = []
+        sqb.insert_many(dicts)
+
+        assert sqb.count() == 25
+        assert isinstance(sqb.chunk(10), GeneratorType), 'chunk must return generator'
+        for results in sqb.chunk(10):
+            assert type(results) is list
+            for record in results:
+                assert isinstance(record, classes.SqliteModel)
+                observed.append(int(record.data['id']))
+        assert observed == expected
 
     def test_SqliteQueryBuilder_first_returns_one_record(self):
         # setup
