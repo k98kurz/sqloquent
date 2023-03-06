@@ -27,7 +27,7 @@ restore the deleted record.
 - [x] Base test suite
 - [x] Base classes
 - [x] Cryptographic bonus code
-- [ ] Add chunk generator to QueryBuilderProtocol and SqlQueryBuilder
+- [ ] Add chunk generator to `QueryBuilderProtocol` and `SqlQueryBuilder`
 - [x] Decent documentation
 - [ ] Publish to pypi
 
@@ -231,23 +231,106 @@ environment configuration system, but here it is only poorly mocked.
 
 ## Interfaces and Classes
 
+Below are the interfaces and classes, along with attributes and methods. Note
+that any type that includes itself in a return signature indicates a jquery-
+style monad pattern.
+
 ### Interfaces
 
 - CursorProtocol(Protocol)
+    - `execute(sql: str) -> CursorProtocol`
+    - `executemany(sql: str) -> CursorProtocol`
+    - `fetchone() -> Any`
+    - `fetchall() -> Any`
 - DBContextProtocol(Protocol)
+    - `__init__(self, model: ModelProtocol) -> None`
+    - `__enter__(self) -> CursorProtocol`
+    - `__exit__(self, __exc_type: Optional[Type[BaseException]],`
+                `__exc_value: Optional[BaseException],`
+                `__traceback: Optional[TracebackType]) -> None`
 - ModelProtocol(Protocol)
+    - `__hash__(self) -> int`
+    - `__eq__(self, other) -> bool`
+    - `@classmethod find(cls, id: Any) -> Optional[ModelProtocol]`
+    - `@classmethod insert(cls, data: dict) -> Optional[ModelProtocol]`
+    - `@classmethod insert_many(cls, data: dict) -> int`
+    - `update(self, updates: dict, conditions: dict = None) -> ModelProtocol`
+    - `save(self) -> ModelProtocol`
+    - `delete(self) -> None`
+    - `@classmethod query(cls, conditions: dict = None) -> QueryBuilderProtocol`
 - QueryBuilderProtocol(Protocol)
+    - `equal(self, field: str, data: str) -> QueryBuilderProtocol`
+    - `not_equal(self, field: str, data: Any) -> QueryBuilderProtocol`
+    - `less(self, field: str, data: str) -> QueryBuilderProtocol`
+    - `greater(self, field: str, data: str) -> QueryBuilderProtocol`
+    - `starts_with(self, field: str, data: str) -> QueryBuilderProtocol`
+    - `contains(self, field: str, data: str) -> QueryBuilderProtocol`
+    - `excludes(self, field: str, data: str) -> QueryBuilderProtocol`
+    - `ends_with(self, field: str, data: str) -> QueryBuilderProtocol`
+    - `is_in(self, field: str, data: Union[tuple, list]) -> QueryBuilderProtocol`
+    - `order_by(self, field: str, direction: str = 'desc') -> QueryBuilderProtocol`
+    - `reset(self) -> QueryBuilderProtocol`
+    - `insert(self, data: dict) -> Optional[ModelProtocol]`
+    - `insert_many(self, items: list[dict]) -> int`
+    - `find(self, id: str) -> Optional[ModelProtocol]`
+    - `get(self) -> list[ModelProtocol]`
+    - `count(self) -> int`
+    - `first(self) -> Optional[ModelProtocol]`
+    - `update(self, updates: dict, conditions: dict = {}) -> int`
+    - `delete(self) -> int`
+    - `to_sql(self) -> str`
 
 ### Classes
 
+Classes implement the protocols or extend the classes indicated. Only additional
+and/or overridden methods/attributes are included in this list.
+
 - SqliteContext(DBContextProtocol)
+    - `connection: sqlite3.Connection`
+    - `cursor: sqlite3.Cursor`
 - SqlModel(ModelProtocol)
+    - `table: str = 'example'`
+    - `id_column: str = 'id'`
+    - `fields: tuple = ('id', 'name')`
+    - `query_builder_class: Type[QueryBuilderProtocol]`
+    - `data: dict`
+    - `__init__(self, data: dict = {}) -> None`
+    - `@staticmethod encode_value(val: Any) -> str`
+    - `@classmethod generate_id(cls) -> str`
 - SqliteModel(SqlModel)
+    - `__init__(self, data: dict = {}) -> None`
 - SqlQueryBuilder(QueryBuilderProtocol)
+    - `model: type`
+    - `context_manager: Type[DBContextProtocol] = field(default=None)`
+    - `clauses: list = field(default_factory=list)`
+    - `params: list = field(default_factory=list)`
+    - `order_field: str = field(default=None)`
+    - `order_dir: str = field(default='desc')`
+    - `@property model(self) -> type`
+    - `@model.setter model(self, model: type) -> None`
 - SqliteQueryBuilder(SqlQueryBuilder)
+    - `__init__(self, model: type, *args, **kwargs) -> None`
 - DeletedModel(SqlModel)
+    - `table: str = 'deleted_records'`
+    - `fields: tuple = ('id', 'model_class', 'record_id', 'record')`
+    - `restore(self) -> SqlModel`
 - HashedModel(SqlModel)
+    - `table: str = 'hashed_records'`
+    - `fields: tuple = ('id', 'data')`
+    - `@classmethod generate_id(cls, data: dict) -> str`
+    - `@classmethod def insert(cls, data: dict) -> Optional[HashedModel]`
+    - `@classmethod insert_many(cls, items: list[dict]) -> int`
+    - `update(self, updates: dict) -> HashedModel`
+    - `delete(self) -> DeletedModel`
 - Attachment(HashedModel)
+    - `table: str = 'attachments'`
+    - `fields: tuple = ('id', 'related_model', 'related_id', 'details')`
+    - `_related: SqlModel = None`
+    - `_details: dict = None`
+    - `related(self, reload: bool = False) -> SqlModel`
+    - `attach_to(self, related: SqlModel) -> Attachment`
+    - `details(self, reload: bool = False) -> dict`
+    - `set_details(self, details: dict = {}) -> Attachment`
 
 ## Tests
 
@@ -256,6 +339,10 @@ Open a terminal in the root directory and run the following:
 ```
 python tests/test_classes.py
 ```
+
+The tests demonstrate the intended (and actual) behavior of the classes, as
+well as some contrived examples of how they are used. Perusing the tests will be
+informative to anyone seeking to use this package.
 
 ## ISC License
 
