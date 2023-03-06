@@ -199,6 +199,21 @@ for databases that lack a native JSON data type or for clients that require
 encoding before making the query. See the above example for using the sqlite3
 coupling.
 
+##### 5. `QueryBuilder` Features
+
+A few quick notes about `QueryBuilder` implementations, including the bundled
+`SqlQueryBuilder` and `SqliteQueryBuilder`:
+
+- Pagination is accomplished using the `skip(number)` and `take(number)`
+methods, or by directly setting the `limit` and `offset` attributes. The
+`offset` will only apply when `limit` is specified because that is how SQL works
+generally.
+- For iterating over large data sets, the `chunk(number)` method returns a
+generator that yields subsets with length equal to the specified number.
+- For debugging/learning purposes, the `to_sql` produces human-readable SQL.
+- The `execute_raw(sql)` method executes raw SQL and returns a tuple of
+`(int rowcount, Any results from fetchall)`.
+
 #### Using the Cryptographic Features
 
 If a cryptographic audit trail is desirable, use the following multiple
