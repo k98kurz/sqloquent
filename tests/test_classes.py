@@ -420,6 +420,25 @@ class TestClasses(unittest.TestCase):
         assert deleted == 1
         assert sqb.reset().find('123') is None
 
+    def test_SqliteQueryBuilder_execute_raw_executes_raw_SQL(self):
+        # setup
+        self.cursor.execute('create table example (id text, name text)')
+        classes.SqliteModel.file_path = self.db_filepath
+
+        # e2e test
+        sqb = classes.SqliteQueryBuilder(model=classes.SqliteModel)
+        assert sqb.count() == 0, 'count() must return 0'
+        result = sqb.execute_raw("insert into example (id, name) values ('123', '321')")
+        assert type(result) is tuple, 'execute_raw must return tuple'
+        assert result[0] == 1, 'execute_raw returns wrong rowcount'
+        result = sqb.execute_raw("insert into example (id, name) values ('321', '123'), ('abc', 'cba')")
+        assert result[0] == 2, 'execute_raw returns wrong rowcount'
+        assert sqb.count() == 3, 'count() must return 3'
+
+        result = sqb.execute_raw("select * from example")
+        assert type(result) is tuple, 'execute_raw must return tuple'
+        assert len(result[1]) == 3, 'execute_raw did not return all rows'
+
 
     # HashedModel tests
     def test_HashedModel_issubclass_of_SqlModel(self):

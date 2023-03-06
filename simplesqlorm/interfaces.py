@@ -164,3 +164,9 @@ class QueryBuilderProtocol(Protocol):
     def to_sql(self) -> str:
         """Return the sql where clause from the clauses and params."""
         ...
+
+    def execute_raw(self, sql: str) -> tuple[int, Any]:
+        """Execute raw SQL against the database. Return rowcount and fetchall
+            results.
+        """
+        ...

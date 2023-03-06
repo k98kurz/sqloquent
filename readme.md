@@ -279,6 +279,7 @@ style monad pattern.
     - `update(self, updates: dict, conditions: dict = {}) -> int`
     - `delete(self) -> int`
     - `to_sql(self) -> str`
+    - `execute_raw(self, sql: str) -> tuple[int, Any]`
 
 ### Classes
 

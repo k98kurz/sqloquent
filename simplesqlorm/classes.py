@@ -475,6 +475,15 @@ class SqlQueryBuilder:
 
         return sql
 
+    def execute_raw(self, sql: str) -> tuple[int, Any]:
+        """Execute raw SQL against the database. Return rowcount and fetchall
+            results.
+        """
+        assert type(sql) is str, 'sql must be str'
+        with self.context_manager(self.model) as cursor:
+            cursor.execute(sql)
+            return (cursor.rowcount, cursor.fetchall())
+
 
 class SqliteQueryBuilder(SqlQueryBuilder):
     def __init__(self, model: type, *args, **kwargs) -> None:
