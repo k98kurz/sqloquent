@@ -225,8 +225,9 @@ simplesqlorm.Attachment_original = simplesqlorm.Attachment
 simplesqlorm.Attachment = Attachment
 ```
 
-This must be done exactly once. The value supplied for `file_path` should be set
-with some environment configuration system, but here it is only poorly mocked.
+This must be done exactly once. The value supplied for `file_path` (or relevant
+configuration value for other database couplings) should be set with some
+environment configuration system, but here it is only poorly mocked.
 
 ## Interfaces and Classes
 
