@@ -60,7 +60,7 @@ class ModelProtocol(Protocol):
         """Insert a batch of records and return the number of items inserted."""
         ...
 
-    def update(self, updates: dict) -> ModelProtocol:
+    def update(self, updates: dict, conditions: dict = None) -> ModelProtocol:
         """Persist the specified changes to the datastore. Return self
             in monad pattern.
         """
@@ -147,12 +147,12 @@ class QueryBuilderProtocol(Protocol):
         """Returns the number of records matching the query."""
         ...
 
-    def update(self, updates: dict) -> int:
-        """Update the datastore and return number of records updated."""
-        ...
-
     def first(self) -> Optional[ModelProtocol]:
         """Run the query on the datastore and return the first result."""
+        ...
+
+    def update(self, updates: dict, conditions: dict = {}) -> int:
+        """Update the datastore and return number of records updated."""
         ...
 
     def delete(self) -> int:
