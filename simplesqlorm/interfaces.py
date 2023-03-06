@@ -20,7 +20,7 @@ class CursorProtocol(Protocol):
 
 @runtime_checkable
 class DBContextProtocol(Protocol):
-    def __init__(self, *args) -> None:
+    def __init__(self, model: ModelProtocol) -> None:
         ...
 
     def __enter__(self) -> CursorProtocol:

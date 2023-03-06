@@ -178,7 +178,6 @@ class SqlModel:
 class SqliteModel(SqlModel):
     """Model for interacting with sqlite database."""
     file_path: str = 'database.db'
-    query_builder_class: type
 
     def __init__(self, data: dict = {}) -> None:
         self.query_builder_class = SqliteQueryBuilder

@@ -8,10 +8,6 @@ import sqlite3
 import unittest
 
 
-# uncoupled original for subclass checking
-original_HashedModel = classes.HashedModel
-
-
 class TestClasses(unittest.TestCase):
     db_filepath: str = 'test.db'
     db: sqlite3.Connection = None
@@ -33,13 +29,15 @@ class TestClasses(unittest.TestCase):
 
     def setUpClass() -> None:
         """Couple these models to sqlite for testing purposes."""
-        class HashedModel(classes.HashedModel, classes.SqliteModel):
-            file_path = TestClasses.db_filepath
-        classes.HashedModel = HashedModel
-
         class DeletedModel(classes.DeletedModel, classes.SqliteModel):
             file_path = TestClasses.db_filepath
         classes.DeletedModel = DeletedModel
+
+        # save uncoupled original for subclass checking
+        class HashedModel(classes.HashedModel, classes.SqliteModel):
+            file_path = TestClasses.db_filepath
+        classes.HashedModel_original = classes.HashedModel
+        classes.HashedModel = HashedModel
 
         class Attachment(classes.Attachment, classes.SqliteModel):
             file_path = TestClasses.db_filepath
@@ -516,7 +514,7 @@ class TestClasses(unittest.TestCase):
 
     # Attachment tests
     def test_Attachment_issubclass_of_HashedModel(self):
-        assert issubclass(classes.Attachment, original_HashedModel)
+        assert issubclass(classes.Attachment, classes.HashedModel_original)
 
     def test_Attachment_attach_to_sets_related_model_and_related_id(self):
         self.cursor.execute('create table hashed_records (id text, data text)')
