@@ -43,7 +43,7 @@ class SqliteContext:
 
 class SqlModel:
     table: str = 'example'
-    id_column: str = 'id'
+    id_field: str = 'id'
     fields: tuple = ('id', 'name')
     query_builder_class: Type[QueryBuilderProtocol]
     data: dict
@@ -103,8 +103,8 @@ class SqlModel:
     def insert(cls, data: dict) -> Optional[SqlModel]:
         """Insert a new record to the datastore. Return instance."""
         assert isinstance(data, dict), 'data must be dict'
-        if cls.id_column not in data:
-            data[cls.id_column] = cls.generate_id()
+        if cls.id_field not in data:
+            data[cls.id_field] = cls.generate_id()
 
         return cls().query_builder_class(model=cls).insert(data)
 
@@ -114,8 +114,8 @@ class SqlModel:
         assert isinstance(items, list), 'items must be type list[dict]'
         for item in items:
             assert isinstance(item, dict), 'items must be type list[dict]'
-            if cls.id_column not in item:
-                item[cls.id_column] = cls.generate_id()
+            if cls.id_field not in item:
+                item[cls.id_field] = cls.generate_id()
 
         return cls().query_builder_class(model=cls).insert_many(items)
 
@@ -126,8 +126,8 @@ class SqlModel:
         assert type(updates) is dict, 'updates must be dict'
         assert type(conditions) is dict or conditions is None, \
             'conditions must be dict or None'
-        assert self.id_column in self.data or type(conditions) is dict, \
-            f'instance must have {self.id_column} or conditions defined'
+        assert self.id_field in self.data or type(conditions) is dict, \
+            f'instance must have {self.id_field} or conditions defined'
 
         # first apply any updates to the instance
         for key in updates:
@@ -141,8 +141,8 @@ class SqlModel:
 
         # parse conditions
         conditions = conditions if conditions is not None else {}
-        if self.id_column in self.data and self.id_column not in conditions:
-            conditions[self.id_column] = self.data[self.id_column]
+        if self.id_field in self.data and self.id_field not in conditions:
+            conditions[self.id_field] = self.data[self.id_field]
 
         # run update query
         self.query().update(updates, conditions)
@@ -151,8 +151,8 @@ class SqlModel:
 
     def save(self) -> SqlModel:
         """Persist to the datastore. Return self in monad pattern."""
-        if self.id_column in self.data:
-            if self.find(self.data[self.id_column]) is not None:
+        if self.id_field in self.data:
+            if self.find(self.data[self.id_field]) is not None:
                 return self.update({})
             else:
                 return self.insert(self.data)
@@ -161,8 +161,8 @@ class SqlModel:
 
     def delete(self) -> None:
         """Delete the record."""
-        if self.id_column in self.data:
-            self.query().equal(self.id_column, self.data[self.id_column]).delete()
+        if self.id_field in self.data:
+            self.query().equal(self.id_field, self.data[self.id_field]).delete()
 
     @classmethod
     def query(cls, conditions: dict = None) -> QueryBuilderProtocol:
@@ -318,11 +318,11 @@ class SqlQueryBuilder:
                     params.append(data[key])
 
         for key in self.model.fields:
-            if key not in data and key != self.model.id_column:
+            if key not in data and key != self.model.id_field:
                 data[key] = None
 
-        if self.model.id_column in fields:
-            assert self.find(data[self.model.id_column]) is None
+        if self.model.id_field in fields:
+            assert self.find(data[self.model.id_field]) is None
 
         sql = f'insert into {self.model.table} ({",".join(fields)})' + \
             f' values ({",".join(["?" for p in params])})'
@@ -352,7 +352,7 @@ class SqlQueryBuilder:
         with self.context_manager(self.model) as cursor:
             cursor.execute(
                 f'select {",".join(self.model.fields)} from {self.model.table}' +
-                f' where {self.model.id_column} = ?',
+                f' where {self.model.id_field} = ?',
                 [id]
             )
             result = cursor.fetchone()
@@ -545,8 +545,8 @@ class DeletedModel(SqlModel):
         assert issubclass(model_class, SqlModel), \
             'related_model must inherit from SqlModel'
 
-        if model_class.id_column not in decoded:
-            decoded[model_class.id_column] = self.data['record_id']
+        if model_class.id_field not in decoded:
+            decoded[model_class.id_field] = self.data['record_id']
 
         model = model_class.insert(decoded)
         self.delete()
@@ -561,7 +561,7 @@ class HashedModel(SqlModel):
 
     @classmethod
     def generate_id(cls, data: dict) -> str:
-        data = { k: data[k] for k in data if k in cls.fields and k != cls.id_column }
+        data = { k: data[k] for k in data if k in cls.fields and k != cls.id_field }
         preimage = json.dumps(
             cls.encode_value(data),
             sort_keys=True
@@ -572,7 +572,7 @@ class HashedModel(SqlModel):
     def insert(cls, data: dict) -> Optional[HashedModel]:
         """Insert a new record to the datastore. Return instance."""
         assert isinstance(data, dict), 'data must be dict'
-        data[cls.id_column] = cls.generate_id(data)
+        data[cls.id_field] = cls.generate_id(data)
 
         return SqliteQueryBuilder(model=cls).insert(data)
 
@@ -582,7 +582,7 @@ class HashedModel(SqlModel):
         assert isinstance(items, list), 'items must be type list[dict]'
         for item in items:
             assert isinstance(item, dict), 'items must be type list[dict]'
-            item[cls.id_column] = cls.generate_id(item)
+            item[cls.id_field] = cls.generate_id(item)
 
         return SqliteQueryBuilder(model=cls).insert_many(items)
 
@@ -598,7 +598,7 @@ class HashedModel(SqlModel):
                 updates[key] = self.data[key]
 
         # insert new record or update and return
-        if self.data[self.id_column]:
+        if self.data[self.id_field]:
             instance = self.insert(updates)
             self.delete()
         else:
@@ -610,7 +610,7 @@ class HashedModel(SqlModel):
             then return the DeletedModel.
         """
         model_class = self.__class__.__name__
-        record_id = self.data[self.id_column]
+        record_id = self.data[self.id_field]
         record = json.dumps(self.data)
         deleted = DeletedModel.insert({
             'model_class': model_class,
@@ -641,7 +641,7 @@ class Attachment(HashedModel):
         assert issubclass(related.__class__, SqlModel), \
             'related_model must inherit from SqlModel'
         self.data['related_model'] = related.__class__.__name__
-        self.data['related_id'] = related.data[related.id_column]
+        self.data['related_id'] = related.data[related.id_field]
         return self
 
     def details(self, reload: bool = False) -> dict:

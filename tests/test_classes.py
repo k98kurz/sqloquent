@@ -79,12 +79,12 @@ class TestClasses(unittest.TestCase):
 
     # SqlModel tests
     def test_SqlModel_implements_ModelProtocol(self):
-        assert issubclass(classes.SqlModel, interfaces.ModelProtocol)
+        assert isinstance(classes.SqlModel(), interfaces.ModelProtocol)
 
 
     # SqliteModel tests
     def test_SqliteModel_implements_ModelProtocol(self):
-        assert issubclass(classes.SqliteModel, interfaces.ModelProtocol)
+        assert isinstance(classes.SqliteModel(), interfaces.ModelProtocol)
 
     def test_SqliteModel_extends_SqlModel(self):
         assert issubclass(classes.SqliteModel, classes.SqlModel)
@@ -98,10 +98,10 @@ class TestClasses(unittest.TestCase):
         inserted = classes.SqliteModel.insert({'name': 'test1'})
         assert isinstance(inserted, classes.SqliteModel), \
             'insert() must return SqliteModel instance'
-        assert classes.SqliteModel.id_column in inserted.data, \
+        assert classes.SqliteModel.id_field in inserted.data, \
             'insert() return value must have id'
 
-        found = classes.SqliteModel.find(inserted.data[classes.SqliteModel.id_column])
+        found = classes.SqliteModel.find(inserted.data[classes.SqliteModel.id_field])
         assert isinstance(found, classes.SqliteModel), \
             'find() must return SqliteModel instance'
 
@@ -120,7 +120,7 @@ class TestClasses(unittest.TestCase):
             'update() must return SqliteModel instance'
         assert updated.data['name'] == 'test2', 'value must be updated'
         assert updated == inserted, 'must be equal'
-        found = classes.SqliteModel.find(inserted.data[inserted.id_column])
+        found = classes.SqliteModel.find(inserted.data[inserted.id_field])
         assert updated == found, 'must be equal'
 
         updated.data['name'] = 'test3'
@@ -128,11 +128,11 @@ class TestClasses(unittest.TestCase):
         assert isinstance(saved, classes.SqliteModel), \
             'save() must return SqliteModel instance'
         assert saved == updated, 'must be equal'
-        found = classes.SqliteModel.find(inserted.data[inserted.id_column])
+        found = classes.SqliteModel.find(inserted.data[inserted.id_field])
         assert saved == found, 'must be equal'
 
         updated.delete()
-        found = classes.SqliteModel.find(inserted.data[inserted.id_column])
+        found = classes.SqliteModel.find(inserted.data[inserted.id_field])
         assert found is None, 'found must be None'
 
     def test_SqliteModel_insert_many_and_count(self):
@@ -322,7 +322,7 @@ class TestClasses(unittest.TestCase):
         inserted = sqb.insert({'name': 'test1'})
         assert isinstance(inserted, sqb.model), \
             'insert() must return instance of sqb.model'
-        assert inserted.id_column not in inserted.data, \
+        assert inserted.id_field not in inserted.data, \
             'insert() must not assign id'
         assert sqb.count() == 1, 'count() must return 1'
         inserted = sqb.insert({'name': 'test2', 'id': '321'})
@@ -533,12 +533,12 @@ class TestClasses(unittest.TestCase):
         assert isinstance(inserted, classes.HashedModel)
         assert 'data' in inserted.data
         assert inserted.data['data'] == data['data']
-        assert classes.HashedModel.id_column in inserted.data
-        assert type(inserted.data[classes.HashedModel.id_column]) == str
-        assert len(inserted.data[classes.HashedModel.id_column]) == 64
-        assert len(bytes.fromhex(inserted.data[classes.HashedModel.id_column])) == 32
+        assert classes.HashedModel.id_field in inserted.data
+        assert type(inserted.data[classes.HashedModel.id_field]) == str
+        assert len(inserted.data[classes.HashedModel.id_field]) == 64
+        assert len(bytes.fromhex(inserted.data[classes.HashedModel.id_field])) == 32
 
-        found = classes.HashedModel.find(inserted.data[classes.HashedModel.id_column])
+        found = classes.HashedModel.find(inserted.data[classes.HashedModel.id_field])
         assert isinstance(found, classes.HashedModel)
         assert found == inserted
 
@@ -555,10 +555,10 @@ class TestClasses(unittest.TestCase):
         assert len(items) == 2
         for item in items:
             assert item.data['data'] in (data1['data'], data2['data'])
-            assert classes.HashedModel.id_column in item.data
-            assert type(item.data[classes.HashedModel.id_column]) == str
-            assert len(item.data[classes.HashedModel.id_column]) == 64
-            assert len(bytes.fromhex(item.data[classes.HashedModel.id_column])) == 32
+            assert classes.HashedModel.id_field in item.data
+            assert type(item.data[classes.HashedModel.id_field]) == str
+            assert len(item.data[classes.HashedModel.id_field]) == 64
+            assert len(bytes.fromhex(item.data[classes.HashedModel.id_field])) == 32
 
     def test_HashedModel_save_and_update_delete_original_and_makes_new_record(self):
         self.cursor.execute('create table hashed_records (id text, data text)')
@@ -589,8 +589,8 @@ class TestClasses(unittest.TestCase):
         item = classes.HashedModel.insert({'data': '123'})
         deleted = item.delete()
         assert isinstance(deleted, classes.DeletedModel)
-        assert type(deleted.data[deleted.id_column]) is str
-        assert classes.DeletedModel.find(deleted.data[deleted.id_column]) != None
+        assert type(deleted.data[deleted.id_field]) is str
+        assert classes.DeletedModel.find(deleted.data[deleted.id_field]) != None
 
     def test_DeletedModel_restore_returns_SqlModel_and_deleted_records_row(self):
         self.cursor.execute('create table hashed_records (id text, data text)')
@@ -598,8 +598,8 @@ class TestClasses(unittest.TestCase):
         deleted = item.delete()
         restored = deleted.restore()
         assert isinstance(restored, classes.SqlModel)
-        assert classes.DeletedModel.find(restored.data[restored.id_column]) is None
-        assert classes.HashedModel.find(restored.data[restored.id_column]) is not None
+        assert classes.DeletedModel.find(restored.data[restored.id_field]) is None
+        assert classes.HashedModel.find(restored.data[restored.id_field]) is not None
 
 
     # Attachment tests

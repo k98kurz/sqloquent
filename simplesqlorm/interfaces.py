@@ -35,6 +35,16 @@ class DBContextProtocol(Protocol):
 @runtime_checkable
 class ModelProtocol(Protocol):
     """Duck typed protocol showing how a model should function."""
+    @property
+    def id_field(self) -> str:
+        """Str with the name of the id field."""
+        ...
+
+    @property
+    def data(self) -> dict:
+        """Dict for storing model data."""
+        ...
+
     def __hash__(self) -> int:
         """Allow inclusion in sets."""
         ...
@@ -83,6 +93,14 @@ class ModelProtocol(Protocol):
 @runtime_checkable
 class QueryBuilderProtocol(Protocol):
     """Duck typed protocol showing how a query builder should function."""
+    def __init__(self, model: ModelProtocol, *args, **kwargs) -> None:
+        ...
+
+    @property
+    def model(self) -> type:
+        """The class of the relevant model."""
+        ...
+
     def equal(self, field: str, data: str) -> QueryBuilderProtocol:
         """Save the 'field = data' clause and param, then return self."""
         ...

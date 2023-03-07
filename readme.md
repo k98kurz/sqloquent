@@ -29,6 +29,7 @@ restore the deleted record.
 - [x] Cryptographic bonus code
 - [x] Add chunk generator to `QueryBuilderProtocol` and `SqlQueryBuilder`
 - [x] Decent documentation
+- [ ] ORM helper functions
 - [ ] Publish to pypi
 
 ## Setup and Usage
@@ -309,7 +310,7 @@ and/or overridden methods/attributes are included in this list.
     - `cursor: sqlite3.Cursor`
 - SqlModel(ModelProtocol)
     - `table: str = 'example'`
-    - `id_column: str = 'id'`
+    - `id_field: str = 'id'`
     - `fields: tuple = ('id', 'name')`
     - `query_builder_class: Type[QueryBuilderProtocol]`
     - `data: dict`
