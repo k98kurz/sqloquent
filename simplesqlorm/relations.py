@@ -25,10 +25,9 @@ class Relation:
     def multi_model_precondition(model):
         assert type(model) in (list, tuple), \
             'must be a list of ModelProtocol'
-        if type(model) in (list, tuple):
-            for item in model:
-                assert isinstance(item, ModelProtocol), \
-                    'must be a list of ModelProtocol'
+        for item in model:
+            assert isinstance(item, ModelProtocol), \
+                'must be a list of ModelProtocol'
 
     @property
     def primary(self) -> ModelProtocol:
@@ -67,9 +66,8 @@ class Relation:
                 f'primary must be instance of {self.primary_class}'
 
     def secondary_model_precondition(self, secondary: ModelProtocol):
-        if self.secondary_class is not None:
-            assert isinstance(secondary, self.secondary_class), \
-                f'secondary must be instance of {self.secondary_class}'
+        assert isinstance(secondary, self.secondary_class), \
+            f'secondary must be instance of {self.secondary_class}'
 
     @staticmethod
     def pivot_preconditions(pivot: type[ModelProtocol]) -> None:
@@ -117,19 +115,32 @@ class HasOne(Relation):
         if self.primary_to_remove is not None and self.secondary is not None:
             self.save()
 
+        # handle removal of secondary
         if secondary is None:
-            if self.secondary is not None and \
-                len(self.secondary_to_remove) == 0:
-                self.secondary_to_remove.append(self.secondary)
-            self.secondary = None
+            # if there was already one set
+            if self._secondary is not None:
+                # if it was merely queued for adding, remove from that queue
+                if self._secondary in self.secondary_to_add:
+                    self.secondary_to_add = [
+                        s for s in self.secondary_to_add
+                        if s is not secondary
+                    ]
+                # otherwise queue it for removal
+                elif self._secondary not in self.secondary_to_remove:
+                    self.secondary_to_remove.append(self._secondary)
+            self._secondary = None
             return
 
+        # check preconditions
         self.single_model_precondition(secondary)
         self.secondary_model_precondition(secondary)
 
+        # if there was one already set and it was not merely queued for adding
         if self._secondary is not None and self._secondary not in self.secondary_to_add:
+            # queue for removal
             self.secondary_to_remove.append(self._secondary)
 
+        # set the secondary
         self._secondary = secondary
 
     def set_secondary(self, secondary: ModelProtocol) -> HasOne:
@@ -217,17 +228,41 @@ class HasMany(HasOne):
     @property.setter
     def secondary(self, secondary: Optional[list[ModelProtocol]]) -> None:
         """Sets the secondary model instance."""
+        # first process primary removal before changing secondary
+        if self.primary_to_remove is not None and self._secondary is not None:
+            self.save()
+
+        # handle removal of secondary
         if secondary is None:
-            self._secondary = None
+            # if there was already one set
+            if self._secondary is not None:
+                # for each secondary item
+                for item in self._secondary:
+                    # if it was merely queued for adding, remove from that queue
+                    if item in self.secondary_to_add:
+                        self.secondary_to_add = [
+                            s for s in self.secondary_to_add
+                            if s is not item
+                        ]
+                    # otherwise queue it for removal
+                    elif item not in self.secondary_to_remove:
+                        self.secondary_to_remove.append(item)
+            self._secondary = []
             return
 
+        # check preconditions
         self.multi_model_precondition(secondary)
         for model in secondary:
-            assert isinstance(model, self.secondary_class), \
-                f'each secondary model must be instance of {self.secondary_class}'
+            self.secondary_model_precondition(model)
 
-        if secondary != self._secondary:
-            self.unsaved_changes = True
+        # if there were some already set and they were not merely queued for adding
+        if self._secondary is not None:
+            for item in self._secondary:
+                if item not in self.secondary_to_add:
+                    # queue for removal
+                    self.secondary_to_remove.append(self._secondary)
+
+        # set the secondary
         self._secondary = secondary
 
     def set_secondary(self, secondary: list[ModelProtocol]) -> HasMany:
