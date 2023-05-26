@@ -595,10 +595,14 @@ class TestClasses(unittest.TestCase):
     def test_DeletedModel_restore_returns_SqlModel_and_deleted_records_row(self):
         self.cursor.execute('create table hashed_records (id text, data text)')
         item = classes.HashedModel.insert({'data': '123'})
+
         deleted = item.delete()
+        assert classes.DeletedModel.find(deleted.data[deleted.id_field]) is not None
+        assert classes.HashedModel.find(item.data[item.id_field]) is None
+
         restored = deleted.restore()
         assert isinstance(restored, classes.SqlModel)
-        assert classes.DeletedModel.find(restored.data[restored.id_field]) is None
+        assert classes.DeletedModel.find(deleted.data[deleted.id_field]) is None
         assert classes.HashedModel.find(restored.data[restored.id_field]) is not None
 
 
