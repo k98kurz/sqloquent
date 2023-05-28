@@ -5,18 +5,42 @@ from simplesqlorm.interfaces import ModelProtocol, QueryBuilderProtocol
 from typing import Optional
 
 
-@dataclass
 class Relation:
     """Base class for setting up relations."""
-    primary_class: type[ModelProtocol] = field(default=ModelProtocol)
-    secondary_class: type[ModelProtocol] = field(default=ModelProtocol)
-    primary_to_add: ModelProtocol = field(default=None)
-    primary_to_remove: ModelProtocol = field(default=None)
-    secondary_to_add: list[ModelProtocol] = field(default_factory=lambda: [])
-    secondary_to_remove: list[ModelProtocol] = field(default_factory=lambda: [])
-    primary: ModelProtocol = field(default=None)
-    secondary: ModelProtocol|tuple[ModelProtocol] = field(default=None)
-    inverse: Optional[Relation] = field(default=None)
+    primary_class: type[ModelProtocol]
+    secondary_class: type[ModelProtocol]
+    primary_to_add: ModelProtocol
+    primary_to_remove: ModelProtocol
+    secondary_to_add: list[ModelProtocol]
+    secondary_to_remove: list[ModelProtocol]
+    primary: ModelProtocol
+    secondary: ModelProtocol|tuple[ModelProtocol]
+    inverse: Optional[Relation]
+    _primary: Optional[ModelProtocol]
+    _secondary: Optional[ModelProtocol]
+
+    def __init__(self,
+        primary_class: type[ModelProtocol],
+        secondary_class: type[ModelProtocol],
+        primary_to_add: ModelProtocol = None,
+        primary_to_remove: ModelProtocol = None,
+        secondary_to_add: list[ModelProtocol] = [],
+        secondary_to_remove: list[ModelProtocol] = [],
+        primary: ModelProtocol = None,
+        secondary: ModelProtocol|tuple[ModelProtocol] = None,
+        inverse: Optional[Relation] = None
+    ) -> None:
+        self._primary = None
+        self._secondary = None
+        self.primary_class = primary_class
+        self.secondary_class = secondary_class
+        self.primary_to_add = primary_to_add
+        self.primary_to_remove = primary_to_remove
+        self.secondary_to_add = secondary_to_add
+        self.secondary_to_remove = secondary_to_remove
+        self.primary = primary
+        self.secondary = secondary
+        self.inverse = inverse
 
     @staticmethod
     def single_model_precondition(model):

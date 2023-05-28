@@ -61,6 +61,12 @@ class TestRelations(unittest.TestCase):
         )
         assert type(relation) is relations.Relation
 
+        relation = relations.Relation(
+            primary_class=classes.HashedModel,
+            secondary_class=classes.Attachment
+        )
+        assert type(relation) is relations.Relation
+
     # HasOne tests
     def test_HasOne_extends_Relation(self):
         assert issubclass(relations.HasOne, relations.Relation)
