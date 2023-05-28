@@ -10,12 +10,12 @@ class Relation:
     """Base class for setting up relations."""
     primary_class: type[ModelProtocol] = field(default=ModelProtocol)
     secondary_class: type[ModelProtocol] = field(default=ModelProtocol)
-    primary: ModelProtocol = field(default=None)
-    secondary: ModelProtocol|tuple[ModelProtocol] = field(default=None)
     primary_to_add: ModelProtocol = field(default=None)
     primary_to_remove: ModelProtocol = field(default=None)
     secondary_to_add: list[ModelProtocol] = field(default_factory=lambda: [])
     secondary_to_remove: list[ModelProtocol] = field(default_factory=lambda: [])
+    primary: ModelProtocol = field(default=None)
+    secondary: ModelProtocol|tuple[ModelProtocol] = field(default=None)
     inverse: Optional[Relation] = field(default=None)
 
     @staticmethod
@@ -48,8 +48,10 @@ class Relation:
 
         self.single_model_precondition(primary)
         self.primary_model_precondition(primary)
+        primary_id = primary.data[primary.id_field]
+        has_primary = hasattr(self, '_primary') and self._primary
 
-        if primary.data[primary.id_field] != self._primary.data[self._primary.id_field]:
+        if has_primary and primary_id != self._primary.data[self._primary.id_field]:
             self.primary_to_add = primary
             if self.primary_to_remove is None:
                 self.primary_to_remove = self._primary
