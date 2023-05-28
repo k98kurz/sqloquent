@@ -14,3 +14,13 @@ from simplesqlorm.interfaces import (
     ModelProtocol,
     QueryBuilderProtocol
 )
+from simplesqlorm.relations import (
+    HasOne,
+    HasMany,
+    BelongsTo,
+    BelongsToMany,
+    has_one,
+    has_many,
+    belongs_to,
+    many_to_many
+)

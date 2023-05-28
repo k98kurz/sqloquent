@@ -721,22 +721,31 @@ def has_one(cls: type[ModelProtocol], owned_model: type[ModelProtocol],
         foreign_id_field = (f'{owned_model.__name__}_{owned_model.id_field}').lower()
 
     relation = HasOne(foreign_id_field, primary_class=cls, secondary_class=owned_model)
+    relation.inverse = BelongsTo(foreign_id_field, primary_class=owned_model, secondary_class=cls)
+    relation.inverse.inverse = relation
     return relation.create_property()
 
 def has_many(cls: type[ModelProtocol], owned_model: type[ModelProtocol],
-             foreign_id_field: str) -> type:
+             foreign_id_field: str = None) -> type:
     if foreign_id_field is None:
         foreign_id_field = (f'{owned_model.__name__}_{owned_model.id_field}').lower()
 
     relation = HasMany(foreign_id_field, primary_class=cls, secondary_class=owned_model)
+    relation.inverse = BelongsTo(foreign_id_field, primary_class=owned_model, secondary_class=cls)
+    relation.inverse.inverse = relation
     return relation.create_property()
 
 def belongs_to(cls: type[ModelProtocol], owner_model: type[ModelProtocol],
-               foreign_id_field: str) -> type:
+               foreign_id_field: str = None, inverse_is_many: bool = False) -> type:
     if foreign_id_field is None:
         foreign_id_field = (f'{owner_model.__name__}_{owner_model.id_field}').lower()
 
     relation = BelongsTo(foreign_id_field, primary_class=cls, secondary_class=owner_model)
+    if inverse_is_many:
+        relation.inverse = HasMany(foreign_id_field, primary_class=owner_model, secondary_class=cls)
+    else:
+        relation.inverse = HasOne(foreign_id_field, primary_class=owner_model, secondary_class=cls)
+    relation.inverse.inverse = relation
     return relation.create_property()
 
 def many_to_many(cls: type[ModelProtocol], other_model: type[ModelProtocol],
@@ -751,4 +760,9 @@ def many_to_many(cls: type[ModelProtocol], other_model: type[ModelProtocol],
     relation = BelongsToMany(pivot, primary_id_field, secondary_id_field,
                              query_builder_pivot, primary_class=cls,
                              secondary_class=other_model)
+    inverse = BelongsToMany(pivot, secondary_id_field, primary_id_field,
+                            query_builder_pivot, primary_class=other_model,
+                            secondary_class=cls)
+    relation.inverse = inverse
+    inverse.inverse = relation
     return relation.create_property()
