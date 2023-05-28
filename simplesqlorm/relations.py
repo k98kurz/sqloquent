@@ -8,14 +8,15 @@ from typing import Optional
 @dataclass
 class Relation:
     """Base class for setting up relations."""
+    primary_class: type[ModelProtocol] = field(default=ModelProtocol)
+    secondary_class: type[ModelProtocol] = field(default=ModelProtocol)
     primary: ModelProtocol = field(default=None)
-    primary_class: type[ModelProtocol] = field(default=None)
-    secondary: ModelProtocol|list[ModelProtocol] = field(default=None)
-    secondary_class: type[ModelProtocol] = field(default=None)
-    primary_to_add: ModelProtocol = None
-    primary_to_remove: ModelProtocol = None
-    secondary_to_add: list[ModelProtocol] = []
-    secondary_to_remove: list[ModelProtocol] = []
+    secondary: ModelProtocol|tuple[ModelProtocol] = field(default=None)
+    primary_to_add: ModelProtocol = field(default=None)
+    primary_to_remove: ModelProtocol = field(default=None)
+    secondary_to_add: list[ModelProtocol] = field(default_factory=lambda: [])
+    secondary_to_remove: list[ModelProtocol] = field(default_factory=lambda: [])
+    inverse: Optional[Relation] = field(default=None)
 
     @staticmethod
     def single_model_precondition(model):
@@ -33,11 +34,10 @@ class Relation:
     def primary(self) -> ModelProtocol:
         return self._primary
 
-    @property.setter
+    @primary.setter
     def primary(self, primary: Optional[ModelProtocol]) -> None:
         """Sets the primary model instance."""
-        # first process secondary removals before changing primary
-        if len(self.secondary_to_remove) > 0 and self.primary is not None:
+        if self.secondary_to_remove and self.primary:
             self.save()
 
         if primary is None:
@@ -49,12 +49,8 @@ class Relation:
         self.single_model_precondition(primary)
         self.primary_model_precondition(primary)
 
-        # if it differs from the current value
-        if primary != self._primary:
-            # if it was not previously set to be persisted
-            if primary != self.primary_to_add:
-                self.primary_to_add = primary
-            # if there is not already one set for removal
+        if primary.data[primary.id_field] != self._primary.data[self._primary.id_field]:
+            self.primary_to_add = primary
             if self.primary_to_remove is None:
                 self.primary_to_remove = self._primary
 
@@ -71,7 +67,7 @@ class Relation:
 
     @staticmethod
     def pivot_preconditions(pivot: type[ModelProtocol]) -> None:
-        assert isinstance(pivot, ModelProtocol), \
+        assert isinstance(pivot, type), \
             'pivot must be class implementing ModelProtocol'
 
     def set_primary(self, primary: ModelProtocol) -> Relation:
@@ -86,6 +82,19 @@ class Relation:
             primary_to_remove, secondary_to_add, and secondary_to_remove.
         """
         pass
+
+    @abstractmethod
+    def reload(self) -> None:
+        """Reload the secondary models from the database."""
+        pass
+
+    def get_cache_key(self) -> str:
+        return (f'{self.primary_class.__name__}_{self.__name__}_'
+                     f'_{self.secondary_class.__name__}')
+
+    @abstractmethod
+    def create_property(self) -> property:
+        ...
 
 
 class HasOne(Relation):
@@ -105,29 +114,32 @@ class HasOne(Relation):
         super().__init__(*args, **kwargs)
 
     @property
-    def secondary(self) -> ModelProtocol:
+    def secondary(self) -> Optional[ModelProtocol]:
         return self._secondary
 
-    @property.setter
+    @secondary.setter
     def secondary(self, secondary: ModelProtocol) -> None:
         """Sets the secondary model instance."""
-        # first process primary removal before changing secondary
-        if self.primary_to_remove is not None and self.secondary is not None:
+        if self.primary_to_remove and self.secondary:
             self.save()
 
-        # handle removal of secondary
         if secondary is None:
-            # if there was already one set
-            if self._secondary is not None:
-                # if it was merely queued for adding, remove from that queue
-                if self._secondary in self.secondary_to_add:
+            if self._secondary:
+                if self._secondary.data[self._secondary.id_field] in [
+                    item.data[item.id_field]
+                    for item in self.secondary_to_add
+                ]:
+                    secondary_id = self._secondary.data[self._secondary.id_field]
                     self.secondary_to_add = [
-                        s for s in self.secondary_to_add
-                        if s is not secondary
+                        item for item in self.secondary_to_add
+                        if item.data[item.id_field] != secondary_id
                     ]
-                # otherwise queue it for removal
-                elif self._secondary not in self.secondary_to_remove:
+                elif self._secondary.data[self._secondary.id_field] not in [
+                    item.data[item.id_field]
+                    for item in self.secondary_to_remove
+                ]:
                     self.secondary_to_remove.append(self._secondary)
+
             self._secondary = None
             return
 
@@ -142,6 +154,7 @@ class HasOne(Relation):
 
         # set the secondary
         self._secondary = secondary
+        self.secondary_to_add = [secondary]
 
     def set_secondary(self, secondary: ModelProtocol) -> HasOne:
         """Sets the secondary model instance. Returns self in monad pattern."""
@@ -163,7 +176,7 @@ class HasOne(Relation):
             'cannot save incomplete HasOne'
 
         qb = self.secondary_class.query()
-        remove, add = False, False
+        remove = False
 
         # handle removals
         if self.primary_to_remove is not None and len(self.secondary_to_remove):
@@ -214,6 +227,43 @@ class HasOne(Relation):
         self.secondary_to_add = []
         self.secondary_to_remove = []
 
+    def get_cache_key(self) -> str:
+        return f'{super().get_cache_key()}_{self.foreign_id_field}'
+
+    def create_property(self) -> property:
+        """Creates a property that can be used to set relation properties
+            on models.
+        """
+        relation = self
+        cache_key = self.get_cache_key()
+
+
+        class HasOneWrapped(self.secondary_class):
+            def __call__(self) -> Relation:
+                return relation
+
+        HasOneWrapped.__name__ = f'HasOne{self.secondary_class.__name__}'
+
+
+        @property
+        def secondary(self) -> ModelProtocol:
+            if not hasattr(self, 'relations'):
+                self.relations = {cache_key: relation}
+
+            return HasOneWrapped(relation.secondary.data)
+
+        @secondary.setter
+        def secondary(self, model: ModelProtocol) -> None:
+            if not hasattr(self, 'relations'):
+                self.relations = {cache_key: relation}
+
+            if cache_key not in self.relations:
+                self.relations[cache_key] = relation
+
+            relation.secondary = model
+
+        return secondary
+
 
 class HasMany(HasOne):
     """Class for the relation where primary owns multiple secondary
@@ -222,48 +272,51 @@ class HasMany(HasOne):
         instance of this class is set on the owner model.
     """
     @property
-    def secondary(self) -> Optional[list[ModelProtocol]]:
+    def secondary(self) -> Optional[tuple[ModelProtocol]]:
         return self._secondary
 
-    @property.setter
+    @secondary.setter
     def secondary(self, secondary: Optional[list[ModelProtocol]]) -> None:
         """Sets the secondary model instance."""
-        # first process primary removal before changing secondary
-        if self.primary_to_remove is not None and self._secondary is not None:
+        if self.primary_to_remove and self._secondary:
             self.save()
 
-        # handle removal of secondary
+        secondary_is_set = self._secondary is not None and len(self._secondary) > 0
+
         if secondary is None:
-            # if there was already one set
-            if self._secondary is not None:
-                # for each secondary item
+            if secondary_is_set:
                 for item in self._secondary:
-                    # if it was merely queued for adding, remove from that queue
-                    if item in self.secondary_to_add:
-                        self.secondary_to_add = [
-                            s for s in self.secondary_to_add
-                            if s is not item
-                        ]
-                    # otherwise queue it for removal
-                    elif item not in self.secondary_to_remove:
+                    if item.data[item.id_field] in (
+                        model.data[model.id_field]
+                        for model in self.secondary_to_add
+                    ):
+                        self.secondary_to_add.remove(item)
+                    elif item.data[item.id_field] not in (
+                        model.data[model.id_field]
+                        for model in self.secondary_to_remove
+                    ):
                         self.secondary_to_remove.append(item)
-            self._secondary = []
+            self._secondary = None
             return
 
-        # check preconditions
         self.multi_model_precondition(secondary)
         for model in secondary:
             self.secondary_model_precondition(model)
 
-        # if there were some already set and they were not merely queued for adding
-        if self._secondary is not None:
-            for item in self._secondary:
-                if item not in self.secondary_to_add:
-                    # queue for removal
-                    self.secondary_to_remove.append(self._secondary)
+        if secondary_is_set:
+            self.secondary_to_add = [
+                item for item in secondary
+                if item not in self.secondary_to_remove and item not in self._secondary
+            ]
+            self.secondary_to_remove += [
+                item for item in self._secondary
+                if item not in self.secondary_to_add and item not in secondary
+            ]
+        else:
+            self.secondary_to_add = secondary
+            self.secondary_to_remove = []
 
-        # set the secondary
-        self._secondary = secondary
+        self._secondary = tuple(secondary)
 
     def set_secondary(self, secondary: list[ModelProtocol]) -> HasMany:
         """Sets the secondary model instances."""
@@ -311,6 +364,40 @@ class HasMany(HasOne):
         self.secondary_to_add = []
         self.secondary_to_remove = []
 
+    def create_property(self) -> property:
+        """Creates a property that can be used to set relation properties
+            on models.
+        """
+        relation = self
+        cache_key = self.get_cache_key()
+
+
+        class HasManyWrapped(self.secondary_class):
+            def __call__(self) -> Relation:
+                return relation
+
+        HasManyWrapped.__name__ = f'HasMany{self.secondary_class.__name__}'
+
+
+        @property
+        def secondary(self) -> ModelProtocol:
+            if not hasattr(self, 'relations'):
+                self.relations = {cache_key: relation}
+
+            return [HasManyWrapped(model.data) for model in relation.secondary]
+
+        @secondary.setter
+        def secondary(self, models: Optional[list[ModelProtocol]]) -> None:
+            if not hasattr(self, 'relations'):
+                self.relations = {cache_key: relation}
+
+            if cache_key not in self.relations:
+                self.relations[cache_key] = relation
+
+            relation.secondary = models
+
+        return secondary
+
 
 class BelongsTo(HasOne):
     """Class for the relation where primary belongs to a secondary:
@@ -323,15 +410,54 @@ class BelongsTo(HasOne):
         assert self._secondary is not None, 'cannot save incomplete BelongsTo'
 
         owner_id = self._secondary.data[self.secondary_class.id_field]
-        owned_id = self._primary.data[self.primary_class.id_field]
-        self._primary.data[self.foreign_id_field] = owner_id
 
-        qb = self.primary_class.query()
-
-        qb.equal(self.primary_class.id_field, owned_id).update({
+        self._primary.update({
             self.foreign_id_field: owner_id
         })
-        self.unsaved_changes = False
+
+        if self.primary_to_remove is not None:
+            self.primary_to_remove.update({
+                self.foreign_id_field: ''
+            })
+
+        self.primary_to_add = None
+        self.primary_to_remove = None
+        self.secondary_to_add = []
+        self.secondary_to_remove = []
+
+    def create_property(self) -> property:
+        """Creates a property that can be used to set relation properties
+            on models.
+        """
+        relation = self
+        cache_key = self.get_cache_key()
+
+
+        class BelongsToWrapped(self.secondary_class):
+            def __call__(self) -> Relation:
+                return relation
+
+        BelongsToWrapped.__name__ = f'BelongsTo{self.secondary_class.__name__}'
+
+
+        @property
+        def secondary(self) -> ModelProtocol:
+            if not hasattr(self, 'relations'):
+                self.relations = {cache_key: relation}
+
+            return [BelongsToWrapped(model.data) for model in relation.secondary]
+
+        @secondary.setter
+        def secondary(self, models: Optional[list[ModelProtocol]]) -> None:
+            if not hasattr(self, 'relations'):
+                self.relations = {cache_key: relation}
+
+            if cache_key not in self.relations:
+                self.relations[cache_key] = relation
+
+            relation.secondary = models
+
+        return secondary
 
 
 class BelongsToMany(Relation):
@@ -364,10 +490,14 @@ class BelongsToMany(Relation):
     def secondary(self) -> Optional[list[ModelProtocol]]:
         return self._secondary
 
-    @property.setter
+    @secondary.setter
     def secondary(self, secondary: Optional[list[ModelProtocol]]) -> None:
         """Sets the secondary model instance."""
-        if secondary is None:
+        if self.primary_to_remove and self._secondary:
+            self.save()
+
+        if secondary is None and self._secondary:
+            self.secondary_to_remove.extend(self._secondary)
             self._secondary = None
             return
 
@@ -379,34 +509,40 @@ class BelongsToMany(Relation):
         if secondary != self._secondary:
             self.unsaved_changes = True
 
-        # parse existing secondary items
         for item in self._secondary:
-            # mark for removal any missing items that were already saved
             if item not in secondary and item not in self.secondary_to_add:
                 self.secondary_to_remove.append(item)
-            # if the missing item was not yet saved, remove mark for adding
             if item in self.secondary_to_add:
                 self.secondary_to_add = [
                     s for s in self.secondary_to_add
                     if s.data[s.id_field] != item.data[item.id_field]
                 ]
 
-        # parse incoming secondary items
         for item in secondary:
+            item_id = item.data[item.id_field]
+            secondary_ids = (
+                model.data[model.id_field]
+                for model in self._secondary
+            )
+            secondary_to_remove_ids = (
+                model.data[model.id_field]
+                for model in self.secondary_to_remove
+            )
+
             # mark for adding any new items that were not already saved
-            if item not in self._secondary and item not in self.secondary_to_remove:
+            if item_id not in secondary_ids and item_id not in secondary_to_remove_ids:
                 self.secondary_to_add.append(item)
             # if the new item was already saved, remove mark for removal
-            if item in self.secondary_to_remove:
+            if item_id in secondary_to_remove_ids:
                 self.secondary_to_remove = [
-                    s for s in self.secondary_to_remove
-                    if s.data[s.id_field] != item.data[item.id_field]
+                    model for model in self.secondary_to_remove
+                    if model.data[model.id_field] != item.data[item.id_field]
                 ]
 
-        self._secondary = secondary
+        self._secondary = tuple(secondary)
 
     @property
-    def pivot(self) -> ModelProtocol:
+    def pivot(self) -> type[ModelProtocol]:
         return self._pivot
 
     @pivot.setter
@@ -430,12 +566,12 @@ class BelongsToMany(Relation):
         assert self.pivot is not None, 'must set pivot'
 
         # if there are unsaved changes, first save them
-        if self.unsaved_changes:
+        if self.primary_to_remove or len(self.secondary_to_remove):
             self.save()
 
         # if already detached, do nothing
         if self.primary is None:
-            return
+            return self
 
         # delete all relevant pivot entries
         primary_id = self.primary.data[self.primary.id_field]
@@ -454,7 +590,7 @@ class BelongsToMany(Relation):
             self.secondary_model_precondition(item)
 
         # if there are unsaved changes, first save them
-        if self.unsaved_changes:
+        if self.primary_to_remove or len(self.secondary_to_remove):
             self.save()
 
         # collect items to detach
@@ -465,7 +601,7 @@ class BelongsToMany(Relation):
 
         # if nothing to do, do nothing
         if len(items_to_detach) == 0:
-            return
+            return self
 
         # delete all relevant pivot entries
         primary_id = self.primary.data[self.primary.id_field]
@@ -478,36 +614,141 @@ class BelongsToMany(Relation):
 
     def save(self) -> None:
         """Save the relation by setting/unsetting the relevant database value(s)."""
-        ...
-        # handle secondary removals
-        # if len(self.secondary_to_remove):
-        #     secondary_ids = [
-        #         item.data[self.foreign_id_field]
-        #         for item in self.secondary_to_remove
-        #         if item.data[self.foreign_id_field] == owner_id
-        #     ]
-        #     if len(secondary_ids):
-        #         qb.is_in(self.secondary_class.id_field, secondary_ids).update({
-        #             self.foreign_id_field: ''
-        #         })
-        #         qb = qb.reset()
-        #         for item in self.secondary_to_remove:
-        #             if item.data[self.secondary_class.id_field] in secondary_ids:
-                        # item.data[self.foreign_id_field] = ''
-                        # set the inverse relation on secondary models if applicable
-                        # @todo
+        secondary_ids_to_remove = [
+            item.data[item.id_field]
+            for item in self.secondary_to_remove
+        ]
+        secondary_ids_to_add = [
+            item.data[item.id_field]
+            for item in self.secondary_to_add
+        ]
+        primary_for_delete = [self.primary] + [self.primary_to_remove]
+        primary_ids_for_delete = [
+            item.data[item.id_field] for item in primary_for_delete
+            if item is not None
+        ]
+        query_builder = self.query_builder_pivot(self.pivot) or self.pivot.query()
+
+        must_remove_secondary = len(secondary_ids_to_remove) > 0 and len(primary_ids_for_delete) > 0
+        must_remove_primary = self.primary_to_remove is not None
+        must_add_secondary = len(secondary_ids_to_add) > 0 and (self.primary or self.primary_to_add)
+        must_add_primary = self.primary_to_add is not None
+
+        if must_remove_secondary:
+            query_builder.is_in(
+                self.secondary_id_field,
+                secondary_ids_to_remove
+            ).is_in(
+                self.primary_id_field,
+                primary_ids_for_delete
+            ).delete()
+
+        if must_remove_primary:
+            query_builder.reset().equal(
+                self.primary_id_field,
+                self.primary_to_remove[self.primary_class.id_field]
+            ).is_in(
+                self.secondary_id_field,
+                secondary_ids_to_remove + [
+                    item.data[item.id_field] for item in self.secondary
+                ]
+            ).delete()
+
+        if must_add_primary or must_add_secondary:
+            already_exists = query_builder.reset().equal(
+                self.primary_id_field,
+                self._primary.data[self.primary_class.id_field]
+            ).get()
+            already_added_ids = [
+                item.data[self.secondary_class.id_field]
+                for item in already_exists
+            ]
+            query_builder.reset().insert_many([
+                {
+                    self.primary_id_field: self._primary.data[self.primary_class.id_field],
+                    self.secondary_id_field: item.data[item.id_field]
+                }
+                for item in self.secondary
+                if item.data[self.secondary_class.id_field] not in already_added_ids
+            ])
+
+        self.primary_to_add = None
+        self.primary_to_remove = None
+        self.secondary_to_add = []
+        self.secondary_to_remove = []
+
+    def get_cache_key(self) -> str:
+        return f'{super().get_cache_key()}_{self.pivot.__name__}'
+
+    def create_property(self) -> property:
+        """Creates a property that can be used to set relation properties
+            on models.
+        """
+        relation = self
+        cache_key = self.get_cache_key()
 
 
-def has_one(cls, owned_model: ModelProtocol, foreign_id_field: str) -> type:
-    ...
+        class BelongsToManyWrapped(self.secondary_class):
+            def __call__(self) -> Relation:
+                return relation
 
-def belongs_to(cls, owner_model: ModelProtocol, foreign_id_field: str) -> type:
-    ...
+        BelongsToManyWrapped.__name__ = f'BelongsToMany{self.secondary_class.__name__}'
 
-def has_many(cls, owned_model: ModelProtocol, foreign_id_field: str) -> type:
-    ...
 
-def many_to_many(cls, other_model: ModelProtocol,
+        @property
+        def secondary(self) -> ModelProtocol:
+            if not hasattr(self, 'relations'):
+                self.relations = {cache_key: relation}
+
+            return [BelongsToManyWrapped(model.data) for model in relation.secondary]
+
+        @secondary.setter
+        def secondary(self, models: Optional[list[ModelProtocol]]) -> None:
+            if not hasattr(self, 'relations'):
+                self.relations = {cache_key: relation}
+
+            if cache_key not in self.relations:
+                self.relations[cache_key] = relation
+
+            relation.secondary = models
+
+        return secondary
+
+
+def has_one(cls: type[ModelProtocol], owned_model: type[ModelProtocol],
+            foreign_id_field: str = None) -> type:
+    if foreign_id_field is None:
+        foreign_id_field = (f'{owned_model.__name__}_{owned_model.id_field}').lower()
+
+    relation = HasOne(foreign_id_field, primary_class=cls, secondary_class=owned_model)
+    return relation.create_property()
+
+def has_many(cls: type[ModelProtocol], owned_model: type[ModelProtocol],
+             foreign_id_field: str) -> type:
+    if foreign_id_field is None:
+        foreign_id_field = (f'{owned_model.__name__}_{owned_model.id_field}').lower()
+
+    relation = HasMany(foreign_id_field, primary_class=cls, secondary_class=owned_model)
+    return relation.create_property()
+
+def belongs_to(cls: type[ModelProtocol], owner_model: type[ModelProtocol],
+               foreign_id_field: str) -> type:
+    if foreign_id_field is None:
+        foreign_id_field = (f'{owner_model.__name__}_{owner_model.id_field}').lower()
+
+    relation = BelongsTo(foreign_id_field, primary_class=cls, secondary_class=owner_model)
+    return relation.create_property()
+
+def many_to_many(cls: type[ModelProtocol], other_model: type[ModelProtocol],
                 pivot: type[ModelProtocol],
-                query_builder_pivot: Optional[QueryBuilderProtocol] = None) -> type:
-    ...
+                primary_id_field: str = None, secondary_id_field: str = None,
+                query_builder_pivot: QueryBuilderProtocol = None) -> type:
+    if primary_id_field is None:
+        primary_id_field = (f'{cls.__name__}_{cls.id_field}').lower()
+    if secondary_id_field is None:
+        secondary_id_field = (f'{other_model.__name__}_{other_model.id_field}').lower()
+
+    relation = BelongsToMany(pivot, primary_id_field, secondary_id_field,
+                             query_builder_pivot, primary_class=cls,
+                             secondary_class=other_model)
+    return relation.create_property()
