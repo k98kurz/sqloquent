@@ -418,29 +418,36 @@ class HasMany(HasOne):
         cache_key = self.get_cache_key()
 
 
-        class HasManyWrapped(self.secondary_class):
-            def __call__(self) -> Relation:
-                return relation
+        class HasManyTuple(tuple):
+            def __call__(self) -> HasMany:
+                return self.relation
 
-        HasManyWrapped.__name__ = f'HasMany{self.secondary_class.__name__}'
+        HasManyTuple.__name__ = f'HasMany{self.secondary_class.__name__}'
 
 
         @property
         def secondary(self) -> ModelProtocol:
             if not hasattr(self, 'relations'):
-                self.relations = {cache_key: relation}
+                self.relations = {}
 
-            return [HasManyWrapped(model.data) for model in relation.secondary]
+            if cache_key not in self.relations or \
+                self.relations[cache_key] is None or \
+                self.relations[cache_key].secondary is None:
+                return None
+
+            models = HasManyTuple(self.relations[cache_key].secondary)
+            models.relation = self.relations[cache_key]
+            return models
 
         @secondary.setter
         def secondary(self, models: Optional[list[ModelProtocol]]) -> None:
             if not hasattr(self, 'relations'):
-                self.relations = {cache_key: relation}
+                self.relations = {}
 
-            if cache_key not in self.relations:
-                self.relations[cache_key] = relation
+            self.relations[cache_key] = deepcopy(relation)
 
-            relation.secondary = models
+            self.relations[cache_key].secondary = models
+            self.relations[cache_key].primary = self
 
         return secondary
 

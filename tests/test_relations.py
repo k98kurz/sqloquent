@@ -449,6 +449,26 @@ class TestRelations(unittest.TestCase):
 
         assert type(prop) is property
 
+    def test_HasMany_property_wraps_input_tuple(self):
+        hasmany = relations.HasMany(
+            'owner_id',
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
+        )
+        self.OwnerModel.owned = hasmany.create_property()
+
+        owner = self.OwnerModel({'data': '123'})
+        owned = self.OwnedModel({'data': '321'})
+
+        assert owner.owned is None
+        owner.owned = [owned]
+        assert owner.owned is not None
+        assert isinstance(owner.owned, tuple)
+        assert owner.owned[0].data == owned.data
+
+        assert callable(owner.owned)
+        assert type(owner.owned()) is relations.HasMany
+
     # BelongsTo tests
     def test_BelongsTo_extends_Relation(self):
         assert issubclass(relations.BelongsTo, relations.Relation)
