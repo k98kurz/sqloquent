@@ -85,11 +85,11 @@ class Relation:
     def primary_model_precondition(self, primary: ModelProtocol):
         if self.primary_class is not None:
             assert isinstance(primary, self.primary_class), \
-                f'primary must be instance of {self.primary_class}'
+                f'primary must be instance of {self.primary_class.__name__}'
 
     def secondary_model_precondition(self, secondary: ModelProtocol):
         assert isinstance(secondary, self.secondary_class), \
-            f'secondary must be instance of {self.secondary_class}'
+            f'secondary must be instance of {self.secondary_class.__name__}'
 
     @staticmethod
     def pivot_preconditions(pivot: type[ModelProtocol]) -> None:

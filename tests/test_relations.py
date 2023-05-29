@@ -67,6 +67,32 @@ class TestRelations(unittest.TestCase):
         )
         assert type(relation) is relations.Relation
 
+    def test_Relation_precondition_check_methods_raise_errors(self):
+        relation = relations.Relation(
+            primary_class=classes.HashedModel,
+            secondary_class=classes.Attachment
+        )
+
+        with self.assertRaises(AssertionError) as e:
+            relation.single_model_precondition('not a ModelProtocol')
+        assert str(e.exception) == 'model must implement ModelProtocol'
+
+        with self.assertRaises(AssertionError) as e:
+            relation.multi_model_precondition('not a list of ModelProtocol')
+        assert str(e.exception) == 'must be a list of ModelProtocol'
+
+        with self.assertRaises(AssertionError) as e:
+            relation.multi_model_precondition(['not a ModelProtocol'])
+        assert str(e.exception) == 'must be a list of ModelProtocol'
+
+        with self.assertRaises(AssertionError) as e:
+            relation.primary_model_precondition('not a ModelProtocol')
+        assert str(e.exception) == 'primary must be instance of HashedModel'
+
+        with self.assertRaises(AssertionError) as e:
+            relation.secondary_model_precondition('not a ModelProtocol')
+        assert str(e.exception) == 'secondary must be instance of Attachment'
+
     # HasOne tests
     def test_HasOne_extends_Relation(self):
         assert issubclass(relations.HasOne, relations.Relation)
