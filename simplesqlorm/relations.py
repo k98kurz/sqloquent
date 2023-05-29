@@ -772,7 +772,7 @@ def has_one(cls: type[ModelProtocol], owned_model: type[ModelProtocol],
     return relation.create_property()
 
 def has_many(cls: type[ModelProtocol], owned_model: type[ModelProtocol],
-             foreign_id_field: str = None) -> type:
+             foreign_id_field: str = None) -> property:
     if foreign_id_field is None:
         foreign_id_field = (f'{owned_model.__name__}_{owned_model.id_field}').lower()
 
@@ -782,7 +782,7 @@ def has_many(cls: type[ModelProtocol], owned_model: type[ModelProtocol],
     return relation.create_property()
 
 def belongs_to(cls: type[ModelProtocol], owner_model: type[ModelProtocol],
-               foreign_id_field: str = None, inverse_is_many: bool = False) -> type:
+               foreign_id_field: str = None, inverse_is_many: bool = False) -> property:
     if foreign_id_field is None:
         foreign_id_field = (f'{owner_model.__name__}_{owner_model.id_field}').lower()
 
@@ -797,7 +797,7 @@ def belongs_to(cls: type[ModelProtocol], owner_model: type[ModelProtocol],
 def many_to_many(cls: type[ModelProtocol], other_model: type[ModelProtocol],
                 pivot: type[ModelProtocol],
                 primary_id_field: str = None, secondary_id_field: str = None,
-                query_builder_pivot: QueryBuilderProtocol = None) -> type:
+                query_builder_pivot: QueryBuilderProtocol = None) -> property:
     if primary_id_field is None:
         primary_id_field = (f'{cls.__name__}_{cls.id_field}').lower()
     if secondary_id_field is None:
