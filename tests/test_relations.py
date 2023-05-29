@@ -28,11 +28,6 @@ class TestRelations(unittest.TestCase):
             ...
         self.db = sqlite3.connect(self.db_filepath)
         self.cursor = self.db.cursor()
-        self.cursor.execute('create table deleted_records (id text not null, ' +
-            'model_class text not null, record_id text not null, record text not null)')
-        self.cursor.execute('create table hashed_records (id text, data text)')
-        self.cursor.execute('create table attachments (id text, ' +
-            'related_model text, related_id text, details text)')
         self.cursor.execute('create table pivot (id text, first_id text, second_id text)')
         self.cursor.execute('create table owners (id text, data text)')
         self.cursor.execute('create table owned (id text, owner_id text, data text)')
@@ -53,21 +48,6 @@ class TestRelations(unittest.TestCase):
 
         return super().setUp()
 
-    def setUpClass() -> None:
-        """Couple these models to sqlite for testing purposes."""
-        class DeletedModel(classes.DeletedModel, classes.SqliteModel):
-            file_path = TestRelations.db_filepath
-        classes.DeletedModel = DeletedModel
-
-        # save uncoupled original for subclass checking
-        class HashedModel(classes.HashedModel, classes.SqliteModel):
-            file_path = TestRelations.db_filepath
-        classes.HashedModel = HashedModel
-
-        class Attachment(classes.Attachment, classes.SqliteModel):
-            file_path = TestRelations.db_filepath
-        classes.Attachment = Attachment
-
     def tearDown(self) -> None:
         """Close cursor and delete test database."""
         self.cursor.close()
@@ -77,26 +57,26 @@ class TestRelations(unittest.TestCase):
 
     # Relation tests
     def test_Relation_initializes_properly(self):
-        primary = classes.HashedModel.insert({'data': '1234'})
-        secondary = classes.Attachment().attach_to(primary).save()
+        primary = self.OwnerModel.insert({'data': '1234'})
+        secondary = self.OwnedModel.insert({'data': '321'})
         relation = relations.Relation(
-            primary_class=classes.HashedModel,
-            secondary_class=classes.Attachment,
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel,
             primary=primary,
             secondary=secondary
         )
         assert type(relation) is relations.Relation
 
         relation = relations.Relation(
-            primary_class=classes.HashedModel,
-            secondary_class=classes.Attachment
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
         )
         assert type(relation) is relations.Relation
 
     def test_Relation_precondition_check_methods_raise_errors(self):
         relation = relations.Relation(
-            primary_class=classes.HashedModel,
-            secondary_class=classes.Attachment
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
         )
 
         with self.assertRaises(AssertionError) as e:
@@ -113,11 +93,11 @@ class TestRelations(unittest.TestCase):
 
         with self.assertRaises(AssertionError) as e:
             relation.primary_model_precondition('not a ModelProtocol')
-        assert str(e.exception) == 'primary must be instance of HashedModel'
+        assert str(e.exception) == 'primary must be instance of OwnerModel'
 
         with self.assertRaises(AssertionError) as e:
             relation.secondary_model_precondition('not a ModelProtocol')
-        assert str(e.exception) == 'secondary must be instance of Attachment'
+        assert str(e.exception) == 'secondary must be instance of OwnedModel'
 
         with self.assertRaises(AssertionError) as e:
             relation.pivot_preconditions('not a type')
@@ -125,10 +105,10 @@ class TestRelations(unittest.TestCase):
 
     def test_Relation_set_primary_sets_primary(self):
         relation = relations.Relation(
-            primary_class=classes.HashedModel,
-            secondary_class=classes.Attachment
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
         )
-        primary = classes.HashedModel.insert({'data': '123abc'})
+        primary = self.OwnerModel.insert({'data': '123abc'})
 
         with self.assertRaises(AssertionError) as e:
             relation.primary = 'not a primary class'
@@ -140,13 +120,13 @@ class TestRelations(unittest.TestCase):
 
     def test_Relation_get_cache_key_returns_str_containing_class_names(self):
         relation = relations.Relation(
-            primary_class=classes.HashedModel,
-            secondary_class=classes.Attachment
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
         )
 
         cache_key = relation.get_cache_key()
         assert type(cache_key) is str
-        assert cache_key == 'HashedModel_Relation_Attachment'
+        assert cache_key == 'OwnerModel_Relation_OwnedModel'
 
     # HasOne tests
     def test_HasOne_extends_Relation(self):
