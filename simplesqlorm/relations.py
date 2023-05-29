@@ -276,6 +276,9 @@ class HasOne(Relation):
             if not hasattr(self, 'relations'):
                 self.relations = {cache_key: relation}
 
+            if relation.secondary is None:
+                return None
+
             return HasOneWrapped(relation.secondary.data)
 
         @secondary.setter

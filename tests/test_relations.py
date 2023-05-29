@@ -253,7 +253,16 @@ class TestRelations(unittest.TestCase):
             primary_class=self.OwnerModel,
             secondary_class=self.OwnedModel
         )
+        self.OwnerModel.owned = hasone.create_property()
 
+        owner = self.OwnerModel({'data': '123'})
+        owned = self.OwnedModel({'data': '321'})
+
+        assert owner.owned is None
+        owner.owned = owned
+        assert owner.owned is not None
+        assert type(owner.owned) is not type(owned)
+        assert owner.owned.data == owned.data
 
     # HasMany tests
     def test_HasMany_extends_Relation(self):
