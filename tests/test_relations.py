@@ -375,6 +375,25 @@ class TestRelations(unittest.TestCase):
         hasmany.secondary = [secondary]
         assert hasmany.secondary == (secondary,)
 
+    def test_HasMany_get_cache_key_includes_foreign_id_field(self):
+        hasmany = relations.HasMany(
+            'owner_id',
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
+        )
+        cache_key = hasmany.get_cache_key()
+        assert cache_key == 'OwnerModel_HasMany_OwnedModel_owner_id'
+
+    def test_HasMany_save_raises_error_for_incomplete_relation(self):
+        hasmany = relations.HasMany(
+            'owner_id',
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
+        )
+
+        with self.assertRaises(AssertionError) as e:
+            hasmany.save()
+        assert str(e.exception) == 'cannot save incomplete HasMany'
 
     # BelongsTo tests
     def test_BelongsTo_extends_Relation(self):
