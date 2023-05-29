@@ -43,11 +43,11 @@ class Relation:
         self.inverse = inverse
 
     @staticmethod
-    def single_model_precondition(model):
+    def single_model_precondition(model) -> None:
         assert isinstance(model, ModelProtocol), 'model must implement ModelProtocol'
 
     @staticmethod
-    def multi_model_precondition(model):
+    def multi_model_precondition(model) -> None:
         assert type(model) in (list, tuple), \
             'must be a list of ModelProtocol'
         for item in model:
@@ -82,12 +82,22 @@ class Relation:
 
         self._primary = primary
 
-    def primary_model_precondition(self, primary: ModelProtocol):
+    @property
+    def secondary(self) -> Optional[ModelProtocol|tuple[ModelProtocol]]:
+        return self._secondary
+
+    @secondary.setter
+    @abstractmethod
+    def secondary(self, secondary: ModelProtocol|tuple[ModelProtocol]) -> None:
+        """Sets the secondary model instance(s)."""
+        pass
+
+    def primary_model_precondition(self, primary: ModelProtocol) -> None:
         if self.primary_class is not None:
             assert isinstance(primary, self.primary_class), \
                 f'primary must be instance of {self.primary_class.__name__}'
 
-    def secondary_model_precondition(self, secondary: ModelProtocol):
+    def secondary_model_precondition(self, secondary: ModelProtocol) -> None:
         assert isinstance(secondary, self.secondary_class), \
             f'secondary must be instance of {self.secondary_class.__name__}'
 
@@ -97,8 +107,13 @@ class Relation:
             'pivot must be class implementing ModelProtocol'
 
     def set_primary(self, primary: ModelProtocol) -> Relation:
-        """Sets the primary model instance."""
+        """Sets the primary model instance and returns self in monad pattern."""
         self.primary = primary
+        return self
+
+    def set_secondary(self, secondary: ModelProtocol|list[ModelProtocol]) -> HasOne:
+        """Sets the secondary model instance(s) and returns self in monad pattern."""
+        self.secondary = secondary
         return self
 
     @abstractmethod
@@ -181,11 +196,6 @@ class HasOne(Relation):
         # set the secondary
         self._secondary = secondary
         self.secondary_to_add = [secondary]
-
-    def set_secondary(self, secondary: ModelProtocol) -> HasOne:
-        """Sets the secondary model instance. Returns self in monad pattern."""
-        self.secondary = secondary
-        return self
 
     def save(self) -> None:
         """Save the relation by setting/unsetting the relevant database
