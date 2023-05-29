@@ -469,6 +469,66 @@ class TestRelations(unittest.TestCase):
         assert callable(owner.owned)
         assert type(owner.owned()) is relations.HasMany
 
+    def test_HasMany_save_changes_only_foreign_id_field_in_db(self):
+        hasmany = relations.HasMany(
+            'owner_id',
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
+        )
+        self.OwnerModel.owned = hasmany.create_property()
+
+        owner = self.OwnerModel.insert({'data': '123'})
+        owned = self.OwnedModel.insert({'data': '321'})
+        hasmany.primary = owner
+        owner.owned = [owned]
+        owner.owned[0].data['data'] = 'abc'
+        owner.owned().save()
+
+        owned.reload()
+        assert owned.data['data'] == '321'
+        assert owned.data['owner_id'] == owner.data['id']
+
+    def test_has_many_function_sets_property_from_HasMany(self):
+        self.OwnerModel.owned = relations.has_many(
+            self.OwnerModel,
+            self.OwnedModel,
+            'owner_id'
+        )
+
+        assert type(self.OwnerModel.owned) is property
+
+        owner = self.OwnerModel.insert({'data': '321'})
+        owned = self.OwnedModel.insert({'data': '321'})
+        owner.owned = [owned]
+
+        assert callable(owner.owned)
+        assert type(owner.owned()) is relations.HasMany
+
+        owner.owned().save()
+
+    def test_HasMany_works_with_multiple_instances(self):
+        self.OwnerModel.owned = relations.has_many(
+            self.OwnerModel,
+            self.OwnedModel,
+            'owner_id'
+        )
+
+        owner1 = self.OwnerModel.insert({'data': 'owner1'})
+        owner2 = self.OwnerModel.insert({'data': 'owner2'})
+        owned1 = self.OwnedModel.insert({'data': 'owned1'})
+        owned2 = self.OwnedModel.insert({'data': 'owned2'})
+
+        owner1.owned = [owned1]
+        owner1.owned().save()
+
+        owner2.owned = [owned2]
+        owner2.owned().save()
+
+        assert owner1.relations != owner2.relations
+        assert owner1.owned() is not owner2.owned()
+        assert owner1.owned[0].data['id'] == owned1.data['id']
+        assert owner2.owned[0].data['id'] == owned2.data['id']
+
     # BelongsTo tests
     def test_BelongsTo_extends_Relation(self):
         assert issubclass(relations.BelongsTo, relations.Relation)
