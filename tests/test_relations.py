@@ -13,6 +13,11 @@ class Pivot(classes.SqliteModel):
     table: str = 'pivot'
     fields: tuple = ('id', 'first_id', 'second_id')
 
+class OwnedModel(classes.SqliteModel):
+    file_path: str = DB_FILEPATH
+    table: str = 'owned'
+    fields: tuple = ('id', 'owner_id', 'data')
+
 
 class TestRelations(unittest.TestCase):
     db_filepath: str = DB_FILEPATH
@@ -34,6 +39,7 @@ class TestRelations(unittest.TestCase):
         self.cursor.execute('create table attachments (id text, ' +
             'related_model text, related_id text, details text)')
         self.cursor.execute('create table pivot (id text, first_id text, second_id text)')
+        self.cursor.execute('create table owned (id text, owner_id text, data text)')
 
         return super().setUp()
 
@@ -114,6 +120,10 @@ class TestRelations(unittest.TestCase):
         )
         primary = classes.HashedModel.insert({'data': '123abc'})
 
+        with self.assertRaises(AssertionError) as e:
+            relation.primary = 'not a primary class'
+        assert str(e.exception) == 'model must implement ModelProtocol'
+
         assert relation.primary is None
         relation.set_primary(primary)
         assert relation.primary is primary
@@ -131,6 +141,47 @@ class TestRelations(unittest.TestCase):
     # HasOne tests
     def test_HasOne_extends_Relation(self):
         assert issubclass(relations.HasOne, relations.Relation)
+
+    def test_HasOne_initializes_properly(self):
+        hasone = relations.HasOne(
+            'owner_id',
+            primary_class=classes.HashedModel,
+            secondary_class=OwnedModel
+        )
+        assert isinstance(hasone, relations.HasOne)
+
+        with self.assertRaises(AssertionError) as e:
+            relations.HasOne(
+                b'not a str',
+            primary_class=classes.HashedModel,
+            secondary_class=OwnedModel
+            )
+        assert str(e.exception) == 'foreign_id_field must be str'
+
+    def test_HasOne_sets_primary_and_secondary_correctly(self):
+        hasone = relations.HasOne(
+            'owner_id',
+            primary_class=classes.HashedModel,
+            secondary_class=OwnedModel
+        )
+        primary = classes.HashedModel.insert({'data': '321ads'})
+        secondary = OwnedModel.insert({'data':'321'})
+
+        assert hasone.primary is None
+        hasone.primary = primary
+        assert hasone.primary is primary
+
+        with self.assertRaises(AssertionError) as e:
+            hasone.secondary = 'not a ModelProtocol'
+        assert str(e.exception) == 'model must implement ModelProtocol'
+
+        with self.assertRaises(AssertionError) as e:
+            hasone.secondary = classes.HashedModel({'data': '1234f'})
+        assert str(e.exception) == 'secondary must be instance of OwnedModel'
+
+        assert hasone.secondary is None
+        hasone.secondary = secondary
+        assert hasone.secondary is secondary
 
     # HasMany tests
     def test_HasMany_extends_Relation(self):
