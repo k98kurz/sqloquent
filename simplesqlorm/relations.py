@@ -1,6 +1,6 @@
 from __future__ import annotations
 from abc import abstractmethod
-from dataclasses import dataclass, field
+from copy import deepcopy
 from simplesqlorm.interfaces import ModelProtocol, QueryBuilderProtocol
 from typing import Optional
 
@@ -276,7 +276,7 @@ class HasOne(Relation):
 
         class HasOneWrapped(self.secondary_class):
             def __call__(self) -> Relation:
-                return relation
+                return self.relations[f'{cache_key}_inverse']
 
         HasOneWrapped.__name__ = f'HasOne{self.secondary_class.__name__}'
 
@@ -284,23 +284,29 @@ class HasOne(Relation):
         @property
         def secondary(self) -> ModelProtocol:
             if not hasattr(self, 'relations'):
-                self.relations = {cache_key: relation}
+                self.relations = {}
 
-            if relation.secondary is None:
+            if cache_key not in self.relations or \
+                self.relations[cache_key] is None or \
+                self.relations[cache_key].secondary is None:
                 return None
 
-            return HasOneWrapped(relation.secondary.data)
+            model = HasOneWrapped(self.relations[cache_key].secondary.data)
+            model.relations = self.relations[cache_key].secondary.relations
+            return model
 
         @secondary.setter
         def secondary(self, model: ModelProtocol) -> None:
             if not hasattr(self, 'relations'):
-                self.relations = {cache_key: relation}
+                self.relations = {}
+            if not hasattr(model, 'relations'):
+                model.relations = {}
 
-            if cache_key not in self.relations:
-                self.relations[cache_key] = relation
+            self.relations[cache_key] = deepcopy(relation)
 
-            relation.secondary = model
-            relation.primary = self
+            self.relations[cache_key].secondary = model
+            self.relations[cache_key].primary = self
+            model.relations[f'{cache_key}_inverse'] = self.relations[cache_key]
 
         return secondary
 
@@ -756,9 +762,9 @@ class BelongsToMany(Relation):
 
 
 def has_one(cls: type[ModelProtocol], owned_model: type[ModelProtocol],
-            foreign_id_field: str = None) -> type:
+            foreign_id_field: str = None) -> property:
     if foreign_id_field is None:
-        foreign_id_field = (f'{owned_model.__name__}_{owned_model.id_field}').lower()
+        foreign_id_field = (f'{cls.__name__}_{cls.id_field}').lower()
 
     relation = HasOne(foreign_id_field, primary_class=cls, secondary_class=owned_model)
     relation.inverse = BelongsTo(foreign_id_field, primary_class=owned_model, secondary_class=cls)

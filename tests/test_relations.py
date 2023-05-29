@@ -307,6 +307,29 @@ class TestRelations(unittest.TestCase):
 
         owner.owned().save()
 
+    def test_HasOne_works_with_multiple_instances(self):
+        self.OwnerModel.owned = relations.has_one(
+            self.OwnerModel,
+            self.OwnedModel,
+            'owner_id'
+        )
+
+        owner1 = self.OwnerModel.insert({'data': 'owner1'})
+        owner2 = self.OwnerModel.insert({'data': 'owner2'})
+        owned1 = self.OwnedModel.insert({'data': 'owned1'})
+        owned2 = self.OwnedModel.insert({'data': 'owned2'})
+
+        owner1.owned = owned1
+        owner1.owned().save()
+
+        owner2.owned = owned2
+        owner2.owned().save()
+
+        assert owner1.relations != owner2.relations
+        assert owner1.owned() is not owner2.owned()
+        assert owner1.owned.data['id'] == owned1.data['id']
+        assert owner2.owned.data['id'] == owned2.data['id']
+
     # HasMany tests
     def test_HasMany_extends_Relation(self):
         assert issubclass(relations.HasMany, relations.Relation)
