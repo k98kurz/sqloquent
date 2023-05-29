@@ -386,7 +386,7 @@ class HasMany(HasOne):
         # handle secondary removals
         if len(self.secondary_to_remove):
             secondary_ids = [
-                item.data[self.foreign_id_field]
+                item.data[self.secondary_class.id_field]
                 for item in self.secondary_to_remove
                 if item.data[self.foreign_id_field] == owner_id
             ]

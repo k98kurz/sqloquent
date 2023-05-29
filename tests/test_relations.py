@@ -414,6 +414,31 @@ class TestRelations(unittest.TestCase):
         reloaded = self.OwnedModel.find(secondary.data['id'])
         assert reloaded.data['owner_id'] == primary.data['id']
 
+    def test_HasMany_changing_primary_and_secondary_updates_models_correctly(self):
+        hasmany = relations.HasMany(
+            'owner_id',
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
+        )
+        primary1 = self.OwnerModel.insert({'data': '321ads'})
+        primary2 = self.OwnerModel.insert({'data': '12332'})
+        secondary1 = self.OwnedModel.insert({'data':'321'})
+        secondary2 = self.OwnedModel.insert({'data':'afgbfb'})
+
+        hasmany.primary = primary1
+        hasmany.secondary = [secondary1]
+        hasmany.save()
+        assert secondary1.data['owner_id'] == primary1.data['id']
+
+        hasmany.primary = primary2
+        hasmany.save()
+        assert secondary1.data['owner_id'] == primary2.data['id']
+
+        hasmany.secondary = [secondary2]
+        hasmany.save()
+        assert secondary2.data['owner_id'] == primary2.data['id']
+        assert secondary1.data['owner_id'] == ''
+
 
     # BelongsTo tests
     def test_BelongsTo_extends_Relation(self):
