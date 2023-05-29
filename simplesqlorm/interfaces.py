@@ -204,3 +204,69 @@ class QueryBuilderProtocol(Protocol):
             results.
         """
         ...
+
+
+@runtime_checkable
+class RelationProtocol(Protocol):
+    """Duck typed protocol showing how a relation should function."""
+    def __init__(self, *args, **kwargs) -> None:
+        """The exact initialization will depend upon relation subtype."""
+        ...
+
+    @property
+    def primary(self) -> ModelProtocol:
+        """Property that accesses the primary instance."""
+        ...
+
+    @property
+    def secondary(self) -> ModelProtocol|tuple[ModelProtocol]:
+        """Property that accesses the secondary instance(s)."""
+        ...
+
+    @staticmethod
+    def single_model_precondition(model) -> None:
+        """Checks preconditions for a model."""
+        ...
+
+    @staticmethod
+    def multi_model_precondition(model) -> None:
+        """Checks preconditions for list/tuple of models."""
+        ...
+
+    def primary_model_precondition(self, primary: ModelProtocol) -> None:
+        """Checks that primary is instance of self.primary_class."""
+        ...
+
+    def secondary_model_precondition(self, secondary: ModelProtocol) -> None:
+        """Checks that secondary is instance of self.secondary_class."""
+        ...
+
+    @staticmethod
+    def pivot_preconditions(pivot: type[ModelProtocol]) -> None:
+        """Checks preconditions for a pivot."""
+        ...
+
+    def set_primary(self, primary: ModelProtocol) -> RelationProtocol:
+        """Sets the primary model instance and returns self in monad pattern."""
+        ...
+
+    def set_secondary(self, secondary: ModelProtocol|list[ModelProtocol]) -> RelationProtocol:
+        """Sets the secondary model instance(s) and returns self in monad pattern."""
+        ...
+
+    def save(self) -> None:
+        """Save the relation by setting/unsetting relevant database values."""
+        ...
+
+    def reload(self) -> None:
+        """Reload the secondary models from the database."""
+        ...
+
+    def get_cache_key(self) -> str:
+        """Get the cache key for the relation."""
+        ...
+
+    def create_property(self) -> property:
+        """Produces a property to be set on a model, allowing it to access
+            the related model through the relation.
+        """
