@@ -1,4 +1,4 @@
-from context import classes, relations
+from context import classes, interfaces, relations
 from genericpath import isfile
 import os
 import sqlite3
@@ -56,6 +56,9 @@ class TestRelations(unittest.TestCase):
         return super().tearDown()
 
     # Relation tests
+    def test_Relation_implements_RelationProtocol(self):
+        assert isinstance(relations.Relation, interfaces.RelationProtocol)
+
     def test_Relation_initializes_properly(self):
         primary = self.OwnerModel.insert({'data': '1234'})
         secondary = self.OwnedModel.insert({'data': '321'})
@@ -263,6 +266,28 @@ class TestRelations(unittest.TestCase):
         assert owner.owned is not None
         assert type(owner.owned) is not type(owned)
         assert owner.owned.data == owned.data
+
+        assert callable(owner.owned)
+        assert type(owner.owned()) is relations.HasOne
+
+    def test_HasOne_save_changes_only_foreign_id_field_in_db(self):
+        hasone = relations.HasOne(
+            'owner_id',
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
+        )
+        self.OwnerModel.owned = hasone.create_property()
+
+        owner = self.OwnerModel.insert({'data': '123'})
+        owned = self.OwnedModel.insert({'data': '321'})
+        hasone.primary = owner
+        owner.owned = owned
+        owner.owned.data['data'] = 'abc'
+        owner.owned().save()
+
+        owned.reload()
+        assert owned.data['data'] == '321'
+        assert owned.data['owner_id'] == owner.data['id']
 
     # HasMany tests
     def test_HasMany_extends_Relation(self):
