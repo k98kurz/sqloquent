@@ -151,6 +151,16 @@ class TestClasses(unittest.TestCase):
         found = classes.SqliteModel.query().count()
         assert found == 2
 
+    def test_SqliteModel_reload_reads_values_from_db(self):
+        self.cursor.execute('create table example (id text, name text)')
+        classes.SqliteModel.file_path = self.db_filepath
+
+        model = classes.SqliteModel.insert({'name': 'Tarzan'})
+        model.query({'id':model.data['id']}).update({'name': 'Jane'})
+        assert model.data['name'] == 'Tarzan'
+        model.reload()
+        assert model.data['name'] == 'Jane'
+
 
     # SqlQueryBuilder tests
     def test_SqlQueryBuilder_implements_QueryBuilderProtocol(self):
@@ -297,7 +307,6 @@ class TestClasses(unittest.TestCase):
 
         sqb.skip(3)
         assert sqb.to_sql() == ' where name = foo order by id desc limit 5 offset 3'
-
 
     def test_SqlQueryBuilder_reset_returns_fresh_instance(self):
         sqb = classes.SqlQueryBuilder(model=classes.SqlModel)

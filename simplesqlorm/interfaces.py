@@ -84,6 +84,10 @@ class ModelProtocol(Protocol):
         """Delete the record."""
         ...
 
+    def reload(self) -> ModelProtocol:
+        """Reload values from datastore. Return self in monad pattern."""
+        ...
+
     @classmethod
     def query(cls, conditions: dict = None) -> QueryBuilderProtocol:
         """Return a QueryBuilderProtocol for the model."""

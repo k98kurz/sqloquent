@@ -164,6 +164,14 @@ class SqlModel:
         if self.id_field in self.data:
             self.query().equal(self.id_field, self.data[self.id_field]).delete()
 
+    def reload(self) -> SqlModel:
+        """Reload values from datastore. Return self in monad pattern."""
+        if self.id_field in self.data:
+            reloaded = self.find(self.data[self.id_field])
+            if reloaded:
+                self.data = reloaded.data
+        return self
+
     @classmethod
     def query(cls, conditions: dict = None) -> QueryBuilderProtocol:
         sqb = cls().query_builder_class(model=cls)
