@@ -72,7 +72,7 @@ class Relation:
 
         self.single_model_precondition(primary)
         self.primary_model_precondition(primary)
-        primary_id = primary.data[primary.id_field]
+        primary_id = primary.data[primary.id_field] if primary.id_field in primary.data else ''
         has_primary = hasattr(self, '_primary') and self._primary
 
         if has_primary and primary_id != self._primary.data[self._primary.id_field]:
@@ -300,6 +300,7 @@ class HasOne(Relation):
                 self.relations[cache_key] = relation
 
             relation.secondary = model
+            relation.primary = self
 
         return secondary
 

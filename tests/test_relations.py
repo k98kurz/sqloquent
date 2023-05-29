@@ -289,6 +289,24 @@ class TestRelations(unittest.TestCase):
         assert owned.data['data'] == '321'
         assert owned.data['owner_id'] == owner.data['id']
 
+    def test_has_one_function_sets_property_from_HasOne(self):
+        self.OwnerModel.owned = relations.has_one(
+            self.OwnerModel,
+            self.OwnedModel,
+            'owner_id'
+        )
+
+        assert type(self.OwnerModel.owned) is property
+
+        owner = self.OwnerModel.insert({'data': '321'})
+        owned = self.OwnedModel.insert({'data': '321'})
+        owner.owned = owned
+
+        assert callable(owner.owned)
+        assert type(owner.owned()) is relations.HasOne
+
+        owner.owned().save()
+
     # HasMany tests
     def test_HasMany_extends_Relation(self):
         assert issubclass(relations.HasMany, relations.Relation)
