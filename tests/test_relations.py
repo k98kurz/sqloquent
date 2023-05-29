@@ -13,11 +13,6 @@ class Pivot(classes.SqliteModel):
     table: str = 'pivot'
     fields: tuple = ('id', 'first_id', 'second_id')
 
-class OwnedModel(classes.SqliteModel):
-    file_path: str = DB_FILEPATH
-    table: str = 'owned'
-    fields: tuple = ('id', 'owner_id', 'data')
-
 
 class TestRelations(unittest.TestCase):
     db_filepath: str = DB_FILEPATH
@@ -39,7 +34,22 @@ class TestRelations(unittest.TestCase):
         self.cursor.execute('create table attachments (id text, ' +
             'related_model text, related_id text, details text)')
         self.cursor.execute('create table pivot (id text, first_id text, second_id text)')
+        self.cursor.execute('create table owners (id text, data text)')
         self.cursor.execute('create table owned (id text, owner_id text, data text)')
+
+        # rebuild test classes because properties will be changed in tests
+        class OwnedModel(classes.SqliteModel):
+            file_path: str = DB_FILEPATH
+            table: str = 'owned'
+            fields: tuple = ('id', 'owner_id', 'data')
+
+        class OwnerModel(classes.SqliteModel):
+            file_path: str = DB_FILEPATH
+            table: str = 'owners'
+            fields: tuple = ('id', 'data')
+
+        self.OwnedModel = OwnedModel
+        self.OwnerModel = OwnerModel
 
         return super().setUp()
 
@@ -145,27 +155,27 @@ class TestRelations(unittest.TestCase):
     def test_HasOne_initializes_properly(self):
         hasone = relations.HasOne(
             'owner_id',
-            primary_class=classes.HashedModel,
-            secondary_class=OwnedModel
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
         )
         assert isinstance(hasone, relations.HasOne)
 
         with self.assertRaises(AssertionError) as e:
             relations.HasOne(
                 b'not a str',
-            primary_class=classes.HashedModel,
-            secondary_class=OwnedModel
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
             )
         assert str(e.exception) == 'foreign_id_field must be str'
 
     def test_HasOne_sets_primary_and_secondary_correctly(self):
         hasone = relations.HasOne(
             'owner_id',
-            primary_class=classes.HashedModel,
-            secondary_class=OwnedModel
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
         )
-        primary = classes.HashedModel.insert({'data': '321ads'})
-        secondary = OwnedModel.insert({'data':'321'})
+        primary = self.OwnerModel.insert({'data': '321ads'})
+        secondary = self.OwnedModel.insert({'data':'321'})
 
         assert hasone.primary is None
         hasone.primary = primary
@@ -176,12 +186,94 @@ class TestRelations(unittest.TestCase):
         assert str(e.exception) == 'model must implement ModelProtocol'
 
         with self.assertRaises(AssertionError) as e:
-            hasone.secondary = classes.HashedModel({'data': '1234f'})
+            hasone.secondary = self.OwnerModel({'data': '1234f'})
         assert str(e.exception) == 'secondary must be instance of OwnedModel'
 
         assert hasone.secondary is None
         hasone.secondary = secondary
         assert hasone.secondary is secondary
+
+    def test_HasOne_get_cache_key_includes_foreign_id_field(self):
+        hasone = relations.HasOne(
+            'owner_id',
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
+        )
+        cache_key = hasone.get_cache_key()
+        assert cache_key == 'OwnerModel_HasOne_OwnedModel_owner_id'
+
+    def test_HasOne_save_raises_error_for_incomplete_relation(self):
+        hasone = relations.HasOne(
+            'owner_id',
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
+        )
+
+        with self.assertRaises(AssertionError) as e:
+            hasone.save()
+        assert str(e.exception) == 'cannot save incomplete HasOne'
+
+    def test_HasOne_save_changes_foreign_id_field_on_secondary(self):
+        hasone = relations.HasOne(
+            'owner_id',
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
+        )
+        primary = self.OwnerModel.insert({'data': '321ads'})
+        secondary = self.OwnedModel.insert({'data':'321'})
+
+        hasone.primary = primary
+        hasone.secondary = secondary
+
+        assert secondary.data['owner_id'] == None
+        hasone.save()
+        assert secondary.data['owner_id'] == primary.data['id']
+
+        reloaded = self.OwnedModel.find(secondary.data['id'])
+        assert reloaded.data['owner_id'] == primary.data['id']
+
+    def test_HasOne_changing_primary_and_secondary_updates_models_correctly(self):
+        hasone = relations.HasOne(
+            'owner_id',
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
+        )
+        primary1 = self.OwnerModel.insert({'data': '321ads'})
+        primary2 = self.OwnerModel.insert({'data': '12332'})
+        secondary1 = self.OwnedModel.insert({'data':'321'})
+        secondary2 = self.OwnedModel.insert({'data':'afgbfb'})
+
+        hasone.primary = primary1
+        hasone.secondary = secondary1
+        hasone.save()
+        assert secondary1.data['owner_id'] == primary1.data['id']
+
+        hasone.primary = primary2
+        hasone.save()
+        assert secondary1.data['owner_id'] == primary2.data['id']
+
+        hasone.secondary = secondary2
+        hasone.save()
+        assert secondary2.data['owner_id'] == primary2.data['id']
+        assert secondary1.data['owner_id'] == ''
+
+    def test_HasOne_create_property_returns_property(self):
+        hasone = relations.HasOne(
+            'owner_id',
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
+        )
+        prop = hasone.create_property()
+
+        assert type(prop) is property
+
+    def test_HasOne_property_wraps_input_class(self):
+        hasone = relations.HasOne(
+            'owner_id',
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
+        )
+
 
     # HasMany tests
     def test_HasMany_extends_Relation(self):
