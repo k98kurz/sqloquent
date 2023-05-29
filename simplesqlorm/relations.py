@@ -115,7 +115,7 @@ class Relation:
         pass
 
     def get_cache_key(self) -> str:
-        return (f'{self.primary_class.__name__}_{self.__name__}_'
+        return (f'{self.primary_class.__name__}_{self.__class__.__name__}'
                      f'_{self.secondary_class.__name__}')
 
     @abstractmethod

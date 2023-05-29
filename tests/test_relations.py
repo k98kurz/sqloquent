@@ -5,8 +5,17 @@ import sqlite3
 import unittest
 
 
+DB_FILEPATH = 'test.db'
+
+
+class Pivot(classes.SqliteModel):
+    file_path: str = DB_FILEPATH
+    table: str = 'pivot'
+    fields: tuple = ('id', 'first_id', 'second_id')
+
+
 class TestRelations(unittest.TestCase):
-    db_filepath: str = 'test.db'
+    db_filepath: str = DB_FILEPATH
     db: sqlite3.Connection = None
     cursor: sqlite3.Cursor = None
 
@@ -24,6 +33,7 @@ class TestRelations(unittest.TestCase):
         self.cursor.execute('create table hashed_records (id text, data text)')
         self.cursor.execute('create table attachments (id text, ' +
             'related_model text, related_id text, details text)')
+        self.cursor.execute('create table pivot (id text, first_id text, second_id text)')
 
         return super().setUp()
 
@@ -92,6 +102,31 @@ class TestRelations(unittest.TestCase):
         with self.assertRaises(AssertionError) as e:
             relation.secondary_model_precondition('not a ModelProtocol')
         assert str(e.exception) == 'secondary must be instance of Attachment'
+
+        with self.assertRaises(AssertionError) as e:
+            relation.pivot_preconditions('not a type')
+        assert str(e.exception) == 'pivot must be class implementing ModelProtocol'
+
+    def test_Relation_set_primary_sets_primary(self):
+        relation = relations.Relation(
+            primary_class=classes.HashedModel,
+            secondary_class=classes.Attachment
+        )
+        primary = classes.HashedModel.insert({'data': '123abc'})
+
+        assert relation.primary is None
+        relation.set_primary(primary)
+        assert relation.primary is primary
+
+    def test_Relation_get_cache_key_returns_str_containing_class_names(self):
+        relation = relations.Relation(
+            primary_class=classes.HashedModel,
+            secondary_class=classes.Attachment
+        )
+
+        cache_key = relation.get_cache_key()
+        assert type(cache_key) is str
+        assert cache_key == 'HashedModel_Relation_Attachment'
 
     # HasOne tests
     def test_HasOne_extends_Relation(self):
