@@ -146,8 +146,8 @@ class TestRelations(unittest.TestCase):
         with self.assertRaises(AssertionError) as e:
             relations.HasOne(
                 b'not a str',
-            primary_class=self.OwnerModel,
-            secondary_class=self.OwnedModel
+                primary_class=self.OwnerModel,
+                secondary_class=self.OwnedModel
             )
         assert str(e.exception) == 'foreign_id_field must be str'
 
@@ -333,6 +333,48 @@ class TestRelations(unittest.TestCase):
     # HasMany tests
     def test_HasMany_extends_Relation(self):
         assert issubclass(relations.HasMany, relations.Relation)
+
+    def test_HasMany_initializes_properly(self):
+        hasmany = relations.HasMany(
+            'owner_id',
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
+        )
+        assert isinstance(hasmany, relations.HasMany)
+
+        with self.assertRaises(AssertionError) as e:
+            relations.HasMany(
+                b'not a str',
+                primary_class=self.OwnerModel,
+                secondary_class=self.OwnedModel
+            )
+        assert str(e.exception) == 'foreign_id_field must be str'
+
+    def test_HasMany_sets_primary_and_secondary_correctly(self):
+        hasmany = relations.HasMany(
+            'owner_id',
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
+        )
+        primary = self.OwnerModel.insert({'data': '321ads'})
+        secondary = self.OwnedModel.insert({'data':'321'})
+
+        assert hasmany.primary is None
+        hasmany.primary = primary
+        assert hasmany.primary is primary
+
+        with self.assertRaises(AssertionError) as e:
+            hasmany.secondary = secondary
+        assert str(e.exception) == 'must be a list of ModelProtocol'
+
+        with self.assertRaises(AssertionError) as e:
+            hasmany.secondary = [self.OwnerModel({'data': '1234f'})]
+        assert str(e.exception) == 'secondary must be instance of OwnedModel'
+
+        assert hasmany.secondary is None
+        hasmany.secondary = [secondary]
+        assert hasmany.secondary == (secondary,)
+
 
     # BelongsTo tests
     def test_BelongsTo_extends_Relation(self):
