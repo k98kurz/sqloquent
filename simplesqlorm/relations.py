@@ -374,7 +374,7 @@ class HasMany(HasOne):
         assert self.primary is not None, 'cannot save incomplete HasMany'
         assert self.secondary is not None, 'cannot save incomplete HasMany'
 
-        qb = self._secondary.query()
+        qb = self.secondary_class.query()
         owner_id = self.primary.data[self.primary_class.id_field]
         owned_ids = [
             model.data[self.secondary_class.id_field]

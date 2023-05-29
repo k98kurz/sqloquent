@@ -395,6 +395,26 @@ class TestRelations(unittest.TestCase):
             hasmany.save()
         assert str(e.exception) == 'cannot save incomplete HasMany'
 
+    def test_HasMany_save_changes_foreign_id_field_on_secondary(self):
+        hasmany = relations.HasMany(
+            'owner_id',
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
+        )
+        primary = self.OwnerModel.insert({'data': '321ads'})
+        secondary = self.OwnedModel.insert({'data':'321'})
+
+        hasmany.primary = primary
+        hasmany.secondary = [secondary]
+
+        assert secondary.data['owner_id'] == None
+        hasmany.save()
+        assert secondary.data['owner_id'] == primary.data['id']
+
+        reloaded = self.OwnedModel.find(secondary.data['id'])
+        assert reloaded.data['owner_id'] == primary.data['id']
+
+
     # BelongsTo tests
     def test_BelongsTo_extends_Relation(self):
         assert issubclass(relations.BelongsTo, relations.Relation)
