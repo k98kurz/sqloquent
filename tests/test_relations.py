@@ -439,6 +439,15 @@ class TestRelations(unittest.TestCase):
         assert secondary2.data['owner_id'] == primary2.data['id']
         assert secondary1.data['owner_id'] == ''
 
+    def test_HasMany_create_property_returns_property(self):
+        hasmany = relations.HasMany(
+            'owner_id',
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
+        )
+        prop = hasmany.create_property()
+
+        assert type(prop) is property
 
     # BelongsTo tests
     def test_BelongsTo_extends_Relation(self):
