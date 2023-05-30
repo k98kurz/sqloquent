@@ -765,29 +765,36 @@ class BelongsToMany(Relation):
         cache_key = self.get_cache_key()
 
 
-        class BelongsToManyWrapped(self.secondary_class):
-            def __call__(self) -> Relation:
-                return relation
+        class BelongsToManyTuple(tuple):
+            def __call__(self) -> BelongsToMany:
+                return self.relation
 
-        BelongsToManyWrapped.__name__ = f'BelongsToMany{self.secondary_class.__name__}'
+        BelongsToManyTuple.__name__ = f'BelongsToMany{self.secondary_class.__name__}'
 
 
         @property
         def secondary(self) -> ModelProtocol:
             if not hasattr(self, 'relations'):
-                self.relations = {cache_key: relation}
+                self.relations = {}
 
-            return [BelongsToManyWrapped(model.data) for model in relation.secondary]
+            if cache_key not in self.relations or \
+                self.relations[cache_key] is None or \
+                self.relations[cache_key].secondary is None:
+                return None
+
+            models = BelongsToManyTuple(self.relations[cache_key].secondary)
+            models.relation = self.relations[cache_key]
+            return models
 
         @secondary.setter
         def secondary(self, models: Optional[list[ModelProtocol]]) -> None:
             if not hasattr(self, 'relations'):
-                self.relations = {cache_key: relation}
+                self.relations = {}
 
-            if cache_key not in self.relations:
-                self.relations[cache_key] = relation
+            self.relations[cache_key] = deepcopy(relation)
 
-            relation.secondary = models
+            self.relations[cache_key].secondary = models
+            self.relations[cache_key].primary = self
 
         return secondary
 

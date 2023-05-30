@@ -850,6 +850,40 @@ class TestRelations(unittest.TestCase):
         assert pivot.data['first_id'] == primary2.data['id']
         assert pivot.data['second_id'] == secondary2.data['id']
 
+    def test_BelongsToMany_create_property_returns_property(self):
+        belongstomany = relations.BelongsToMany(
+            Pivot,
+            'first_id',
+            'second_id',
+            primary_class=self.OwnedModel,
+            secondary_class=self.OwnerModel
+        )
+        prop = belongstomany.create_property()
+
+        assert type(prop) is property
+
+    def test_BelongsToMany_property_wraps_input_class(self):
+        belongstomany = relations.BelongsToMany(
+            Pivot,
+            'first_id',
+            'second_id',
+            primary_class=self.OwnedModel,
+            secondary_class=self.OwnerModel
+        )
+        self.OwnedModel.owners = belongstomany.create_property()
+
+        owned = self.OwnedModel({'data': '321'})
+        owner = self.OwnerModel({'data': '123'})
+
+        assert owned.owners is None
+        owned.owners = [owner]
+        assert owned.owners is not None
+        assert isinstance(owned.owners, tuple)
+        assert owned.owners[0].data == owner.data
+
+        assert callable(owned.owners)
+        assert type(owned.owners()) is relations.BelongsToMany
+
 
 if __name__ == '__main__':
     unittest.main()
