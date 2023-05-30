@@ -555,9 +555,9 @@ class TestRelations(unittest.TestCase):
         owner = self.OwnerModel({'data': '123'})
         owned = self.OwnedModel({'data': '321'})
 
-        assert owner.owned is None
+        assert not owner.owned
         owner.owned = [owned]
-        assert owner.owned is not None
+        assert owner.owned
         assert isinstance(owner.owned, tuple)
         assert owner.owned[0].data == owned.data
 
@@ -1353,6 +1353,49 @@ class TestRelations(unittest.TestCase):
         owner2.owned().save()
         assert owner2.owned
         assert owner2.owned.data == owned2.data
+
+        owned2.owner().reload()
+        assert owned2.owner
+        assert owned2.owner.data == owner2.data
+
+    def test_HasMany_BelongsTo_e2e(self):
+        self.OwnerModel.__name__ = 'Owner'
+        self.OwnerModel.owned = relations.has_many(
+            self.OwnerModel,
+            self.OwnedModel
+        )
+        self.OwnedModel.owner = relations.belongs_to(
+            self.OwnedModel,
+            self.OwnerModel
+        )
+
+        owner1 = self.OwnerModel.insert({'data': 'owner1'})
+        owned1 = self.OwnedModel.insert({'data': 'owned1'})
+        owner2 = self.OwnerModel({'data': 'owner2'})
+        owned2 = self.OwnedModel({'data': 'owned2'})
+
+        assert owner1.owned().foreign_id_field == 'owner_id'
+
+        owner1.owned = [owned1]
+        owner1.owned().save()
+        owned1.owner().reload()
+        assert owned1.owner
+        assert owned1.owner.data == owner1.data
+        owned1.owner = owner2
+        owned1.owner().save()
+
+        owner2.owned().reload()
+        assert owner2.owned
+        assert owner2.owned[0].data == owned1.data
+
+        owner2.owned = [owned2]
+        owner2.owned().save()
+        assert owner2.owned
+        assert owner2.owned[0].data == owned2.data
+
+        owned2.owner().reload()
+        assert owned2.owner
+        assert owned2.owner.data == owner2.data
 
 
 if __name__ == '__main__':

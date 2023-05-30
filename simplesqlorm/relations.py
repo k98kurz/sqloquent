@@ -408,6 +408,9 @@ class HasMany(HasOne):
 
         qb = self.secondary_class.query()
         owner_id = self.primary.data[self.primary_class.id_field]
+        for model in self.secondary:
+            if self.secondary_class.id_field not in model.data:
+                model.save()
         owned_ids = [
             model.data[self.secondary_class.id_field]
             for model in self.secondary
@@ -448,6 +451,23 @@ class HasMany(HasOne):
                 inverse.secondary_to_add = []
                 inverse.secondary_to_remove = []
 
+    def reload(self) -> HasMany:
+        """Reload the relation from the database. Return self in monad pattern."""
+        self.primary_to_add = None
+        self.primary_to_remove = None
+        self.secondary_to_add = []
+        self.secondary_to_remove = []
+
+        if self.primary and self.primary_class.id_field in self.primary.data:
+            self._secondary = self.secondary_class.query({
+                self.foreign_id_field: self.primary.data[self.primary.id_field]
+            }).get()
+            return self
+
+        if self.secondary and self.foreign_id_field in self.secondary.data:
+            self._primary = self.primary_class.find(self.secondary.data[self.foreign_id_field])
+            return self
+
     def create_property(self) -> property:
         """Creates a property that can be used to set relation properties
             on models.
@@ -471,7 +491,14 @@ class HasMany(HasOne):
             if cache_key not in self.relations or \
                 self.relations[cache_key] is None or \
                 self.relations[cache_key].secondary is None:
-                return None
+                empty = HasManyTuple()
+
+                if cache_key not in self.relations or self.relations[cache_key] is None:
+                    self.relations[cache_key] = deepcopy(relation)
+                    self.relations[cache_key].primary = self
+
+                empty.relation = self.relations[cache_key]
+                return empty
 
             models = HasManyTuple(self.relations[cache_key].secondary)
             models.relation = self.relations[cache_key]
@@ -909,7 +936,7 @@ def has_one(cls: type[ModelProtocol], owned_model: type[ModelProtocol],
 def has_many(cls: type[ModelProtocol], owned_model: type[ModelProtocol],
              foreign_id_field: str = None) -> property:
     if foreign_id_field is None:
-        foreign_id_field = (f'{owned_model.__name__}_{owned_model.id_field}').lower()
+        foreign_id_field = (f'{cls.__name__}_{cls.id_field}').lower()
 
     relation = HasMany(foreign_id_field, primary_class=cls, secondary_class=owned_model)
     relation.inverse = BelongsTo(foreign_id_field, primary_class=owned_model, secondary_class=cls)
