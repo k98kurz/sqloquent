@@ -749,11 +749,11 @@ class TestRelations(unittest.TestCase):
             Pivot,
             'first_id',
             'second_id',
-            primary_class=self.OwnerModel,
-            secondary_class=self.OwnedModel
+            primary_class=self.OwnedModel,
+            secondary_class=self.OwnerModel
         )
-        primary = self.OwnerModel.insert({'data': '321ads'})
-        secondary = self.OwnedModel.insert({'data':'321'})
+        primary = self.OwnedModel.insert({'data': '321ads'})
+        secondary = self.OwnerModel.insert({'data':'321'})
 
         assert belongstomany.primary is None
         belongstomany.primary = primary
@@ -765,11 +765,22 @@ class TestRelations(unittest.TestCase):
 
         with self.assertRaises(AssertionError) as e:
             belongstomany.secondary = [primary]
-        assert str(e.exception) == 'secondary must be instance of OwnedModel'
+        assert str(e.exception) == 'secondary must be instance of OwnerModel'
 
         assert belongstomany.secondary is None
         belongstomany.secondary = [secondary]
         assert belongstomany.secondary[0] == secondary
+
+    def test_BelongsToMany_get_cache_key_includes_foreign_id_field(self):
+        belongstomany = relations.BelongsToMany(
+            Pivot,
+            'first_id',
+            'second_id',
+            primary_class=self.OwnedModel,
+            secondary_class=self.OwnerModel
+        )
+        cache_key = belongstomany.get_cache_key()
+        assert cache_key == 'OwnedModel_BelongsToMany_OwnerModel_Pivot'
 
 
 if __name__ == '__main__':
