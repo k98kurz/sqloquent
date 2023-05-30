@@ -242,8 +242,6 @@ class HasOne(Relation):
                 self.foreign_id_field: owner_id
             })
             qb.reset()
-            # set the inverse relation on secondary models if applicable
-            # @todo
 
         # handle addition
         if self.primary is not None and self.secondary is not None:
@@ -255,13 +253,18 @@ class HasOne(Relation):
             qb.equal(self.secondary_class.id_field, owned_id).update({
                 self.foreign_id_field: owner_id
             })
-            # set the inverse relation on secondary models if applicable
-            # @todo
 
         self.primary_to_add = None
         self.primary_to_remove = None
         self.secondary_to_add = []
         self.secondary_to_remove = []
+
+        # set the inverse relation on secondary models if applicable
+        if hasattr(self, 'inverse') and self.inverse:
+            self.inverse.primary_to_add = None
+            self.inverse.primary_to_remove = None
+            self.inverse.secondary_to_add = []
+            self.inverse.secondary_to_remove = []
 
     def get_cache_key(self) -> str:
         return f'{super().get_cache_key()}_{self.foreign_id_field}'

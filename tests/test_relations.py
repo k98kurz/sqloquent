@@ -215,6 +215,35 @@ class TestRelations(unittest.TestCase):
         reloaded = self.OwnedModel.find(secondary.data['id'])
         assert reloaded.data['owner_id'] == primary.data['id']
 
+    def test_HasOne_save_unsets_change_tracking_properties(self):
+        hasone = relations.HasOne(
+            'owner_id',
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
+        )
+        primary = self.OwnerModel.insert({'data': '321ads'})
+        primary2 = self.OwnerModel.insert({'data': 'sdsdsd'})
+        secondary = self.OwnedModel.insert({'data':'321'})
+        secondary2 = self.OwnedModel.insert({'data':'321asds'})
+
+        hasone.primary = primary
+        hasone.secondary = secondary
+        hasone.save()
+        hasone.primary = primary2
+
+        assert hasone.primary_to_add is not None
+        assert hasone.primary_to_remove is not None
+        hasone.save()
+        assert hasone.primary_to_add is None
+        assert hasone.primary_to_remove is None
+
+        hasone.secondary = secondary2
+        assert len(hasone.secondary_to_add)
+        assert len(hasone.secondary_to_remove)
+        hasone.save()
+        assert not len(hasone.secondary_to_add)
+        assert not len(hasone.secondary_to_remove)
+
     def test_HasOne_changing_primary_and_secondary_updates_models_correctly(self):
         hasone = relations.HasOne(
             'owner_id',
@@ -357,7 +386,7 @@ class TestRelations(unittest.TestCase):
         assert owner.owned().inverse.primary.data == owner.owned.data
         assert owner.owned().inverse.secondary.data == owner.data
 
-    def test_HasOne_save_affects_inverse(self):
+    def test_HasOne_changes_affect_inverse(self):
         self.OwnerModel.owned = relations.has_one(
             self.OwnerModel,
             self.OwnedModel,
@@ -366,11 +395,21 @@ class TestRelations(unittest.TestCase):
 
         owner = self.OwnerModel.insert({'data': '321'})
         owned = self.OwnedModel.insert({'data': '321'})
+        owned2 = self.OwnedModel.insert({'data': '123'})
         owner.owned = owned
+        assert len(owner.owned().inverse.secondary_to_add)
         owner.owned().save()
 
         assert owner.owned().inverse.primary.data == owner.owned.data
         assert owner.owned.data == owned.data
+        assert not len(owner.owned().inverse.secondary_to_add)
+
+        owner.owned = owned2
+        assert len(owner.owned().secondary_to_add)
+        assert len(owner.owned().inverse.secondary_to_add)
+        owner.owned().save()
+        assert not len(owner.owned().secondary_to_add)
+        assert not len(owner.owned().inverse.secondary_to_add)
 
     # HasMany tests
     def test_HasMany_extends_Relation(self):
@@ -455,6 +494,35 @@ class TestRelations(unittest.TestCase):
 
         reloaded = self.OwnedModel.find(secondary.data['id'])
         assert reloaded.data['owner_id'] == primary.data['id']
+
+    def test_HasMany_save_unsets_change_tracking_properties(self):
+        hasmany = relations.HasMany(
+            'owner_id',
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
+        )
+        primary = self.OwnerModel.insert({'data': '321ads'})
+        primary2 = self.OwnerModel.insert({'data': 'sdsdsd'})
+        secondary = self.OwnedModel.insert({'data':'321'})
+        secondary2 = self.OwnedModel.insert({'data':'321asds'})
+
+        hasmany.primary = primary
+        hasmany.secondary = [secondary]
+        hasmany.save()
+        hasmany.primary = primary2
+
+        assert hasmany.primary_to_add is not None
+        assert hasmany.primary_to_remove is not None
+        hasmany.save()
+        assert hasmany.primary_to_add is None
+        assert hasmany.primary_to_remove is None
+
+        hasmany.secondary = [secondary2]
+        assert len(hasmany.secondary_to_add)
+        assert len(hasmany.secondary_to_remove)
+        hasmany.save()
+        assert not len(hasmany.secondary_to_add)
+        assert not len(hasmany.secondary_to_remove)
 
     def test_HasMany_changing_primary_and_secondary_updates_models_correctly(self):
         hasmany = relations.HasMany(
@@ -649,6 +717,35 @@ class TestRelations(unittest.TestCase):
 
         reloaded = self.OwnedModel.find(primary.data['id'])
         assert reloaded.data['owner_id'] == secondary.data['id']
+
+    def test_BelongsTo_save_unsets_change_tracking_properties(self):
+        belongsto = relations.BelongsTo(
+            'owner_id',
+            primary_class=self.OwnedModel,
+            secondary_class=self.OwnerModel
+        )
+        primary = self.OwnedModel.insert({'data':'321'})
+        primary2 = self.OwnedModel.insert({'data':'321asds'})
+        secondary = self.OwnerModel.insert({'data': '321ads'})
+        secondary2 = self.OwnerModel.insert({'data': 'sdsdsd'})
+
+        belongsto.primary = primary
+        belongsto.secondary = secondary
+        belongsto.save()
+        belongsto.primary = primary2
+
+        assert belongsto.primary_to_add is not None
+        assert belongsto.primary_to_remove is not None
+        belongsto.save()
+        assert belongsto.primary_to_add is None
+        assert belongsto.primary_to_remove is None
+
+        belongsto.secondary = secondary2
+        assert len(belongsto.secondary_to_add)
+        assert len(belongsto.secondary_to_remove)
+        belongsto.save()
+        assert not len(belongsto.secondary_to_add)
+        assert not len(belongsto.secondary_to_remove)
 
     def test_BelongsTo_changing_primary_and_secondary_updates_models_correctly(self):
         belongsto = relations.BelongsTo(
@@ -857,6 +954,37 @@ class TestRelations(unittest.TestCase):
         assert Pivot.query().count() == 1
         belongstomany.save()
         assert Pivot.query().count() == 1
+
+    def test_BelongsToMany_save_unsets_change_tracking_properties(self):
+        belongstomany = relations.BelongsToMany(
+            Pivot,
+            'first_id',
+            'second_id',
+            primary_class=self.OwnedModel,
+            secondary_class=self.OwnerModel
+        )
+        primary = self.OwnedModel.insert({'data':'321'})
+        primary2 = self.OwnedModel.insert({'data':'321asds'})
+        secondary = self.OwnerModel.insert({'data': '321ads'})
+        secondary2 = self.OwnerModel.insert({'data': 'sdsdsd'})
+
+        belongstomany.primary = primary
+        belongstomany.secondary = [secondary]
+        belongstomany.save()
+        belongstomany.primary = primary2
+
+        assert belongstomany.primary_to_add is not None
+        assert belongstomany.primary_to_remove is not None
+        belongstomany.save()
+        assert belongstomany.primary_to_add is None
+        assert belongstomany.primary_to_remove is None
+
+        belongstomany.secondary = [secondary2]
+        assert len(belongstomany.secondary_to_add)
+        assert len(belongstomany.secondary_to_remove)
+        belongstomany.save()
+        assert not len(belongstomany.secondary_to_add)
+        assert not len(belongstomany.secondary_to_remove)
 
     def test_BelongsToMany_changing_primary_and_secondary_updates_models_correctly(self):
         belongstomany = relations.BelongsToMany(
