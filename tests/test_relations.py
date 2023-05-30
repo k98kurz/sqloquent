@@ -884,6 +884,72 @@ class TestRelations(unittest.TestCase):
         assert callable(owned.owners)
         assert type(owned.owners()) is relations.BelongsToMany
 
+    def test_BelongsToMany_save_changes_only_foreign_id_field_in_db(self):
+        belongstomany = relations.BelongsToMany(
+            Pivot,
+            'first_id',
+            'second_id',
+            primary_class=self.OwnedModel,
+            secondary_class=self.OwnerModel
+        )
+        self.OwnedModel.owners = belongstomany.create_property()
+
+        owned = self.OwnedModel.insert({'data': '123'})
+        owner = self.OwnerModel.insert({'data': '321'})
+        owned.owners = [owner]
+        owned.owners[0].data['data'] = 'abc'
+        assert Pivot.query().count() == 0
+        owned.owners().save()
+
+        owner.reload()
+        assert owner.data['data'] == '321'
+        assert Pivot.query().count() == 1
+
+    def test_many_to_many_function_sets_property_from_BelongsToMany(self):
+        self.OwnedModel.owners = relations.many_to_many(
+            self.OwnedModel,
+            self.OwnerModel,
+            Pivot,
+            'first_id',
+            'second_id',
+        )
+
+        assert type(self.OwnedModel.owners) is property
+
+        owned = self.OwnedModel.insert({'data': '321'})
+        owner = self.OwnerModel.insert({'data': '123'})
+        owned.owners = [owner]
+
+        assert callable(owned.owners)
+        assert type(owned.owners()) is relations.BelongsToMany
+
+        owned.owners().save()
+
+    def test_BelongsToMany_works_with_multiple_instances(self):
+        self.OwnedModel.owners = relations.many_to_many(
+            self.OwnedModel,
+            self.OwnerModel,
+            Pivot,
+            'first_id',
+            'second_id',
+        )
+
+        owned1 = self.OwnedModel.insert({'data': 'owned1'})
+        owned2 = self.OwnedModel.insert({'data': 'owned2'})
+        owner1 = self.OwnerModel.insert({'data': 'owner1'})
+        owner2 = self.OwnerModel.insert({'data': 'owner2'})
+
+        owned1.owners = [owner1]
+        owned1.owners().save()
+
+        owned2.owners = [owner2]
+        owned2.owners().save()
+
+        assert owned1.relations != owned2.relations
+        assert owned1.owners() is not owned2.owners()
+        assert owned1.owners[0].data['id'] == owner1.data['id']
+        assert owned2.owners[0].data['id'] == owner2.data['id']
+
 
 if __name__ == '__main__':
     unittest.main()
