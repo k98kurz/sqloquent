@@ -1271,6 +1271,68 @@ class TestRelations(unittest.TestCase):
         assert owned1.owners[0].data['id'] == owner1.data['id']
         assert owned2.owners[0].data['id'] == owner2.data['id']
 
+    def test_many_to_many_function_sets_inverse(self):
+        self.OwnerModel.owned = relations.many_to_many(
+            self.OwnerModel,
+            self.OwnedModel,
+            Pivot,
+            'first_id',
+            'second_id'
+        )
+
+        owner = self.OwnerModel.insert({'data': '321'})
+        owned = self.OwnedModel.insert({'data': '321'})
+        owner.owned = [owned]
+
+        assert hasattr(owner.owned(), 'inverse')
+        assert isinstance(owner.owned().inverse, list)
+        for inverse in owner.owned().inverse:
+            assert isinstance(inverse, relations.BelongsToMany)
+
+    def test_many_to_many_function_inverse_sets_primary_and_secondary(self):
+        self.OwnerModel.owned = relations.many_to_many(
+            self.OwnerModel,
+            self.OwnedModel,
+            Pivot,
+            'first_id',
+            'second_id'
+        )
+
+        owner = self.OwnerModel.insert({'data': '321'})
+        owned = self.OwnedModel.insert({'data': '321'})
+        owner.owned = [owned]
+
+        assert owner.owned().inverse[0].primary.data == owner.owned[0].data
+        assert owner.owned().inverse[0].secondary[0].data == owner.data
+
+    def test_BelongsTo_changes_affect_inverses(self):
+        self.OwnerModel.owned = relations.many_to_many(
+            self.OwnerModel,
+            self.OwnedModel,
+            Pivot,
+            'first_id',
+            'second_id'
+        )
+
+        owner = self.OwnerModel.insert({'data': '321'})
+        owned = self.OwnedModel.insert({'data': '321'})
+        owned2 = self.OwnedModel.insert({'data': '123'})
+        owner.owned = [owned]
+        assert len(owner.owned().inverse[0].secondary_to_add)
+        owner.owned().save()
+
+        assert owner.owned().inverse[0].primary.data == owner.owned[0].data
+        assert owner.owned[0].data == owned.data
+        assert not len(owner.owned().inverse[0].secondary_to_add)
+
+        owner.owned = [owned2]
+        assert owner.owned().inverse[0].primary.data == owned2.data
+        assert len(owner.owned().secondary_to_add)
+        assert len(owner.owned().inverse[0].secondary_to_add)
+        owner.owned().save()
+        assert not len(owner.owned().secondary_to_add)
+        assert not len(owner.owned().inverse[0].secondary_to_add)
+
 
 if __name__ == '__main__':
     unittest.main()

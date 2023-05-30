@@ -792,6 +792,14 @@ class BelongsToMany(Relation):
         self.secondary_to_add = []
         self.secondary_to_remove = []
 
+        # set the inverse relations on secondary models if applicable
+        if hasattr(self, 'inverse') and self.inverse and len(self.inverse):
+            for inverse in self.inverse:
+                inverse.primary_to_add = None
+                inverse.primary_to_remove = None
+                inverse.secondary_to_add = []
+                inverse.secondary_to_remove = []
+
     def get_cache_key(self) -> str:
         return f'{super().get_cache_key()}_{self.pivot.__name__}'
 
@@ -830,9 +838,16 @@ class BelongsToMany(Relation):
                 self.relations = {}
 
             self.relations[cache_key] = deepcopy(relation)
-
             self.relations[cache_key].secondary = models
             self.relations[cache_key].primary = self
+
+            if hasattr(relation, 'inverse') and relation.inverse:
+                self.relations[cache_key].inverse = []
+                for model in models:
+                    inverse = deepcopy(relation.inverse)
+                    inverse.primary = model
+                    inverse.secondary = [self]
+                    self.relations[cache_key].inverse.append(inverse)
 
         return secondary
 
