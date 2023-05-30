@@ -1181,9 +1181,9 @@ class TestRelations(unittest.TestCase):
         owned = self.OwnedModel({'data': '321'})
         owner = self.OwnerModel({'data': '123'})
 
-        assert owned.owners is None
+        assert not owned.owners
         owned.owners = [owner]
-        assert owned.owners is not None
+        assert owned.owners
         assert isinstance(owned.owners, tuple)
         assert owned.owners[0].data == owner.data
 
@@ -1358,6 +1358,16 @@ class TestRelations(unittest.TestCase):
         assert owned2.owner
         assert owned2.owner.data == owner2.data
 
+        hasone = relations.HasOne(
+            'owner_id',
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel,
+        )
+        hasone.secondary = owned2
+        hasone.reload()
+        assert hasone.primary
+        assert hasone.primary == owner2
+
     def test_HasMany_BelongsTo_e2e(self):
         self.OwnerModel.__name__ = 'Owner'
         self.OwnerModel.owned = relations.has_many(
@@ -1388,14 +1398,66 @@ class TestRelations(unittest.TestCase):
         assert owner2.owned
         assert owner2.owned[0].data == owned1.data
 
-        owner2.owned = [owned2]
+        owner2.owned = [owned1, owned2]
         owner2.owned().save()
         assert owner2.owned
-        assert owner2.owned[0].data == owned2.data
+        assert owner2.owned == (owned1, owned2)
 
         owned2.owner().reload()
         assert owned2.owner
         assert owned2.owner.data == owner2.data
+
+        hasmany = relations.HasMany(
+            'owner_id',
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel,
+        )
+        hasmany.secondary = [owned1, owned2]
+        hasmany.reload()
+        assert hasmany.primary
+        assert hasmany.primary == owner2
+
+    def test_BelongsToMany_e2e(self):
+        self.OwnedModel.owned = relations.many_to_many(
+            self.OwnedModel,
+            self.OwnedModel,
+            Pivot,
+            'first_id',
+            'second_id',
+        )
+        self.OwnedModel.owners = relations.many_to_many(
+            self.OwnedModel,
+            self.OwnedModel,
+            Pivot,
+            'second_id',
+            'first_id',
+        )
+
+        owned1 = self.OwnedModel.insert({'data': '1'})
+        owned2 = self.OwnedModel.insert({'data': '2'})
+        owned3 = self.OwnedModel.insert({'data': '3'})
+
+        owned1.owned = [owned2, owned3]
+        assert owned1.owned
+        assert owned1.owned == (owned2, owned3)
+        owned1.owned().save()
+
+        owned2.owners().reload()
+        assert owned2.owners
+        assert owned2.owners == (owned1,)
+
+        belongstomany = relations.BelongsToMany(
+            Pivot,
+            'first_id',
+            'second_id',
+            primary_class=self.OwnedModel,
+            secondary_class=self.OwnedModel,
+        )
+
+        belongstomany.secondary = [owned2, owned3]
+        belongstomany.reload()
+        assert belongstomany.primary
+        assert belongstomany.primary == owned1
 
 
 if __name__ == '__main__':

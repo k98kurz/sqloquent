@@ -464,8 +464,8 @@ class HasMany(HasOne):
             }).get()
             return self
 
-        if self.secondary and self.foreign_id_field in self.secondary.data:
-            self._primary = self.primary_class.find(self.secondary.data[self.foreign_id_field])
+        if self.secondary:
+            self._primary = self.primary_class.find(self.secondary[0].data[self.foreign_id_field])
             return self
 
     def create_property(self) -> property:
@@ -871,6 +871,47 @@ class BelongsToMany(Relation):
                 inverse.secondary_to_add = []
                 inverse.secondary_to_remove = []
 
+    def reload(self) -> BelongsToMany:
+        """Reload the relation from the database. Return self in monad pattern."""
+        self.primary_to_add = None
+        self.primary_to_remove = None
+        self.secondary_to_add = []
+        self.secondary_to_remove = []
+
+        if self.primary and self.primary_class.id_field in self.primary.data:
+            pivots = self.pivot.query({
+                self.primary_id_field: self.primary.data[self.primary.id_field]
+            }).get()
+            self._secondary = self.secondary_class.query().is_in(
+                self.secondary_class.id_field,
+                [pivot.data[self.secondary_id_field] for pivot in pivots]
+            ).get()
+            return self
+
+        if self.secondary and len(self.secondary):
+            for model in self.secondary:
+                if self.secondary_class.id_field not in model.data:
+                    model.save()
+
+            pivots = self.pivot.query().is_in(
+                self.secondary_id_field,
+                [model.data[model.id_field] for model in self.secondary]
+            ).order_by(self.primary_id_field).get()
+
+            primary_ids = [pivot.data[self.primary_id_field] for pivot in pivots]
+            uniques = list(set(primary_ids))
+
+            for id in uniques:
+                subset = [
+                    pivot for pivot in pivots
+                    if pivot.data[self.primary_id_field] == id
+                ]
+                if len(subset) == len(self.secondary):
+                    self._primary = self.primary_class.query().find(id)
+                    return self
+
+            return self
+
     def get_cache_key(self) -> str:
         return f'{super().get_cache_key()}_{self.pivot.__name__}'
 
@@ -897,7 +938,14 @@ class BelongsToMany(Relation):
             if cache_key not in self.relations or \
                 self.relations[cache_key] is None or \
                 self.relations[cache_key].secondary is None:
-                return None
+                empty = BelongsToManyTuple()
+
+                if cache_key not in self.relations or self.relations[cache_key] is None:
+                    self.relations[cache_key] = deepcopy(relation)
+                    self.relations[cache_key].primary = self
+
+                empty.relation = self.relations[cache_key]
+                return empty
 
             models = BelongsToManyTuple(self.relations[cache_key].secondary)
             models.relation = self.relations[cache_key]
