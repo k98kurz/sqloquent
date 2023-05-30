@@ -575,6 +575,7 @@ class BelongsToMany(Relation):
 
         if not self._secondary:
             self._secondary = secondary
+            self.secondary_to_add = secondary
             return
 
         for item in self._secondary:
@@ -698,11 +699,16 @@ class BelongsToMany(Relation):
             item.data[item.id_field] for item in primary_for_delete
             if item is not None
         ]
-        query_builder = self.query_builder_pivot(self.pivot) or self.pivot.query()
+
+        if self.query_builder_pivot:
+            query_builder = self.query_builder_pivot(self.pivot)
+        else:
+            query_builder = self.pivot.query()
 
         must_remove_secondary = len(secondary_ids_to_remove) > 0 and len(primary_ids_for_delete) > 0
         must_remove_primary = self.primary_to_remove is not None
-        must_add_secondary = len(secondary_ids_to_add) > 0 and (self.primary or self.primary_to_add)
+        must_add_secondary = len(secondary_ids_to_add) > 0 and \
+            (self.primary or self.primary_to_add) is not None
         must_add_primary = self.primary_to_add is not None
 
         if must_remove_secondary:

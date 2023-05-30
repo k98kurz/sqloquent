@@ -795,6 +795,26 @@ class TestRelations(unittest.TestCase):
             belongstomany.save()
         assert str(e.exception) == 'cannot save incomplete BelongsToMany'
 
+    def test_BelongsToMany_save_changes_foreign_id_field_on_secondary(self):
+        belongstomany = relations.BelongsToMany(
+            Pivot,
+            'first_id',
+            'second_id',
+            primary_class=self.OwnedModel,
+            secondary_class=self.OwnerModel
+        )
+        primary = self.OwnedModel.insert({'data': '321ads'})
+        secondary = self.OwnerModel.insert({'data':'321'})
+
+        belongstomany.primary = primary
+        belongstomany.secondary = [secondary]
+
+        assert Pivot.query().count() == 0
+        belongstomany.save()
+        assert Pivot.query().count() == 1
+        belongstomany.save()
+        assert Pivot.query().count() == 1
+
 
 if __name__ == '__main__':
     unittest.main()
