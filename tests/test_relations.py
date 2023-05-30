@@ -815,6 +815,41 @@ class TestRelations(unittest.TestCase):
         belongstomany.save()
         assert Pivot.query().count() == 1
 
+    def test_BelongsToMany_changing_primary_and_secondary_updates_models_correctly(self):
+        belongstomany = relations.BelongsToMany(
+            Pivot,
+            'first_id',
+            'second_id',
+            primary_class=self.OwnedModel,
+            secondary_class=self.OwnerModel
+        )
+        primary1 = self.OwnedModel.insert({'data': '321ads'})
+        primary2 = self.OwnedModel.insert({'data': '12332'})
+        secondary1 = self.OwnerModel.insert({'data':'321'})
+        secondary2 = self.OwnerModel.insert({'data':'afgbfb'})
+
+        belongstomany.primary = primary1
+        belongstomany.secondary = [secondary1]
+        belongstomany.save()
+        pivot = Pivot.query().first()
+        assert pivot is not None
+        assert pivot.data['first_id'] == primary1.data['id']
+        assert pivot.data['second_id'] == secondary1.data['id']
+
+        belongstomany.primary = primary2
+        belongstomany.save()
+        assert Pivot.query().count() == 1
+        pivot = Pivot.query().first()
+        assert pivot.data['first_id'] == primary2.data['id']
+        assert pivot.data['second_id'] == secondary1.data['id']
+
+        belongstomany.secondary = [secondary2]
+        belongstomany.save()
+        assert Pivot.query().count() == 1
+        pivot = Pivot.query().first()
+        assert pivot.data['first_id'] == primary2.data['id']
+        assert pivot.data['second_id'] == secondary2.data['id']
+
 
 if __name__ == '__main__':
     unittest.main()

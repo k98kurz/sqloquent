@@ -723,7 +723,7 @@ class BelongsToMany(Relation):
         if must_remove_primary:
             query_builder.reset().equal(
                 self.primary_id_field,
-                self.primary_to_remove[self.primary_class.id_field]
+                self.primary_to_remove.data[self.primary_class.id_field]
             ).is_in(
                 self.secondary_id_field,
                 secondary_ids_to_remove + [
