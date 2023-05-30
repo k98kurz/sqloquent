@@ -280,7 +280,6 @@ class TestRelations(unittest.TestCase):
 
         owner = self.OwnerModel.insert({'data': '123'})
         owned = self.OwnedModel.insert({'data': '321'})
-        hasone.primary = owner
         owner.owned = owned
         owner.owned.data['data'] = 'abc'
         owner.owned().save()
@@ -479,7 +478,6 @@ class TestRelations(unittest.TestCase):
 
         owner = self.OwnerModel.insert({'data': '123'})
         owned = self.OwnedModel.insert({'data': '321'})
-        hasmany.primary = owner
         owner.owned = [owned]
         owner.owned[0].data['data'] = 'abc'
         owner.owned().save()
@@ -663,6 +661,66 @@ class TestRelations(unittest.TestCase):
 
         assert callable(owned.owner)
         assert type(owned.owner()) is relations.BelongsTo
+
+    def test_BelongsTo_save_changes_only_foreign_id_field_in_db(self):
+        belongsto = relations.BelongsTo(
+            'owner_id',
+            primary_class=self.OwnedModel,
+            secondary_class=self.OwnerModel
+        )
+        self.OwnedModel.owner = belongsto.create_property()
+
+        owned = self.OwnedModel.insert({'data': '123'})
+        owner = self.OwnerModel.insert({'data': '321'})
+        owned.owner = owner
+        owned.owner.data['data'] = 'abc'
+        owned.owner().save()
+
+        owner.reload()
+        assert owner.data['data'] == '321'
+        assert owned.data['owner_id'] == owner.data['id']
+
+    def test_belongs_to_function_sets_property_from_BelongsTo(self):
+        self.OwnedModel.owner = relations.belongs_to(
+            self.OwnedModel,
+            self.OwnerModel,
+            'owner_id'
+        )
+
+        assert type(self.OwnedModel.owner) is property
+
+        owned = self.OwnedModel.insert({'data': '321'})
+        owner = self.OwnerModel.insert({'data': '123'})
+        owned.owner = owner
+
+        assert callable(owned.owner)
+        assert type(owned.owner()) is relations.BelongsTo
+
+        owned.owner().save()
+
+    def test_BelongsTo_works_with_multiple_instances(self):
+        self.OwnedModel.owner = relations.belongs_to(
+            self.OwnedModel,
+            self.OwnerModel,
+            'owner_id'
+        )
+
+        owned1 = self.OwnedModel.insert({'data': 'owned1'})
+        owned2 = self.OwnedModel.insert({'data': 'owned2'})
+        owner1 = self.OwnerModel.insert({'data': 'owner1'})
+        owner2 = self.OwnerModel.insert({'data': 'owner2'})
+
+        owned1.owner = owner1
+        owned1.owner().save()
+
+        owned2.owner = owner2
+        owned2.owner().save()
+
+        assert owner1.relations != owner2.relations
+        assert owned1.owner() is not owned2.owner()
+        assert owned1.owner.data['id'] == owner1.data['id']
+        assert owned2.owner.data['id'] == owner2.data['id']
+
 
     # BelongsToMany tests
     def test_BelongsToMany_extends_Relation(self):
