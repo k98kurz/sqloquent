@@ -726,6 +726,24 @@ class TestRelations(unittest.TestCase):
     def test_BelongsToMany_extends_Relation(self):
         assert issubclass(relations.BelongsToMany, relations.Relation)
 
+    def test_BelongsToMany_initializes_properly(self):
+        belongstomany = relations.BelongsToMany(
+            Pivot,
+            'first_id',
+            'second_id',
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
+        )
+        assert isinstance(belongstomany, relations.BelongsToMany)
+
+        with self.assertRaises(AssertionError) as e:
+            relations.BelongsToMany(
+                Pivot,
+                b'not a str',
+                'second_id'
+            )
+        assert str(e.exception) == 'primary_id_field and secondary_id_field must be str'
+
 
 if __name__ == '__main__':
     unittest.main()

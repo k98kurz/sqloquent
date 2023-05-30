@@ -559,8 +559,9 @@ class BelongsToMany(Relation):
         if self.primary_to_remove and self._secondary:
             self.save()
 
-        if secondary is None and self._secondary:
-            self.secondary_to_remove.extend(self._secondary)
+        if secondary is None:
+            if self._secondary:
+                self.secondary_to_remove.extend(self._secondary)
             self._secondary = None
             return
 
