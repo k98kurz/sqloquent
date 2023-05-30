@@ -568,10 +568,14 @@ class BelongsToMany(Relation):
         self.multi_model_precondition(secondary)
         for model in secondary:
             assert isinstance(model, self.secondary_class), \
-                f'each secondary model must be instance of {self.secondary_class}'
+                f'secondary must be instance of {self.secondary_class.__name__}'
 
         if secondary != self._secondary:
             self.unsaved_changes = True
+
+        if not self._secondary:
+            self._secondary = secondary
+            return
 
         for item in self._secondary:
             if item not in secondary and item not in self.secondary_to_add:

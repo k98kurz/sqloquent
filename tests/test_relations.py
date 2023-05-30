@@ -744,6 +744,33 @@ class TestRelations(unittest.TestCase):
             )
         assert str(e.exception) == 'primary_id_field and secondary_id_field must be str'
 
+    def test_BelongsToMany_sets_primary_and_secondary_correctly(self):
+        belongstomany = relations.BelongsToMany(
+            Pivot,
+            'first_id',
+            'second_id',
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
+        )
+        primary = self.OwnerModel.insert({'data': '321ads'})
+        secondary = self.OwnedModel.insert({'data':'321'})
+
+        assert belongstomany.primary is None
+        belongstomany.primary = primary
+        assert belongstomany.primary is primary
+
+        with self.assertRaises(AssertionError) as e:
+            belongstomany.secondary = secondary
+        assert str(e.exception) == 'must be a list of ModelProtocol'
+
+        with self.assertRaises(AssertionError) as e:
+            belongstomany.secondary = [primary]
+        assert str(e.exception) == 'secondary must be instance of OwnedModel'
+
+        assert belongstomany.secondary is None
+        belongstomany.secondary = [secondary]
+        assert belongstomany.secondary[0] == secondary
+
 
 if __name__ == '__main__':
     unittest.main()
