@@ -246,14 +246,6 @@ class RelationProtocol(Protocol):
         """Checks preconditions for a pivot."""
         ...
 
-    def set_primary(self, primary: ModelProtocol) -> RelationProtocol:
-        """Sets the primary model instance and returns self in monad pattern."""
-        ...
-
-    def set_secondary(self, secondary: ModelProtocol|list[ModelProtocol]) -> RelationProtocol:
-        """Sets the secondary model instance(s) and returns self in monad pattern."""
-        ...
-
     def save(self) -> None:
         """Save the relation by setting/unsetting relevant database values."""
         ...
