@@ -106,16 +106,6 @@ class Relation:
         assert isinstance(pivot, type), \
             'pivot must be class implementing ModelProtocol'
 
-    def set_primary(self, primary: ModelProtocol) -> Relation:
-        """Sets the primary model instance and returns self in monad pattern."""
-        self.primary = primary
-        return self
-
-    def set_secondary(self, secondary: ModelProtocol|list[ModelProtocol]) -> HasOne:
-        """Sets the secondary model instance(s) and returns self in monad pattern."""
-        self.secondary = secondary
-        return self
-
     @abstractmethod
     def save(self) -> None:
         """Save the relation by setting/unsetting the relevant database
@@ -125,8 +115,8 @@ class Relation:
         pass
 
     @abstractmethod
-    def reload(self) -> None:
-        """Reload the secondary models from the database."""
+    def reload(self) -> Relation:
+        """Reload the relation from the database. Return self in monad pattern."""
         pass
 
     def get_cache_key(self) -> str:
@@ -246,6 +236,10 @@ class HasOne(Relation):
         # handle addition
         if self.primary is not None and self.secondary is not None:
             # add relation where both primary and secondary are added
+            if self.primary_class.id_field not in self._primary.data:
+                self._primary.save()
+            if self.secondary_class.id_field not in self._secondary.data:
+                self._secondary.save()
             owner_id = self._primary.data[self.primary_class.id_field]
             owned_id = self._secondary.data[self.secondary_class.id_field]
             self._secondary.data[self.foreign_id_field] = owner_id
@@ -265,6 +259,24 @@ class HasOne(Relation):
             self.inverse.primary_to_remove = None
             self.inverse.secondary_to_add = []
             self.inverse.secondary_to_remove = []
+            self.inverse.reload()
+
+    def reload(self) -> HasOne:
+        """Reload the relation from the database. Return self in monad pattern."""
+        self.primary_to_add = None
+        self.primary_to_remove = None
+        self.secondary_to_add = []
+        self.secondary_to_remove = []
+
+        if self.primary and self.primary_class.id_field in self.primary.data:
+            self._secondary = self.secondary_class.query({
+                self.foreign_id_field: self.primary.data[self.primary.id_field]
+            }).first()
+            return self
+
+        if self.secondary and self.foreign_id_field in self.secondary.data:
+            self._primary = self.primary_class.find(self.secondary.data[self.foreign_id_field])
+            return self
 
     def get_cache_key(self) -> str:
         return f'{super().get_cache_key()}_{self.foreign_id_field}'
@@ -280,6 +292,8 @@ class HasOne(Relation):
         class HasOneWrapped(self.secondary_class):
             def __call__(self) -> Relation:
                 return self.relations[f'{cache_key}_inverse']
+            def __bool__(self) -> bool:
+                return len(self.data.keys()) > 0
 
         HasOneWrapped.__name__ = f'HasOne{self.secondary_class.__name__}'
 
@@ -288,14 +302,28 @@ class HasOne(Relation):
         def secondary(self) -> ModelProtocol:
             if not hasattr(self, 'relations'):
                 self.relations = {}
+            if not hasattr(self, 'setters'):
+                self.setters = {}
+
+            self.setters[cache_key] = secondary.setter
 
             if cache_key not in self.relations or \
                 self.relations[cache_key] is None or \
                 self.relations[cache_key].secondary is None:
-                return None
+                empty = HasOneWrapped({})
+
+                if cache_key not in self.relations or self.relations[cache_key] is None:
+                    self.relations[cache_key] = deepcopy(relation)
+                    self.relations[cache_key].primary = self
+
+                empty.relations = {}
+                empty.relations[f'{cache_key}_inverse'] = self.relations[cache_key]
+                return empty
 
             model = HasOneWrapped(self.relations[cache_key].secondary.data)
-            model.relations = self.relations[cache_key].secondary.relations
+            if hasattr(self.relations[cache_key].secondary, 'relations'):
+                model.relations = self.relations[cache_key].secondary.relations
+
             return model
 
         @secondary.setter
@@ -372,11 +400,6 @@ class HasMany(HasOne):
             self.secondary_to_remove = []
 
         self._secondary = tuple(secondary)
-
-    def set_secondary(self, secondary: list[ModelProtocol]) -> HasMany:
-        """Sets the secondary model instances."""
-        self.secondary = secondary
-        return self
 
     def save(self) -> None:
         """Save the relation by setting the relevant database value(s)."""
@@ -484,6 +507,9 @@ class BelongsTo(HasOne):
         assert self._primary is not None, 'cannot save incomplete BelongsTo'
         assert self._secondary is not None, 'cannot save incomplete BelongsTo'
 
+        if self.secondary_class.id_field not in self._secondary.data:
+            self._secondary.save()
+
         owner_id = self._secondary.data[self.secondary_class.id_field]
 
         self._primary.update({
@@ -507,6 +533,23 @@ class BelongsTo(HasOne):
             self.inverse.secondary_to_add = []
             self.inverse.secondary_to_remove = []
 
+    def reload(self) -> BelongsTo:
+        """Reload the relation from the database. Return self in monad pattern."""
+        self.primary_to_add = None
+        self.primary_to_remove = None
+        self.secondary_to_add = []
+        self.secondary_to_remove = []
+
+        if self.primary and self.foreign_id_field in self.primary.data:
+            self._secondary = self.secondary_class.find(self.primary.data[self.foreign_id_field])
+            return self
+
+        if self.secondary and self.secondary_class.id_field in self.secondary.data:
+            self._primary = self.primary_class.query({
+                self.foreign_id_field: self.secondary.data[self.secondary.id_field]
+            }).first()
+            return self
+
     def create_property(self) -> property:
         """Creates a property that can be used to set relation properties
             on models.
@@ -518,6 +561,8 @@ class BelongsTo(HasOne):
         class BelongsToWrapped(self.secondary_class):
             def __call__(self) -> Relation:
                 return self.relations[f'{cache_key}_inverse']
+            def __bool__(self) -> bool:
+                return len(self.data.keys()) > 0
 
         BelongsToWrapped.__name__ = f'BelongsTo{self.secondary_class.__name__}'
 
@@ -530,10 +575,19 @@ class BelongsTo(HasOne):
             if cache_key not in self.relations or \
                 self.relations[cache_key] is None or \
                 self.relations[cache_key].secondary is None:
-                return None
+                empty = BelongsToWrapped({})
+
+                if cache_key not in self.relations or self.relations[cache_key] is None:
+                    self.relations[cache_key] = deepcopy(relation)
+                    self.relations[cache_key].primary = self
+
+                empty.relations = {}
+                empty.relations[f'{cache_key}_inverse'] = self.relations[cache_key]
+                return empty
 
             model = BelongsToWrapped(self.relations[cache_key].secondary.data)
-            model.relations = self.relations[cache_key].secondary.relations
+            if hasattr(self.relations[cache_key].secondary, 'relations'):
+                model.relations = self.relations[cache_key].secondary.relations
             return model
 
         @secondary.setter
@@ -656,16 +710,6 @@ class BelongsToMany(Relation):
     def pivot(self, pivot: type[ModelProtocol]) -> None:
         self.pivot_preconditions(pivot)
         self._pivot = pivot
-
-    def set_secondary(self, secondary: list[ModelProtocol]) -> BelongsToMany:
-        """Sets the secondary model instances. Returns self in monad pattern."""
-        self.secondary = secondary
-        return self
-
-    def set_pivot(self, pivot: type[ModelProtocol]) -> BelongsToMany:
-        """Sets the pivot str/model. Returns self in monad pattern."""
-        self.pivot = pivot
-        return self
 
     def detach_primary(self) -> BelongsToMany:
         """Detaches the primary, persisting to database."""

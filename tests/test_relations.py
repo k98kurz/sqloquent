@@ -106,21 +106,6 @@ class TestRelations(unittest.TestCase):
             relation.pivot_preconditions('not a type')
         assert str(e.exception) == 'pivot must be class implementing ModelProtocol'
 
-    def test_Relation_set_primary_sets_primary(self):
-        relation = relations.Relation(
-            primary_class=self.OwnerModel,
-            secondary_class=self.OwnedModel
-        )
-        primary = self.OwnerModel.insert({'data': '123abc'})
-
-        with self.assertRaises(AssertionError) as e:
-            relation.primary = 'not a primary class'
-        assert str(e.exception) == 'model must implement ModelProtocol'
-
-        assert relation.primary is None
-        relation.set_primary(primary)
-        assert relation.primary is primary
-
     def test_Relation_get_cache_key_returns_str_containing_class_names(self):
         relation = relations.Relation(
             primary_class=self.OwnerModel,
@@ -290,9 +275,9 @@ class TestRelations(unittest.TestCase):
         owner = self.OwnerModel({'data': '123'})
         owned = self.OwnedModel({'data': '321'})
 
-        assert owner.owned is None
+        assert not owner.owned
         owner.owned = owned
-        assert owner.owned is not None
+        assert owner.owned
         assert type(owner.owned) is not type(owned)
         assert owner.owned.data == owned.data
 
@@ -848,9 +833,9 @@ class TestRelations(unittest.TestCase):
         owned = self.OwnedModel({'data': '321'})
         owner = self.OwnerModel({'data': '123'})
 
-        assert owned.owner is None
+        assert not owned.owner
         owned.owner = owner
-        assert owned.owner is not None
+        assert owned.owner
         assert isinstance(owned.owner, self.OwnerModel)
         assert owned.owner.data == owner.data
 
@@ -1332,6 +1317,42 @@ class TestRelations(unittest.TestCase):
         owner.owned().save()
         assert not len(owner.owned().secondary_to_add)
         assert not len(owner.owned().inverse[0].secondary_to_add)
+
+    # e2e tests
+    def test_HasOne_BelongsTo_e2e(self):
+        self.OwnerModel.__name__ = 'Owner'
+        self.OwnerModel.owned = relations.has_one(
+            self.OwnerModel,
+            self.OwnedModel
+        )
+        self.OwnedModel.owner = relations.belongs_to(
+            self.OwnedModel,
+            self.OwnerModel
+        )
+
+        owner1 = self.OwnerModel.insert({'data': 'owner1'})
+        owned1 = self.OwnedModel.insert({'data': 'owned1'})
+        owner2 = self.OwnerModel({'data': 'owner2'})
+        owned2 = self.OwnedModel({'data': 'owned2'})
+
+        assert owner1.owned().foreign_id_field == 'owner_id'
+
+        owner1.owned = owned1
+        owner1.owned().save()
+        owned1.owner().reload()
+        assert owned1.owner
+        assert owned1.owner.data == owner1.data
+        owned1.owner = owner2
+        owned1.owner().save()
+
+        owner2.owned().reload()
+        assert owner2.owned
+        assert owner2.owned.data == owned1.data
+
+        owner2.owned = owned2
+        owner2.owned().save()
+        assert owner2.owned
+        assert owner2.owned.data == owned2.data
 
 
 if __name__ == '__main__':
