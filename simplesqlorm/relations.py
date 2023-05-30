@@ -682,6 +682,9 @@ class BelongsToMany(Relation):
 
     def save(self) -> None:
         """Save the relation by setting/unsetting the relevant database value(s)."""
+        assert self._primary is not None, 'cannot save incomplete BelongsToMany'
+        assert self._secondary is not None, 'cannot save incomplete BelongsToMany'
+
         secondary_ids_to_remove = [
             item.data[item.id_field]
             for item in self.secondary_to_remove

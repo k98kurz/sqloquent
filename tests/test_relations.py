@@ -731,8 +731,8 @@ class TestRelations(unittest.TestCase):
             Pivot,
             'first_id',
             'second_id',
-            primary_class=self.OwnerModel,
-            secondary_class=self.OwnedModel
+            primary_class=self.OwnedModel,
+            secondary_class=self.OwnerModel
         )
         assert isinstance(belongstomany, relations.BelongsToMany)
 
@@ -781,6 +781,19 @@ class TestRelations(unittest.TestCase):
         )
         cache_key = belongstomany.get_cache_key()
         assert cache_key == 'OwnedModel_BelongsToMany_OwnerModel_Pivot'
+
+    def test_BelongsToMany_save_raises_error_for_incomplete_relation(self):
+        belongstomany = relations.BelongsToMany(
+            Pivot,
+            'first_id',
+            'second_id',
+            primary_class=self.OwnedModel,
+            secondary_class=self.OwnerModel
+        )
+
+        with self.assertRaises(AssertionError) as e:
+            belongstomany.save()
+        assert str(e.exception) == 'cannot save incomplete BelongsToMany'
 
 
 if __name__ == '__main__':
