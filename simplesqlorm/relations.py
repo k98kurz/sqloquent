@@ -15,7 +15,7 @@ class Relation:
     secondary_to_remove: list[ModelProtocol]
     primary: ModelProtocol
     secondary: ModelProtocol|tuple[ModelProtocol]
-    inverse: Optional[Relation]
+    inverse: Optional[Relation|list[Relation]]
     _primary: Optional[ModelProtocol]
     _secondary: Optional[ModelProtocol]
 
@@ -406,8 +406,6 @@ class HasMany(HasOne):
                 for item in self.secondary_to_remove:
                     if item.data[self.secondary_class.id_field] in secondary_ids:
                         item.data[self.foreign_id_field] = ''
-                        # set the inverse relation on secondary models if applicable
-                        # @todo
 
         qb.is_in(self.secondary_class.id_field, owned_ids).update({
             self.foreign_id_field: owner_id
@@ -417,6 +415,14 @@ class HasMany(HasOne):
         self.primary_to_remove = None
         self.secondary_to_add = []
         self.secondary_to_remove = []
+
+        # set the inverse relations on secondary models if applicable
+        if hasattr(self, 'inverse') and self.inverse and len(self.inverse):
+            for inverse in self.inverse:
+                inverse.primary_to_add = None
+                inverse.primary_to_remove = None
+                inverse.secondary_to_add = []
+                inverse.secondary_to_remove = []
 
     def create_property(self) -> property:
         """Creates a property that can be used to set relation properties
@@ -453,9 +459,16 @@ class HasMany(HasOne):
                 self.relations = {}
 
             self.relations[cache_key] = deepcopy(relation)
-
             self.relations[cache_key].secondary = models
             self.relations[cache_key].primary = self
+
+            if hasattr(relation, 'inverse') and relation.inverse:
+                self.relations[cache_key].inverse = []
+                for model in models:
+                    inverse = deepcopy(relation.inverse)
+                    inverse.primary = model
+                    inverse.secondary = self
+                    self.relations[cache_key].inverse.append(inverse)
 
         return secondary
 
