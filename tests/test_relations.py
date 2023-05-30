@@ -533,6 +533,82 @@ class TestRelations(unittest.TestCase):
     def test_BelongsTo_extends_Relation(self):
         assert issubclass(relations.BelongsTo, relations.Relation)
 
+    def test_BelongsTo_initializes_properly(self):
+        belongsto = relations.BelongsTo(
+            'owner_id',
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
+        )
+        assert isinstance(belongsto, relations.BelongsTo)
+
+        with self.assertRaises(AssertionError) as e:
+            relations.BelongsTo(
+                b'not a str',
+                primary_class=self.OwnerModel,
+                secondary_class=self.OwnedModel
+            )
+        assert str(e.exception) == 'foreign_id_field must be str'
+
+    def test_BelongsTo_sets_primary_and_secondary_correctly(self):
+        belongsto = relations.BelongsTo(
+            'owner_id',
+            primary_class=self.OwnedModel,
+            secondary_class=self.OwnerModel
+        )
+        primary = self.OwnedModel.insert({'data': '321ads'})
+        secondary = self.OwnerModel.insert({'data':'321'})
+
+        assert belongsto.primary is None
+        belongsto.primary = primary
+        assert belongsto.primary is primary
+
+        with self.assertRaises(AssertionError) as e:
+            belongsto.secondary = primary
+        assert str(e.exception) == 'secondary must be instance of OwnerModel'
+
+        assert belongsto.secondary is None
+        belongsto.secondary = secondary
+        assert belongsto.secondary == secondary
+
+    def test_BelongsTo_get_cache_key_includes_foreign_id_field(self):
+        belongsto = relations.BelongsTo(
+            'owner_id',
+            primary_class=self.OwnedModel,
+            secondary_class=self.OwnerModel
+        )
+        cache_key = belongsto.get_cache_key()
+        assert cache_key == 'OwnedModel_BelongsTo_OwnerModel_owner_id'
+
+    def test_BelongsTo_save_raises_error_for_incomplete_relation(self):
+        belongsto = relations.BelongsTo(
+            'owner_id',
+            primary_class=self.OwnedModel,
+            secondary_class=self.OwnerModel
+        )
+
+        with self.assertRaises(AssertionError) as e:
+            belongsto.save()
+        assert str(e.exception) == 'cannot save incomplete BelongsTo'
+
+    def test_BelongsTo_save_changes_foreign_id_field_on_secondary(self):
+        belongsto = relations.BelongsTo(
+            'owner_id',
+            primary_class=self.OwnedModel,
+            secondary_class=self.OwnerModel
+        )
+        primary = self.OwnedModel.insert({'data': '321ads'})
+        secondary = self.OwnerModel.insert({'data':'321'})
+
+        belongsto.primary = primary
+        belongsto.secondary = secondary
+
+        assert primary.data['owner_id'] == None
+        belongsto.save()
+        assert primary.data['owner_id'] == secondary.data['id']
+
+        reloaded = self.OwnedModel.find(primary.data['id'])
+        assert reloaded.data['owner_id'] == secondary.data['id']
+
     # BelongsToMany tests
     def test_BelongsToMany_extends_Relation(self):
         assert issubclass(relations.BelongsToMany, relations.Relation)
