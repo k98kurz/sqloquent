@@ -300,6 +300,7 @@ class HasOne(Relation):
 
         @secondary.setter
         def secondary(self, model: ModelProtocol) -> None:
+            assert isinstance(model, ModelProtocol), 'model must implement ModelProtocol'
             if not hasattr(self, 'relations'):
                 self.relations = {}
             if not hasattr(model, 'relations'):
@@ -499,6 +500,13 @@ class BelongsTo(HasOne):
         self.secondary_to_add = []
         self.secondary_to_remove = []
 
+        # set the inverse relation on secondary models if applicable
+        if hasattr(self, 'inverse') and self.inverse:
+            self.inverse.primary_to_add = None
+            self.inverse.primary_to_remove = None
+            self.inverse.secondary_to_add = []
+            self.inverse.secondary_to_remove = []
+
     def create_property(self) -> property:
         """Creates a property that can be used to set relation properties
             on models.
@@ -530,15 +538,24 @@ class BelongsTo(HasOne):
 
         @secondary.setter
         def secondary(self, model: ModelProtocol) -> None:
+            assert isinstance(model, ModelProtocol), 'model must implement ModelProtocol'
             if not hasattr(self, 'relations'):
                 self.relations = {}
             if not hasattr(model, 'relations'):
                 model.relations = {}
 
             self.relations[cache_key] = deepcopy(relation)
-
             self.relations[cache_key].secondary = model
             self.relations[cache_key].primary = self
+
+            if hasattr(relation, 'inverse') and relation.inverse:
+                self.relations[cache_key].inverse = deepcopy(relation.inverse)
+                self.relations[cache_key].inverse.primary = model
+                if isinstance(relation.inverse, HasMany):
+                    self.relations[cache_key].inverse.secondary = [self]
+                else:
+                    self.relations[cache_key].inverse.secondary = self
+
             model.relations[f'{cache_key}_inverse'] = self.relations[cache_key]
 
         return secondary
