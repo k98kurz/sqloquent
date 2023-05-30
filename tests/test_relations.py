@@ -609,6 +609,61 @@ class TestRelations(unittest.TestCase):
         reloaded = self.OwnedModel.find(primary.data['id'])
         assert reloaded.data['owner_id'] == secondary.data['id']
 
+    def test_BelongsTo_changing_primary_and_secondary_updates_models_correctly(self):
+        belongsto = relations.BelongsTo(
+            'owner_id',
+            primary_class=self.OwnedModel,
+            secondary_class=self.OwnerModel
+        )
+        primary1 = self.OwnedModel.insert({'data': '321ads'})
+        primary2 = self.OwnedModel.insert({'data': '12332'})
+        secondary1 = self.OwnerModel.insert({'data':'321'})
+        secondary2 = self.OwnerModel.insert({'data':'afgbfb'})
+
+        belongsto.primary = primary1
+        belongsto.secondary = secondary1
+        belongsto.save()
+        assert primary1.data['owner_id'] == secondary1.data['id']
+
+        belongsto.primary = primary2
+        belongsto.save()
+        assert primary2.data['owner_id'] == secondary1.data['id']
+
+        belongsto.secondary = secondary2
+        belongsto.save()
+        assert primary2.data['owner_id'] == secondary2.data['id']
+        assert primary1.data['owner_id'] == ''
+
+    def test_BelongsTo_create_property_returns_property(self):
+        belongsto = relations.BelongsTo(
+            'owner_id',
+            primary_class=self.OwnedModel,
+            secondary_class=self.OwnerModel
+        )
+        prop = belongsto.create_property()
+
+        assert type(prop) is property
+
+    def test_BelongsTo_property_wraps_input_class(self):
+        belongsto = relations.BelongsTo(
+            'owner_id',
+            primary_class=self.OwnedModel,
+            secondary_class=self.OwnerModel
+        )
+        self.OwnedModel.owner = belongsto.create_property()
+
+        owned = self.OwnedModel({'data': '321'})
+        owner = self.OwnerModel({'data': '123'})
+
+        assert owned.owner is None
+        owned.owner = owner
+        assert owned.owner is not None
+        assert isinstance(owned.owner, self.OwnerModel)
+        assert owned.owner.data == owner.data
+
+        assert callable(owned.owner)
+        assert type(owned.owner()) is relations.BelongsTo
+
     # BelongsToMany tests
     def test_BelongsToMany_extends_Relation(self):
         assert issubclass(relations.BelongsToMany, relations.Relation)

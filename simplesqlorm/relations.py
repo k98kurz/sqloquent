@@ -488,7 +488,7 @@ class BelongsTo(HasOne):
 
         class BelongsToWrapped(self.secondary_class):
             def __call__(self) -> Relation:
-                return relation
+                return self.relations[f'{cache_key}_inverse']
 
         BelongsToWrapped.__name__ = f'BelongsTo{self.secondary_class.__name__}'
 
@@ -496,19 +496,29 @@ class BelongsTo(HasOne):
         @property
         def secondary(self) -> ModelProtocol:
             if not hasattr(self, 'relations'):
-                self.relations = {cache_key: relation}
+                self.relations = {}
 
-            return [BelongsToWrapped(model.data) for model in relation.secondary]
+            if cache_key not in self.relations or \
+                self.relations[cache_key] is None or \
+                self.relations[cache_key].secondary is None:
+                return None
+
+            model = BelongsToWrapped(self.relations[cache_key].secondary.data)
+            model.relations = self.relations[cache_key].secondary.relations
+            return model
 
         @secondary.setter
-        def secondary(self, models: Optional[list[ModelProtocol]]) -> None:
+        def secondary(self, model: ModelProtocol) -> None:
             if not hasattr(self, 'relations'):
-                self.relations = {cache_key: relation}
+                self.relations = {}
+            if not hasattr(model, 'relations'):
+                model.relations = {}
 
-            if cache_key not in self.relations:
-                self.relations[cache_key] = relation
+            self.relations[cache_key] = deepcopy(relation)
 
-            relation.secondary = models
+            self.relations[cache_key].secondary = model
+            self.relations[cache_key].primary = self
+            model.relations[f'{cache_key}_inverse'] = self.relations[cache_key]
 
         return secondary
 
