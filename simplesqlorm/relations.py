@@ -303,9 +303,14 @@ class HasOne(Relation):
                 model.relations = {}
 
             self.relations[cache_key] = deepcopy(relation)
-
             self.relations[cache_key].secondary = model
             self.relations[cache_key].primary = self
+
+            if hasattr(relation, 'inverse') and relation.inverse:
+                self.relations[cache_key].inverse = deepcopy(relation.inverse)
+                self.relations[cache_key].inverse.primary = model
+                self.relations[cache_key].inverse.secondary = self
+
             model.relations[f'{cache_key}_inverse'] = self.relations[cache_key]
 
         return secondary
