@@ -1,4 +1,5 @@
 from __future__ import annotations
+from .errors import (tert, vert)
 from .interfaces import (
     DBContextProtocol,
     CursorProtocol,
@@ -19,11 +20,11 @@ class SqliteContext:
     cursor: sqlite3.Cursor
 
     def __init__(self, model: type) -> None:
-        assert type(model) is type, 'model must be child class of SqliteModel'
-        assert issubclass(model, SqliteModel), \
-            'model must be child class of SqliteModel'
-        assert type(model.file_path) in (str, bytes), \
-            'model.file_path must be str or bytes'
+        tert(type(model) is type, 'model must be child class of SqliteModel')
+        tert(issubclass(model, SqliteModel),
+            'model must be child class of SqliteModel')
+        tert(type(model.file_path) in (str, bytes),
+            'model.file_path must be str or bytes')
         self.connection = sqlite3.connect(model.file_path)
         self.cursor = self.connection.cursor()
 
@@ -56,11 +57,11 @@ class SqlModel:
                 self.data[key] = data[key]
 
         if hasattr(self, '_post_init_hooks'):
-            assert isinstance(self._post_init_hooks, dict), \
-                '_post_init_hooks must be a dict mapping names to Callables'
+            tert(isinstance(self._post_init_hooks, dict), \
+                '_post_init_hooks must be a dict mapping names to Callables')
             for _, call in self._post_init_hooks.items():
-                assert callable(call), \
-                    '_post_init_hooks must be a dict mapping names to Callables'
+                vert(callable(call),
+                    '_post_init_hooks must be a dict mapping names to Callables')
                 call(self)
 
     @staticmethod
@@ -79,7 +80,7 @@ class SqlModel:
             'NoneType': lambda v: v,
         }
 
-        assert type(val).__name__ in encodings, 'unrecognized type'
+        tert(type(val).__name__ in encodings, 'unrecognized type')
         return encodings[type(val).__name__](val)
 
     def __hash__(self) -> int:
@@ -110,7 +111,7 @@ class SqlModel:
     @classmethod
     def insert(cls, data: dict) -> Optional[SqlModel]:
         """Insert a new record to the datastore. Return instance."""
-        assert isinstance(data, dict), 'data must be dict'
+        tert(isinstance(data, dict), 'data must be dict')
         if cls.id_field not in data:
             data[cls.id_field] = cls.generate_id()
 
@@ -119,9 +120,9 @@ class SqlModel:
     @classmethod
     def insert_many(cls, items: list[dict]) -> int:
         """Insert a batch of records and return the number of items inserted."""
-        assert isinstance(items, list), 'items must be type list[dict]'
+        tert(isinstance(items, list), 'items must be type list[dict]')
         for item in items:
-            assert isinstance(item, dict), 'items must be type list[dict]'
+            tert(isinstance(item, dict), 'items must be type list[dict]')
             if cls.id_field not in item:
                 item[cls.id_field] = cls.generate_id()
 
@@ -131,11 +132,11 @@ class SqlModel:
         """Persist the specified changes to the datastore. Return self
             in monad pattern.
         """
-        assert type(updates) is dict, 'updates must be dict'
-        assert type(conditions) is dict or conditions is None, \
-            'conditions must be dict or None'
-        assert self.id_field in self.data or type(conditions) is dict, \
-            f'instance must have {self.id_field} or conditions defined'
+        tert(type(updates) is dict, 'updates must be dict')
+        tert (type(conditions) is dict or conditions is None,
+            'conditions must be dict or None')
+        vert(self.id_field in self.data or type(conditions) is dict,
+            f'instance must have {self.id_field} or conditions defined')
 
         # first apply any updates to the instance
         for key in updates:
@@ -220,92 +221,104 @@ class SqlQueryBuilder:
 
     @model.setter
     def model(self, model: type) -> None:
-        assert type(model) is type, 'model must be SqlModel subclass'
-        assert issubclass(model, SqlModel), 'model must be SqlModel subclass'
+        tert(type(model) is type, 'model must be SqlModel subclass')
+        tert(issubclass(model, SqlModel), 'model must be SqlModel subclass')
         self._model = model
 
     def equal(self, field: str, data: Any) -> SqlQueryBuilder:
         """Save the 'field = data' clause and param, then return self."""
-        assert type(field) is str, 'field must be str'
+        tert(type(field) is str, 'field must be str')
         self.clauses.append(f'{field} = ?')
         self.params.append(data)
         return self
 
     def not_equal(self, field: str, data: Any) -> SqlQueryBuilder:
         """Save the 'field != data' clause and param, then return self."""
-        assert type(field) is str, 'field must be str'
+        tert(type(field) is str, 'field must be str')
         self.clauses.append(f'{field} != ?')
         self.params.append(data)
         return self
 
     def less(self, field: str, data: Any) -> SqlQueryBuilder:
         """Save the 'field < data' clause and param, then return self."""
-        assert type(field) is str, 'field must be str'
+        tert(type(field) is str, 'field must be str')
         self.clauses.append(f'{field} < ?')
         self.params.append(data)
         return self
 
     def greater(self, field: str, data: Any) -> SqlQueryBuilder:
         """Save the 'field > data' clause and param, then return self."""
-        assert type(field) is str, 'field must be str'
+        tert(type(field) is str, 'field must be str')
         self.clauses.append(f'{field} > ?')
         self.params.append(data)
         return self
 
     def starts_with(self, field: str, data: str) -> SqlQueryBuilder:
         """Save the 'field like data%' clause and param, then return self."""
-        assert type(field) is str, 'field must be str'
-        assert type(data) is str, 'data must be str'
+        tert(type(field) is str, 'field must be str')
+        tert(type(data) is str, 'data must be str')
+        vert(len(field), 'field cannot be empty')
+        vert(len(data), 'data cannot be empty')
         self.clauses.append(f'{field} like ?')
         self.params.append(f'{data}%')
         return self
 
     def contains(self, field: str, data: str) -> SqlQueryBuilder:
         """Save the 'field like %data%' clause and param, then return self."""
-        assert type(field) is str, 'field must be str'
-        assert type(data) is str, 'data must be str'
+        tert(type(field) is str, 'field must be str')
+        tert(type(data) is str, 'data must be str')
+        vert(len(field), 'field cannot be empty')
+        vert(len(data), 'data cannot be empty')
         self.clauses.append(f'{field} like ?')
         self.params.append(f'%{data}%')
         return self
 
     def excludes(self, field: str, data: str) -> SqlQueryBuilder:
         """Save the 'field not like %data%' clause and param, then return self."""
-        assert type(field) is str, 'field must be str'
-        assert type(data) is str, 'data must be str'
+        tert(type(field) is str, 'field must be str')
+        tert(type(data) is str, 'data must be str')
+        vert(len(field), 'field cannot be empty')
+        vert(len(data), 'data cannot be empty')
         self.clauses.append(f'{field} not like ?')
         self.params.append(f'%{data}%')
         return self
 
     def ends_with(self, field: str, data: str) -> SqlQueryBuilder:
         """Save the 'field like %data' clause and param, then return self."""
-        assert type(field) is str, 'field must be str'
-        assert type(data) is str, 'data must be str'
+        tert(type(field) is str, 'field must be str')
+        tert(type(data) is str, 'data must be str')
+        vert(len(field), 'field cannot be empty')
+        vert(len(data), 'data cannot be empty')
         self.clauses.append(f'{field} like ?')
         self.params.append(f'%{data}')
         return self
 
     def is_in(self, field: str, data: Union[tuple, list]) -> SqlQueryBuilder:
         """Save the 'field in data' clause and param, then return self."""
-        assert type(field) is str, 'field must be str'
-        assert type(data) in (tuple, list), 'data must be tuple or list'
-        self.clauses.append(f'{field} in ({",".join(["?" for i in data])})')
+        tert(type(field) is str, 'field must be str')
+        tert(type(data) in (tuple, list), 'data must be tuple or list')
+        vert(len(field), 'field cannot be empty')
+        vert(len(data), 'data cannot be empty')
+        self.clauses.append(f'{field} in ({",".join(["?" for _ in data])})')
         self.params.extend(data)
         return self
 
     def not_in(self, field: str, data: Union[tuple, list]) -> SqlQueryBuilder:
         """Save the 'field not in data' clause and param, then return self."""
-        assert type(field) is str, 'field must be str'
-        assert type(data) in (tuple, list), 'data must be tuple or list'
-        self.clauses.append(f'{field} not in ({",".join(["?" for i in data])})')
+        tert(type(field) is str, 'field must be str')
+        tert(type(data) in (tuple, list), 'data must be tuple or list')
+        vert(len(field), 'field cannot be empty')
+        vert(len(data), 'data cannot be empty')
+        self.clauses.append(f'{field} not in ({",".join(["?" for _ in data])})')
         self.params.extend(data)
         return self
 
     def order_by(self, field: str, direction: str = 'desc') -> SqlQueryBuilder:
         """Sets query order."""
-        assert type(field) is str, 'field must be str'
-        assert field in self.model.fields, 'unrecognized field'
-        assert type(direction) is str, 'direction must be str'
-        assert direction in ('asc', 'desc'), 'direciton must be asc or desc'
+        tert(type(field) is str, 'field must be str')
+        tert(type(direction) is str, 'direction must be str')
+        vert(field in self.model.fields, 'unrecognized field')
+        vert(direction in ('asc', 'desc'), 'direction must be asc or desc')
 
         self.order_field = field
         self.order_dir = direction
@@ -314,7 +327,8 @@ class SqlQueryBuilder:
 
     def skip(self, offset: int) -> QueryBuilderProtocol:
         """Sets the number of rows to skip."""
-        assert type(offset) is int and offset >= 0, 'offset must be positive int'
+        tert(type(offset) is int, 'offset must be positive int')
+        vert(offset >= 0, 'offset must be positive int')
         self.offset = offset
         return self
 
@@ -324,7 +338,7 @@ class SqlQueryBuilder:
 
     def insert(self, data: dict) -> Optional[SqlModel]:
         """Insert a record and return a model instance."""
-        assert isinstance(data, dict), 'data must be dict'
+        tert(isinstance(data, dict), 'data must be dict')
         fields, params = [], []
 
         for key in data:
@@ -338,7 +352,8 @@ class SqlQueryBuilder:
                 data[key] = None
 
         if self.model.id_field in fields:
-            assert self.find(data[self.model.id_field]) is None
+            vert(self.find(data[self.model.id_field]) is None,
+                 'record with this id already exists')
 
         sql = f'insert into {self.model.table} ({",".join(fields)})' + \
             f' values ({",".join(["?" for p in params])})'
@@ -349,21 +364,22 @@ class SqlQueryBuilder:
 
     def insert_many(self, items: list[dict]) -> int:
         """Insert a batch of records and return the number inserted."""
-        assert isinstance(items, list), 'items must be list[dict]'
+        tert(isinstance(items, list), 'items must be list[dict]')
         rows = []
         for item in items:
-            assert isinstance(item, dict), 'items must be list[dict]'
+            tert(isinstance(item, dict), 'items must be list[dict]')
             for key in self.model.fields:
                 if key not in item:
                     item[key] = None
             rows.append(tuple([item[key] for key in self.model.fields]))
 
-        sql = f"insert into {self.model.table} values ({','.join(['?' for f in self.model.fields])})"
+        sql = f"insert into {self.model.table} values "\
+            f"({','.join(['?' for f in self.model.fields])})"
 
         with self.context_manager(self.model) as cursor:
             return cursor.executemany(sql, rows).rowcount
 
-    def find(self, id: str) -> Optional[SqlModel]:
+    def find(self, id: Any) -> Optional[SqlModel]:
         """Find a record by its id and return it."""
         with self.context_manager(self.model) as cursor:
             cursor.execute(
@@ -424,13 +440,18 @@ class SqlQueryBuilder:
 
     def take(self, limit: int) -> Optional[list[SqlModel]]:
         """Takes the specified number of rows."""
-        assert type(limit) is int and limit >= 0, 'limit must be positive int'
+        tert(type(limit) is int, 'limit must be positive int')
+        vert(limit > 0, 'limit must be positive int')
         self.limit = limit
         return self.get()
 
     def chunk(self, number: int) -> Generator[list[SqlModel], None, None]:
         """Chunk all matching rows the specified number of rows at a time."""
-        assert type(number) is int and number > 0, 'number must be int > 0'
+        tert(type(number) is int, 'number must be int > 0')
+        vert(number > 0, 'number must be int > 0')
+        return self._chunk(number)
+
+    def _chunk(self, number: int) -> Generator[list[SqlModel], None, None]:
         original_offset = self.offset
         self.offset = self.offset or 0
         result = self.take(number)
@@ -466,8 +487,8 @@ class SqlQueryBuilder:
 
     def update(self, updates: dict, conditions: dict = {}) -> int:
         """Update the datastore and return number of records updated."""
-        assert type(updates) is dict, 'updates must be dict'
-        assert type(conditions) is dict, 'conditions must be dict'
+        tert(type(updates) is dict, 'updates must be dict')
+        tert(type(conditions) is dict, 'conditions must be dict')
 
         # parse conditions
         condition_fields, condition_params = self.clauses[:], self.params[:]
@@ -535,7 +556,7 @@ class SqlQueryBuilder:
         """Execute raw SQL against the database. Return rowcount and fetchall
             results.
         """
-        assert type(sql) is str, 'sql must be str'
+        tert(type(sql) is str, 'sql must be str')
         with self.context_manager(self.model) as cursor:
             cursor.execute(sql)
             return (cursor.rowcount, cursor.fetchall())
@@ -555,11 +576,13 @@ class DeletedModel(SqlModel):
         """Restore a deleted record, remove from deleted_records, and
             return the restored model.
         """
+        vert(self.data['model_class'] in globals(),
+            'model_class must be accessible')
         model_class = globals()[self.data['model_class']]
         decoded = json.loads(self.data['record'])
 
-        assert issubclass(model_class, SqlModel), \
-            'related_model must inherit from SqlModel'
+        tert(issubclass(model_class, SqlModel),
+            'related_model must inherit from SqlModel')
 
         if model_class.id_field not in decoded:
             decoded[model_class.id_field] = self.data['record_id']
@@ -587,7 +610,7 @@ class HashedModel(SqlModel):
     @classmethod
     def insert(cls, data: dict) -> Optional[HashedModel]:
         """Insert a new record to the datastore. Return instance."""
-        assert isinstance(data, dict), 'data must be dict'
+        tert(isinstance(data, dict), 'data must be dict')
         data[cls.id_field] = cls.generate_id(data)
 
         return SqliteQueryBuilder(model=cls).insert(data)
@@ -595,9 +618,9 @@ class HashedModel(SqlModel):
     @classmethod
     def insert_many(cls, items: list[dict]) -> int:
         """Insert a batch of records and return the number of items inserted."""
-        assert isinstance(items, list), 'items must be type list[dict]'
+        tert(isinstance(items, list), 'items must be type list[dict]')
         for item in items:
-            assert isinstance(item, dict), 'items must be type list[dict]'
+            tert(isinstance(item, dict), 'items must be type list[dict]')
             item[cls.id_field] = cls.generate_id(item)
 
         return SqliteQueryBuilder(model=cls).insert_many(items)
@@ -606,12 +629,15 @@ class HashedModel(SqlModel):
         """Persist the specified changes to the datastore, creating a new
             record in the process. Return new record in monad pattern.
         """
-        assert type(updates) is dict, 'updates must be dict'
+        tert(type(updates) is dict, 'updates must be dict')
 
         # merge data into updates
         for key in self.data:
             if key in self.fields and not key in updates:
                 updates[key] = self.data[key]
+
+        for key in updates:
+            vert(key in self.fields, f'unrecognized field: {key}')
 
         # insert new record or update and return
         if self.data[self.id_field]:
@@ -646,16 +672,17 @@ class Attachment(HashedModel):
     def related(self, reload: bool = False) -> SqlModel:
         """Return the related record."""
         if self._related is None or reload:
+            vert(self.data['related_model'] in globals(), 'model_class must be accessible')
             model_class = globals()[self.data['related_model']]
-            assert issubclass(model_class, SqlModel), \
-                'related_model must inherit from SqlModel'
+            tert(issubclass(model_class, SqlModel),
+                'related_model must inherit from SqlModel')
             self._related = model_class.find(self.data['related_id'])
         return self._related
 
     def attach_to(self, related: SqlModel) -> Attachment:
         """Attach to related model then return self."""
-        assert issubclass(related.__class__, SqlModel), \
-            'related_model must inherit from SqlModel'
+        tert(issubclass(related.__class__, SqlModel),
+            'related must inherit from SqlModel')
         self.data['related_model'] = related.__class__.__name__
         self.data['related_id'] = related.data[related.id_field]
         return self
@@ -675,3 +702,7 @@ class Attachment(HashedModel):
             self._details = details
         self.data['details'] = json.dumps(self._details)
         return self
+
+    @classmethod
+    def insert(cls, data: dict) -> Optional[Attachment]:
+        return super().insert(data)
