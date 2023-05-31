@@ -252,7 +252,7 @@ class TestRelations(unittest.TestCase):
         hasone.secondary = secondary2
         hasone.save()
         assert secondary2.data['owner_id'] == primary2.data['id']
-        assert secondary1.data['owner_id'] == ''
+        assert not secondary1.data['owner_id']
 
     def test_HasOne_create_property_returns_property(self):
         hasone = relations.HasOne(
@@ -396,6 +396,17 @@ class TestRelations(unittest.TestCase):
         assert not len(owner.owned().secondary_to_add)
         assert not len(owner.owned().inverse.secondary_to_add)
 
+    def test_HasOne_reload_raises_ValueError_for_empty_relation(self):
+        hasone = relations.HasOne(
+            'owner_id',
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel
+        )
+
+        with self.assertRaises(ValueError) as e:
+            hasone.reload()
+        assert str(e.exception) == 'cannot reload an empty relation'
+
     # HasMany tests
     def test_HasMany_extends_Relation(self):
         assert issubclass(relations.HasMany, relations.Relation)
@@ -532,7 +543,7 @@ class TestRelations(unittest.TestCase):
         hasmany.secondary = [secondary2]
         hasmany.save()
         assert secondary2.data['owner_id'] == primary2.data['id']
-        assert secondary1.data['owner_id'] == ''
+        assert not secondary1.data['owner_id']
 
     def test_HasMany_create_property_returns_property(self):
         hasmany = relations.HasMany(
@@ -678,6 +689,17 @@ class TestRelations(unittest.TestCase):
         assert not len(owner.owned().secondary_to_add)
         assert not len(owner.owned().inverse[0].secondary_to_add)
 
+    def test_HasMany_reload_raises_ValueError_for_empty_relation(self):
+        hasmany = relations.HasMany(
+            'owner_id',
+            primary_class=self.OwnerModel,
+            secondary_class=self.OwnedModel,
+        )
+
+        with self.assertRaises(ValueError) as e:
+            hasmany.reload()
+        assert str(e.exception) == 'cannot reload an empty relation'
+
     # BelongsTo tests
     def test_BelongsTo_extends_Relation(self):
         assert issubclass(relations.BelongsTo, relations.Relation)
@@ -810,7 +832,7 @@ class TestRelations(unittest.TestCase):
         belongsto.secondary = secondary2
         belongsto.save()
         assert primary2.data['owner_id'] == secondary2.data['id']
-        assert primary1.data['owner_id'] == ''
+        assert not primary1.data['owner_id']
 
     def test_BelongsTo_create_property_returns_property(self):
         belongsto = relations.BelongsTo(
@@ -996,6 +1018,17 @@ class TestRelations(unittest.TestCase):
         owned.owner().save()
         assert not len(owned.owner().secondary_to_add)
         assert not len(owned.owner().inverse.secondary_to_add)
+
+    def test_BelongsTo_reload_raises_ValueError_for_empty_relation(self):
+        belongsto = relations.BelongsTo(
+            'owner_id',
+            primary_class=self.OwnedModel,
+            secondary_class=self.OwnerModel,
+        )
+
+        with self.assertRaises(ValueError) as e:
+            belongsto.reload()
+        assert str(e.exception) == 'cannot reload an empty relation'
 
     # BelongsToMany tests
     def test_BelongsToMany_extends_Relation(self):
@@ -1290,7 +1323,7 @@ class TestRelations(unittest.TestCase):
         assert owner.owned().inverse[0].primary.data == owner.owned[0].data
         assert owner.owned().inverse[0].secondary[0].data == owner.data
 
-    def test_BelongsTo_changes_affect_inverses(self):
+    def test_BelongsToMany_changes_affect_inverses(self):
         self.OwnerModel.owned = relations.many_to_many(
             self.OwnerModel,
             self.OwnedModel,
@@ -1317,6 +1350,19 @@ class TestRelations(unittest.TestCase):
         owner.owned().save()
         assert not len(owner.owned().secondary_to_add)
         assert not len(owner.owned().inverse[0].secondary_to_add)
+
+    def test_BelongsToMany_reload_raises_ValueError_for_empty_relation(self):
+        belongstomany = relations.BelongsToMany(
+            Pivot,
+            'first_id',
+            'second_id',
+            primary_class=self.OwnedModel,
+            secondary_class=self.OwnerModel
+        )
+
+        with self.assertRaises(ValueError) as e:
+            belongstomany.reload()
+        assert str(e.exception) == 'cannot reload an empty relation'
 
     # e2e tests
     def test_HasOne_BelongsTo_e2e(self):
@@ -1402,6 +1448,8 @@ class TestRelations(unittest.TestCase):
         owner2.owned().save()
         assert owner2.owned
         assert owner2.owned == (owned1, owned2)
+        owner2.owned = [owned1, owned2, owned2]
+        assert owner2.owned == (owned1, owned2)
 
         owned2.owner().reload()
         assert owned2.owner
@@ -1441,6 +1489,8 @@ class TestRelations(unittest.TestCase):
         assert owned1.owned
         assert owned1.owned == (owned2, owned3)
         owned1.owned().save()
+        owned1.owned = [owned2, owned3, owned3]
+        assert owned1.owned == (owned2, owned3)
 
         owned2.owners().reload()
         assert owned2.owners
