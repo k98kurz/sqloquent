@@ -29,7 +29,11 @@ restore the deleted record.
 - [x] Cryptographic bonus code
 - [x] Add chunk generator to `QueryBuilderProtocol` and `SqlQueryBuilder`
 - [x] Decent documentation
-- [ ] ORM helper functions
+- [x] ORM
+- [ ] SqlQueryBuilder join functionality
+- [ ] SqlQueryBuilder group_by functionality
+- [ ] SqlQueryBuilder select functionality
+- [ ] SqlQueryBuilder raw functionality
 - [ ] Publish to pypi
 
 ## Setup and Usage
