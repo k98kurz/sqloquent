@@ -81,6 +81,35 @@ class TestClasses(unittest.TestCase):
     def test_SqlModel_implements_ModelProtocol(self):
         assert isinstance(classes.SqlModel(), interfaces.ModelProtocol)
 
+    def test_SqlModel_post_init_hooks_are_called(self):
+        class TestModel(classes.SqlModel):
+            ...
+
+        signals = {}
+        def test1(_):
+            signals['test1'] = 1
+
+        TestModel._post_init_hooks = {
+            'test1': test1
+        }
+        tm = TestModel()
+
+        assert 'test1' in signals
+
+    def test_SqlModel_init_raises_errors_for_invalid_post_init_hooks(self):
+        class TestModel(classes.SqlModel):
+            ...
+
+        TestModel._post_init_hooks = []
+        with self.assertRaises(AssertionError) as e:
+            tm = TestModel()
+        assert str(e.exception) == '_post_init_hooks must be a dict mapping names to Callables'
+
+        TestModel._post_init_hooks = {'name': 'not callable'}
+        with self.assertRaises(AssertionError) as e:
+            tm = TestModel()
+        assert str(e.exception) == '_post_init_hooks must be a dict mapping names to Callables'
+
 
     # SqliteModel tests
     def test_SqliteModel_implements_ModelProtocol(self):

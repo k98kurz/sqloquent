@@ -55,6 +55,14 @@ class SqlModel:
             if key in self.fields and type(key) is str:
                 self.data[key] = data[key]
 
+        if hasattr(self, '_post_init_hooks'):
+            assert isinstance(self._post_init_hooks, dict), \
+                '_post_init_hooks must be a dict mapping names to Callables'
+            for _, call in self._post_init_hooks.items():
+                assert callable(call), \
+                    '_post_init_hooks must be a dict mapping names to Callables'
+                call(self)
+
     @staticmethod
     def encode_value(val: Any) -> str:
         """Encode a value for hashing."""
