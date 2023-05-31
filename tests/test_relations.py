@@ -1055,7 +1055,7 @@ class TestRelations(unittest.TestCase):
             secondary_class=self.OwnerModel
         )
         cache_key = belongstomany.get_cache_key()
-        assert cache_key == 'OwnedModel_BelongsToMany_OwnerModel_Pivot'
+        assert cache_key == 'OwnedModel_BelongsToMany_OwnerModel_Pivot_first_id_second_id'
 
     def test_BelongsToMany_save_raises_error_for_incomplete_relation(self):
         belongstomany = relations.BelongsToMany(

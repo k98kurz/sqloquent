@@ -74,8 +74,10 @@ class Relation:
         self.primary_model_precondition(primary)
         primary_id = primary.data[primary.id_field] if primary.id_field in primary.data else ''
         has_primary = hasattr(self, '_primary') and self._primary
+        old_primary_is_valid = self._primary and self.primary_class.id_field in self._primary.data
+        old_primary_id = self._primary.data[self._primary.id_field] if old_primary_is_valid else None
 
-        if has_primary and primary_id != self._primary.data[self._primary.id_field]:
+        if has_primary and (not old_primary_is_valid or primary_id != old_primary_id):
             self.primary_to_add = primary
             if self.primary_to_remove is None:
                 self.primary_to_remove = self._primary
@@ -297,15 +299,21 @@ class HasOne(Relation):
 
         HasOneWrapped.__name__ = f'HasOne{self.secondary_class.__name__}'
 
+        def setup_relation(self):
+            if not hasattr(self, 'relations'):
+                self.relations = {}
+            self.relations[cache_key] = deepcopy(relation)
+            self.relations[cache_key].primary = self
+
+        if not hasattr(self.primary_class, '_post_init_hooks'):
+            self.primary_class._post_init_hooks = {}
+        self.primary_class._post_init_hooks[cache_key] = setup_relation
+
 
         @property
         def secondary(self) -> ModelProtocol:
             if not hasattr(self, 'relations'):
                 self.relations = {}
-            if not hasattr(self, 'setters'):
-                self.setters = {}
-
-            self.setters[cache_key] = secondary.setter
 
             if cache_key not in self.relations or \
                 self.relations[cache_key] is None or \
@@ -334,9 +342,7 @@ class HasOne(Relation):
             if not hasattr(model, 'relations'):
                 model.relations = {}
 
-            self.relations[cache_key] = deepcopy(relation)
             self.relations[cache_key].secondary = model
-            self.relations[cache_key].primary = self
 
             if hasattr(relation, 'inverse') and relation.inverse:
                 self.relations[cache_key].inverse = deepcopy(relation.inverse)
@@ -482,6 +488,16 @@ class HasMany(HasOne):
 
         HasManyTuple.__name__ = f'HasMany{self.secondary_class.__name__}'
 
+        def setup_relation(self):
+            if not hasattr(self, 'relations'):
+                self.relations = {}
+            self.relations[cache_key] = deepcopy(relation)
+            self.relations[cache_key].primary = self
+
+        if not hasattr(self.primary_class, '_post_init_hooks'):
+            self.primary_class._post_init_hooks = {}
+        self.primary_class._post_init_hooks[cache_key] = setup_relation
+
 
         @property
         def secondary(self) -> ModelProtocol:
@@ -509,9 +525,7 @@ class HasMany(HasOne):
             if not hasattr(self, 'relations'):
                 self.relations = {}
 
-            self.relations[cache_key] = deepcopy(relation)
             self.relations[cache_key].secondary = models
-            self.relations[cache_key].primary = self
 
             if hasattr(relation, 'inverse') and relation.inverse:
                 self.relations[cache_key].inverse = []
@@ -593,6 +607,16 @@ class BelongsTo(HasOne):
 
         BelongsToWrapped.__name__ = f'BelongsTo{self.secondary_class.__name__}'
 
+        def setup_relation(self):
+            if not hasattr(self, 'relations'):
+                self.relations = {}
+            self.relations[cache_key] = deepcopy(relation)
+            self.relations[cache_key].primary = self
+
+        if not hasattr(self.primary_class, '_post_init_hooks'):
+            self.primary_class._post_init_hooks = {}
+        self.primary_class._post_init_hooks[cache_key] = setup_relation
+
 
         @property
         def secondary(self) -> ModelProtocol:
@@ -625,9 +649,7 @@ class BelongsTo(HasOne):
             if not hasattr(model, 'relations'):
                 model.relations = {}
 
-            self.relations[cache_key] = deepcopy(relation)
             self.relations[cache_key].secondary = model
-            self.relations[cache_key].primary = self
 
             if hasattr(relation, 'inverse') and relation.inverse:
                 self.relations[cache_key].inverse = deepcopy(relation.inverse)
@@ -688,9 +710,6 @@ class BelongsToMany(Relation):
         for model in secondary:
             assert isinstance(model, self.secondary_class), \
                 f'secondary must be instance of {self.secondary_class.__name__}'
-
-        if secondary != self._secondary:
-            self.unsaved_changes = True
 
         if not self._secondary:
             self._secondary = secondary
@@ -913,7 +932,8 @@ class BelongsToMany(Relation):
             return self
 
     def get_cache_key(self) -> str:
-        return f'{super().get_cache_key()}_{self.pivot.__name__}'
+        return f'{super().get_cache_key()}_{self.pivot.__name__}_' \
+            f'{self.primary_id_field}_{self.secondary_id_field}'
 
     def create_property(self) -> property:
         """Creates a property that can be used to set relation properties
@@ -928,6 +948,16 @@ class BelongsToMany(Relation):
                 return self.relation
 
         BelongsToManyTuple.__name__ = f'BelongsToMany{self.secondary_class.__name__}'
+
+        def setup_relation(self):
+            if not hasattr(self, 'relations'):
+                self.relations = {}
+            self.relations[cache_key] = deepcopy(relation)
+            self.relations[cache_key].primary = self
+
+        if not hasattr(self.primary_class, '_post_init_hooks'):
+            self.primary_class._post_init_hooks = {}
+        self.primary_class._post_init_hooks[cache_key] = setup_relation
 
 
         @property
@@ -956,9 +986,7 @@ class BelongsToMany(Relation):
             if not hasattr(self, 'relations'):
                 self.relations = {}
 
-            self.relations[cache_key] = deepcopy(relation)
             self.relations[cache_key].secondary = models
-            self.relations[cache_key].primary = self
 
             if hasattr(relation, 'inverse') and relation.inverse:
                 self.relations[cache_key].inverse = []
