@@ -518,7 +518,7 @@ class HasMany(HasOne):
 
 
         @property
-        def secondary(self) -> ModelProtocol:
+        def secondary(self) -> HasManyTuple[ModelProtocol]:
             if cache_key not in self.relations or \
                 self.relations[cache_key] is None or \
                 self.relations[cache_key].secondary is None:
@@ -916,7 +916,7 @@ class BelongsToMany(Relation):
 
 
         @property
-        def secondary(self) -> ModelProtocol:
+        def secondary(self) -> BelongsToManyTuple[ModelProtocol]:
             if cache_key not in self.relations or \
                 self.relations[cache_key] is None or \
                 self.relations[cache_key].secondary is None:
