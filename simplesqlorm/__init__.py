@@ -22,5 +22,5 @@ from simplesqlorm.relations import (
     has_one,
     has_many,
     belongs_to,
-    many_to_many
+    belongs_to_many
 )

@@ -1244,8 +1244,8 @@ class TestRelations(unittest.TestCase):
         assert owner.data['data'] == '321'
         assert Pivot.query().count() == 1
 
-    def test_many_to_many_function_sets_property_from_BelongsToMany(self):
-        self.OwnedModel.owners = relations.many_to_many(
+    def test_belongs_to_many_function_sets_property_from_BelongsToMany(self):
+        self.OwnedModel.owners = relations.belongs_to_many(
             self.OwnedModel,
             self.OwnerModel,
             Pivot,
@@ -1265,7 +1265,7 @@ class TestRelations(unittest.TestCase):
         owned.owners().save()
 
     def test_BelongsToMany_works_with_multiple_instances(self):
-        self.OwnedModel.owners = relations.many_to_many(
+        self.OwnedModel.owners = relations.belongs_to_many(
             self.OwnedModel,
             self.OwnerModel,
             Pivot,
@@ -1289,8 +1289,8 @@ class TestRelations(unittest.TestCase):
         assert owned1.owners[0].data['id'] == owner1.data['id']
         assert owned2.owners[0].data['id'] == owner2.data['id']
 
-    def test_many_to_many_function_sets_inverse(self):
-        self.OwnerModel.owned = relations.many_to_many(
+    def test_belongs_to_many_function_sets_inverse(self):
+        self.OwnerModel.owned = relations.belongs_to_many(
             self.OwnerModel,
             self.OwnedModel,
             Pivot,
@@ -1307,8 +1307,8 @@ class TestRelations(unittest.TestCase):
         for inverse in owner.owned().inverse:
             assert isinstance(inverse, relations.BelongsToMany)
 
-    def test_many_to_many_function_inverse_sets_primary_and_secondary(self):
-        self.OwnerModel.owned = relations.many_to_many(
+    def test_belongs_to_many_function_inverse_sets_primary_and_secondary(self):
+        self.OwnerModel.owned = relations.belongs_to_many(
             self.OwnerModel,
             self.OwnedModel,
             Pivot,
@@ -1324,7 +1324,7 @@ class TestRelations(unittest.TestCase):
         assert owner.owned().inverse[0].secondary[0].data == owner.data
 
     def test_BelongsToMany_changes_affect_inverses(self):
-        self.OwnerModel.owned = relations.many_to_many(
+        self.OwnerModel.owned = relations.belongs_to_many(
             self.OwnerModel,
             self.OwnedModel,
             Pivot,
@@ -1466,14 +1466,14 @@ class TestRelations(unittest.TestCase):
         assert hasmany.primary == owner2
 
     def test_BelongsToMany_e2e(self):
-        self.OwnedModel.owned = relations.many_to_many(
+        self.OwnedModel.owned = relations.belongs_to_many(
             self.OwnedModel,
             self.OwnedModel,
             Pivot,
             'first_id',
             'second_id',
         )
-        self.OwnedModel.owners = relations.many_to_many(
+        self.OwnedModel.owners = relations.belongs_to_many(
             self.OwnedModel,
             self.OwnedModel,
             Pivot,

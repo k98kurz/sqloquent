@@ -955,7 +955,6 @@ def has_one(cls: type[ModelProtocol], owned_model: type[ModelProtocol],
 
     relation = HasOne(foreign_id_field, primary_class=cls, secondary_class=owned_model)
     relation.inverse = BelongsTo(foreign_id_field, primary_class=owned_model, secondary_class=cls)
-    relation.inverse.inverse = relation
     return relation.create_property()
 
 def has_many(cls: type[ModelProtocol], owned_model: type[ModelProtocol],
@@ -965,7 +964,6 @@ def has_many(cls: type[ModelProtocol], owned_model: type[ModelProtocol],
 
     relation = HasMany(foreign_id_field, primary_class=cls, secondary_class=owned_model)
     relation.inverse = BelongsTo(foreign_id_field, primary_class=owned_model, secondary_class=cls)
-    relation.inverse.inverse = relation
     return relation.create_property()
 
 def belongs_to(cls: type[ModelProtocol], owner_model: type[ModelProtocol],
@@ -978,10 +976,9 @@ def belongs_to(cls: type[ModelProtocol], owner_model: type[ModelProtocol],
         relation.inverse = HasMany(foreign_id_field, primary_class=owner_model, secondary_class=cls)
     else:
         relation.inverse = HasOne(foreign_id_field, primary_class=owner_model, secondary_class=cls)
-    relation.inverse.inverse = relation
     return relation.create_property()
 
-def many_to_many(cls: type[ModelProtocol], other_model: type[ModelProtocol],
+def belongs_to_many(cls: type[ModelProtocol], other_model: type[ModelProtocol],
                 pivot: type[ModelProtocol],
                 primary_id_field: str = None, secondary_id_field: str = None) -> property:
     if primary_id_field is None:
@@ -994,5 +991,4 @@ def many_to_many(cls: type[ModelProtocol], other_model: type[ModelProtocol],
     inverse = BelongsToMany(pivot, secondary_id_field, primary_id_field,
                             primary_class=other_model, secondary_class=cls)
     relation.inverse = inverse
-    inverse.inverse = relation
     return relation.create_property()
