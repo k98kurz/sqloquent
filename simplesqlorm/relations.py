@@ -309,7 +309,7 @@ class HasOne(Relation):
 
         HasOneWrapped.__name__ = f'HasOne{self.secondary_class.__name__}'
 
-        def setup_relation(self):
+        def setup_relation(self: ModelProtocol):
             if not hasattr(self, 'relations'):
                 self.relations = {}
             self.relations[cache_key] = deepcopy(relation)
@@ -321,7 +321,7 @@ class HasOne(Relation):
 
 
         @property
-        def secondary(self) -> ModelProtocol:
+        def secondary(self: ModelProtocol) -> ModelProtocol:
             if cache_key not in self.relations or \
                 self.relations[cache_key] is None or \
                 self.relations[cache_key].secondary is None:
@@ -342,7 +342,7 @@ class HasOne(Relation):
             return model
 
         @secondary.setter
-        def secondary(self, model: ModelProtocol) -> None:
+        def secondary(self: ModelProtocol, model: ModelProtocol) -> None:
             assert isinstance(model, ModelProtocol), 'model must implement ModelProtocol'
             if not hasattr(model, 'relations'):
                 model.relations = {}
@@ -492,6 +492,19 @@ class HasMany(HasOne):
 
         raise ValueError('cannot reload an empty relation')
 
+    def query(self) -> QueryBuilderProtocol|None:
+        """Creates the base query for the underlying relation."""
+        if self.primary and self.primary_class.id_field in self.primary.data:
+            primary_id = self.primary.data[self.primary.id_field]
+            return self.secondary_class.query({
+                self.foreign_id_field: primary_id
+            })
+        if self.secondary:
+            primary_id = self.secondary[0].data[self.foreign_id_field]
+            return self.secondary_class.query({
+                self.foreign_id_field: primary_id
+            })
+
     def create_property(self) -> property:
         """Creates a property that can be used to set relation properties
             on models.
@@ -506,11 +519,20 @@ class HasMany(HasOne):
 
         HasManyTuple.__name__ = f'HasMany{self.secondary_class.__name__}'
 
-        def setup_relation(self):
+        def setup_relation(self: ModelProtocol):
+            if not hasattr(self.__class__, 'id_relations'):
+                self.__class__.id_relations = {}
             if not hasattr(self, 'relations'):
                 self.relations = {}
             self.relations[cache_key] = deepcopy(relation)
             self.relations[cache_key].primary = self
+
+            if self.id_field in self.data and self.data[self.id_field] is not None:
+                id_cache_key = cache_key + ':' + self.data[self.id_field]
+                if id_cache_key in self.__class__.id_relations:
+                    self.relations[cache_key] = self.__class__.id_relations[id_cache_key]
+                else:
+                    self.__class__.id_relations[id_cache_key] = self.relations[cache_key]
 
         if not hasattr(self.primary_class, '_post_init_hooks'):
             self.primary_class._post_init_hooks = {}
@@ -518,7 +540,7 @@ class HasMany(HasOne):
 
 
         @property
-        def secondary(self) -> HasManyTuple[ModelProtocol]:
+        def secondary(self: ModelProtocol) -> HasManyTuple[ModelProtocol]:
             if cache_key not in self.relations or \
                 self.relations[cache_key] is None or \
                 self.relations[cache_key].secondary is None:
@@ -536,7 +558,7 @@ class HasMany(HasOne):
             return models
 
         @secondary.setter
-        def secondary(self, models: Optional[list[ModelProtocol]]) -> None:
+        def secondary(self: ModelProtocol, models: Optional[list[ModelProtocol]]) -> None:
             self.relations[cache_key].secondary = models
 
             if hasattr(relation, 'inverse') and relation.inverse:
@@ -622,7 +644,7 @@ class BelongsTo(HasOne):
 
         BelongsToWrapped.__name__ = f'BelongsTo{self.secondary_class.__name__}'
 
-        def setup_relation(self):
+        def setup_relation(self: ModelProtocol):
             if not hasattr(self, 'relations'):
                 self.relations = {}
             self.relations[cache_key] = deepcopy(relation)
@@ -634,7 +656,7 @@ class BelongsTo(HasOne):
 
 
         @property
-        def secondary(self) -> ModelProtocol:
+        def secondary(self: ModelProtocol) -> ModelProtocol:
             if cache_key not in self.relations or \
                 self.relations[cache_key] is None or \
                 self.relations[cache_key].secondary is None:
@@ -654,7 +676,7 @@ class BelongsTo(HasOne):
             return model
 
         @secondary.setter
-        def secondary(self, model: ModelProtocol) -> None:
+        def secondary(self: ModelProtocol, model: ModelProtocol) -> None:
             assert isinstance(model, ModelProtocol), 'model must implement ModelProtocol'
             if not hasattr(model, 'relations'):
                 model.relations = {}
@@ -904,7 +926,7 @@ class BelongsToMany(Relation):
 
         BelongsToManyTuple.__name__ = f'BelongsToMany{self.secondary_class.__name__}'
 
-        def setup_relation(self):
+        def setup_relation(self: ModelProtocol):
             if not hasattr(self, 'relations'):
                 self.relations = {}
             self.relations[cache_key] = deepcopy(relation)
@@ -916,7 +938,7 @@ class BelongsToMany(Relation):
 
 
         @property
-        def secondary(self) -> BelongsToManyTuple[ModelProtocol]:
+        def secondary(self: ModelProtocol) -> BelongsToManyTuple[ModelProtocol]:
             if cache_key not in self.relations or \
                 self.relations[cache_key] is None or \
                 self.relations[cache_key].secondary is None:
@@ -934,7 +956,7 @@ class BelongsToMany(Relation):
             return models
 
         @secondary.setter
-        def secondary(self, models: Optional[list[ModelProtocol]]) -> None:
+        def secondary(self: ModelProtocol, models: Optional[list[ModelProtocol]]) -> None:
             self.relations[cache_key].secondary = models
 
             if hasattr(relation, 'inverse') and relation.inverse:
