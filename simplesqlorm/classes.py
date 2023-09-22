@@ -222,9 +222,9 @@ class JoinedModel:
     def get_models(self) -> list[SqlModel]:
         instances = []
         for model in self.models:
-            if model.id_field and model.__name__ in self.data:
-                if model.id_field in self.data[model.__name__]:
-                    model_id = self.data[model.__name__][model.id_field]
+            if model.table in self.data:
+                if model.id_field in self.data[model.table]:
+                    model_id = self.data[model.table][model.id_field]
                     instances.append(model.find(model_id))
         return instances
 
