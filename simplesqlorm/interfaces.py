@@ -95,6 +95,23 @@ class ModelProtocol(Protocol):
 
 
 @runtime_checkable
+class JoinedModelProtocol(Protocol):
+    def __init__(self, models: list[Type[ModelProtocol]], data: dict) -> None:
+        ...
+
+    @property
+    def data(self) -> dict:
+        ...
+
+    @staticmethod
+    def parse_data(models: list[Type[ModelProtocol]], data: dict) -> dict:
+        ...
+
+    def get_models(self) -> list[ModelProtocol]:
+        ...
+
+
+@runtime_checkable
 class QueryBuilderProtocol(Protocol):
     """Duck typed protocol showing how a query builder should function."""
     def __init__(self, model: ModelProtocol, *args, **kwargs) -> None:
@@ -165,7 +182,12 @@ class QueryBuilderProtocol(Protocol):
         """Find a record by its id and return it."""
         ...
 
-    def get(self) -> list[ModelProtocol]:
+    def join(self, model: Type[ModelProtocol]|list[Type[ModelProtocol]],
+             on: list[str], kind: str = "inner") -> QueryBuilderProtocol:
+        """Prepares the query for a join over multiple tables/models."""
+        ...
+
+    def get(self) -> list[ModelProtocol|JoinedModelProtocol]:
         """Run the query on the datastore and return a list of results."""
         ...
 

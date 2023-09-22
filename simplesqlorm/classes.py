@@ -163,10 +163,7 @@ class SqlModel:
         if self.id_field in self.data:
             if self.find(self.data[self.id_field]) is not None:
                 return self.update({})
-            else:
-                return self.insert(self.data)
-        else:
-            return self.insert(self.data)
+        return self.insert(self.data)
 
     def delete(self) -> None:
         """Delete the record."""
@@ -202,11 +199,53 @@ class SqliteModel(SqlModel):
 
 
 @dataclass
+class JoinedModel:
+    models: list[Type[SqlModel]]
+    data: dict
+
+    def __init__(self, models: list[Type[SqlModel]], data: dict) -> None:
+        self.models = models
+        self.data = self.parse_data(models, data)
+
+    @staticmethod
+    def parse_data(models: list[Type[SqlModel]], data: dict) -> dict:
+        result = {}
+        for model in models:
+            result[model.table] = {}
+            for column in model.fields:
+                key = f"{model.table}.{column}"
+                value = data.get(key)
+                if value:
+                    result[model.table][column] = value
+        return result
+
+    def get_models(self) -> list[SqlModel]:
+        instances = []
+        for model in self.models:
+            if model.id_field and model.__name__ in self.data:
+                if model.id_field in self.data[model.__name__]:
+                    model_id = self.data[model.__name__][model.id_field]
+                    instances.append(model.find(model_id))
+        return instances
+
+
+
+@dataclass
+class JoinSpec:
+    kind: str = field()
+    model_1: SqlModel = field()
+    column_1: str = field()
+    comparison: str = field()
+    model_2: SqlModel = field()
+    column_2: str = field()
+
+
+@dataclass
 class SqlQueryBuilder:
     """Main query builder class. Extend with child class to bind to a
         specific database, c.f. SqliteQueryBuilder.
     """
-    model: type
+    model: Type[SqlModel]
     context_manager: Type[DBContextProtocol] = field(default=None)
     clauses: list = field(default_factory=list)
     params: list = field(default_factory=list)
@@ -214,6 +253,7 @@ class SqlQueryBuilder:
     order_dir: str = field(default='desc')
     limit: int = field(default=None)
     offset: int = field(default=None)
+    joins: list[JoinSpec] = field(default_factory=list)
 
     @property
     def model(self) -> type:
@@ -325,7 +365,7 @@ class SqlQueryBuilder:
 
         return self
 
-    def skip(self, offset: int) -> QueryBuilderProtocol:
+    def skip(self, offset: int) -> SqlQueryBuilder:
         """Sets the number of rows to skip."""
         tert(type(offset) is int, 'offset must be positive int')
         vert(offset >= 0, 'offset must be positive int')
@@ -399,8 +439,90 @@ class SqlQueryBuilder:
 
         return self.model(data=data)
 
-    def get(self) -> list[SqlModel]:
+    def join(self, model: Type[SqlModel]|list[Type[SqlModel]], on: list[str],
+             kind: str = "inner") -> SqlQueryBuilder:
+        """Prepares the query for a join over multiple tables/models."""
+        tert(type(model) in (type, list),
+             "model must be Type[SqlModel] or list[Type[SqlModel]]")
+        if type(model) is list:
+            tert(all([type(m) is type and issubclass(m, SqlModel) for m in model]),
+                 "each model must be Type[SqlModel]")
+        tert(type(on) is list, "on must be list[str]")
+        tert(all([type(o) is str for o in on]), "on must be list[str]")
+        tert(type(kind) is str, "kind must be str")
+        vert(len(on) in (2, 3),
+             "on must be of form [column, column] or [column, comparison, column]")
+        vert(kind in ("inner", "outer", "left", "right", "full"))
+
+        join = [kind]
+
+        def get_join(model: Type[SqlModel], column: str) -> str:
+            if "." in column:
+                return [model, column]
+            else:
+                tert(column in model.fields,
+                     f"column name must be valid for {model.table}")
+                return [model, f"{model.table}.{column}"]
+
+        if len(on) == 2:
+            join.extend(get_join(self.model, on[0]))
+            join.append('=')
+            join.extend(get_join(model, on[1]))
+        elif len(on) == 3:
+            vert(on[1] in ('=', '>', '>=', '<', '<=', '<>'),
+                 "comparison must be in (=, >, >=, <, <=, <>)")
+            join.extend(get_join(self.model, on[0]))
+            join.append(on[1])
+            join.extend(get_join(model, on[2]))
+
+        self.joins.append(JoinSpec(*join))
+
+        return self
+
+    def get(self) -> list[SqlModel|JoinedModel]:
         """Run the query on the datastore and return a list of results."""
+        if len(self.joins) > 0:
+            return self._get_joined()
+        return self._get_normal()
+
+    def _get_joined(self) -> list[JoinedModel]:
+        """Run the query on the datastore and return a list of joined
+            results.
+        """
+        classes: list[SqlModel] = [self.model]
+        columns: list[str] = []
+        for join in self.joins:
+            if join.model_2 not in classes:
+                classes.append(join.model_2)
+        for modelclass in classes:
+            columns.extend([
+                f"{modelclass.table}.{f}"
+                for f in modelclass.fields
+            ])
+
+        sql = f'select {",".join(columns)} from {self.model.table}'
+
+        sql += ' ' + ''.join([
+            f'{j.kind} join {j.model_2.table} on {j.column_1} {j.comparison} {j.column_2}'
+            for j in self.joins
+        ])
+
+        with self.context_manager(self.model) as cursor:
+            cursor.execute(sql, self.params)
+            rows = cursor.fetchall()
+            models = [
+                JoinedModel(classes, data={
+                    key: value
+                    for key, value in zip(columns, row)
+                })
+                for row in rows
+            ]
+            return models
+
+    def _get_normal(self) -> list[SqlModel]:
+        """Run the query on the datastore and return a list of results
+            without joins.
+        """
         sql = f'select {",".join(self.model.fields)} from {self.model.table}'
 
         if len(self.clauses) > 0:

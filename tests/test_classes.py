@@ -619,6 +619,24 @@ class TestClasses(unittest.TestCase):
             classes.SqlQueryBuilder(classes.SqlModel).execute_raw(b'not str')
         assert str(e.exception) == 'sql must be str'
 
+    def test_SqlQueryBuilder_join_returns_JoinedModel(self):
+        model1 = classes.SqliteModel.insert({"name": "model 1"})
+        model2 = classes.Attachment({"details": "attachment 1"})
+        model2.attach_to(model1)
+        model2 = model2.save()
+
+        query = classes.SqliteModel.query()
+        query.join(classes.Attachment, ["id", "related_id"], "inner")
+        result = query.get()
+        assert type(result) is list
+        assert len(result) == 1
+        result = result[0]
+        assert isinstance(result, interfaces.JoinedModelProtocol)
+        result
+        assert model1.table in result.data and model2.table in result.data
+        assert model1.data == result.data[model1.table]
+        assert model2.data == result.data[model2.table]
+
 
     # SqliteQueryBuilder tests
     def test_SqliteQueryBuilder_implements_QueryBuilderProtocol(self):
