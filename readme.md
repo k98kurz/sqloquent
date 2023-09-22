@@ -1,9 +1,7 @@
-# Simple SQL ORM
+# Sqloquent
 
-This is a simple and hopefully rather SOLID SQL ORM system.
-
-NB: need a new name since this ORM shit is rather convoluted, and because
-it can be used without the ORM features.
+This is a SQL ORM system with included bindings for sqlite. Loosely inspired by
+Eloquent.
 
 ## Overview
 
@@ -33,9 +31,10 @@ restore the deleted record.
 - [x] Add chunk generator to `QueryBuilderProtocol` and `SqlQueryBuilder`
 - [x] Decent documentation
 - [x] ORM
-- [ ] SqlQueryBuilder join functionality
+- [x] SqlQueryBuilder join functionality
 - [ ] SqlQueryBuilder group_by functionality
 - [ ] SqlQueryBuilder select functionality
+- [ ] Refactor: replace monkeypatching with injection
 - [ ] Publish to pypi
 - [ ] Simple schema migration system eventually
 
@@ -189,9 +188,9 @@ base `SqlQueryBuilder` will need to be overridden in step 2:
 ##### 1. Implement the `DBContextProtocol`
 
 See the `SqliteContext` class for an example of how to implement this interface.
-This is a standard context manager that accepts an instance of a class that
-implements `ModelProtocol` and returns an instance of the class made in step 0
-when used with the following syntax:
+This is a standard context manager that accepts a class that implements
+`ModelProtocol` and returns an instance of the class made in step 0 when used
+with the following syntax:
 
 ```python
 with SomeDBContextImplementation(SomeModel) as cursor:
@@ -585,13 +584,6 @@ Permission to use, copy, modify, and/or distribute this software
 for any purpose with or without fee is hereby granted, provided
 that the above copyleft notice and this permission notice appear in
 all copies.
-
-Exceptions: this permission is not granted to Alphabet/Google, Amazon,
-Apple, Microsoft, Netflix, Meta/Facebook, Twitter, or Disney; nor is
-permission granted to any company that contracts to supply weapons or
-logistics to any national military; nor is permission granted to any
-national government or governmental agency; nor is permission granted to
-any employees, associates, or affiliates of these designated entities.
 
 THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
 WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
