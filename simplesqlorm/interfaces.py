@@ -101,13 +101,16 @@ class JoinedModelProtocol(Protocol):
 
     @property
     def data(self) -> dict:
+        """Dict for storing models data."""
         ...
 
     @staticmethod
     def parse_data(models: list[Type[ModelProtocol]], data: dict) -> dict:
+        """Parse data of form {table.column:value} to {table:{column:value}}."""
         ...
 
     def get_models(self) -> list[ModelProtocol]:
+        """Returns the underlying models."""
         ...
 
 
