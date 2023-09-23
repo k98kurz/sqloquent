@@ -32,8 +32,8 @@ restore the deleted record.
 - [x] Decent documentation
 - [x] ORM
 - [x] SqlQueryBuilder join functionality
-- [ ] SqlQueryBuilder group_by functionality
-- [ ] SqlQueryBuilder select functionality
+- [x] SqlQueryBuilder select functionality
+- [x] SqlQueryBuilder group by functionality
 - [ ] Refactor: replace monkeypatching with injection
 - [ ] Publish to pypi
 - [ ] Simple schema migration system eventually

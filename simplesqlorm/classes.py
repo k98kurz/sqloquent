@@ -229,7 +229,6 @@ class JoinedModel:
         return instances
 
 
-
 @dataclass
 class JoinSpec:
     kind: str = field()
@@ -238,6 +237,12 @@ class JoinSpec:
     comparison: str = field()
     model_2: SqlModel = field()
     column_2: str = field()
+
+
+@dataclass
+class Row(SqlModel):
+    table: str = field()
+    data: dict = field()
 
 
 @dataclass
@@ -254,6 +259,8 @@ class SqlQueryBuilder:
     limit: int = field(default=None)
     offset: int = field(default=None)
     joins: list[JoinSpec] = field(default_factory=list)
+    columns: list[str] = field(default=None)
+    grouping: str = field(default=None)
 
     @property
     def model(self) -> type:
@@ -479,7 +486,20 @@ class SqlQueryBuilder:
 
         return self
 
-    def get(self) -> list[SqlModel|JoinedModel]:
+    def select(self, columns: list[str]) -> QueryBuilderProtocol:
+        """Sets the columns to select."""
+        tert(type(columns) in (list, tuple), "select columns must be list[str]")
+        tert(all([type(c) is str for c in columns]), "select columns must be list[str]")
+        self.columns = [*columns]
+        return self
+
+    def group(self, by: str) -> SqlQueryBuilder:
+        """Adds a GROUP BY constraint."""
+        tert(type(by) is str, "group by parameter must be str")
+        self.grouping = by
+        return self
+
+    def get(self) -> list[SqlModel|JoinedModel|Row]:
         """Run the query on the datastore and return a list of results."""
         if len(self.joins) > 0:
             return self._get_joined()
@@ -494,11 +514,15 @@ class SqlQueryBuilder:
         for join in self.joins:
             if join.model_2 not in classes:
                 classes.append(join.model_2)
-        for modelclass in classes:
-            columns.extend([
-                f"{modelclass.table}.{f}"
-                for f in modelclass.fields
-            ])
+
+        if self.columns:
+            columns = self.columns
+        else:
+            for modelclass in classes:
+                columns.extend([
+                    f"{modelclass.table}.{f}"
+                    for f in modelclass.fields
+                ])
 
         sql = f'select {",".join(columns)} from {self.model.table}'
 
@@ -507,26 +531,11 @@ class SqlQueryBuilder:
             for j in self.joins
         ])
 
-        with self.context_manager(self.model) as cursor:
-            cursor.execute(sql, self.params)
-            rows = cursor.fetchall()
-            models = [
-                JoinedModel(classes, data={
-                    key: value
-                    for key, value in zip(columns, row)
-                })
-                for row in rows
-            ]
-            return models
-
-    def _get_normal(self) -> list[SqlModel]:
-        """Run the query on the datastore and return a list of results
-            without joins.
-        """
-        sql = f'select {",".join(self.model.fields)} from {self.model.table}'
-
         if len(self.clauses) > 0:
             sql += ' where ' + ' and '.join(self.clauses)
+
+        if self.grouping:
+            sql += f' group by {self.grouping}'
 
         if self.order_field is not None:
             sql += f' order by {self.order_field} {self.order_dir}'
@@ -541,12 +550,55 @@ class SqlQueryBuilder:
             cursor.execute(sql, self.params)
             rows = cursor.fetchall()
             models = [
-                self.model(data={
+                JoinedModel(classes, data={
                     key: value
-                    for key, value in zip(self.model.fields, row)
+                    for key, value in zip(columns, row)
                 })
                 for row in rows
             ]
+            return models
+
+    def _get_normal(self) -> list[SqlModel|Row]:
+        """Run the query on the datastore and return a list of results
+            without joins.
+        """
+        columns: list[str] = self.columns or self.model.fields
+        sql = f'select {",".join(columns)} from {self.model.table}'
+
+        if len(self.clauses) > 0:
+            sql += ' where ' + ' and '.join(self.clauses)
+
+        if self.grouping:
+            sql += f' group by {self.grouping}'
+
+        if self.order_field is not None:
+            sql += f' order by {self.order_field} {self.order_dir}'
+
+        if type(self.limit) is int and self.limit > 0:
+            sql += f' limit {self.limit}'
+
+            if type(self.offset) is int and self.offset > 0:
+                sql += f' offset {self.offset}'
+
+        with self.context_manager(self.model) as cursor:
+            cursor.execute(sql, self.params)
+            rows = cursor.fetchall()
+            if self.grouping:
+                models = [
+                    Row(self.model.table, data={
+                        key: value
+                        for key, value in zip(columns, row)
+                    })
+                    for row in rows
+                ]
+            else:
+                models = [
+                    self.model(data={
+                        key: value
+                        for key, value in zip(columns, row)
+                    })
+                    for row in rows
+                ]
             return models
 
     def count(self) -> int:

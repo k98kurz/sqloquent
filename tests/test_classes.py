@@ -796,6 +796,44 @@ class TestClasses(unittest.TestCase):
         assert model1.data == result.data[model1.table]
         assert model2.data == result.data[model2.table]
 
+    def test_SqliteQueryBuilder_select_restrains_columns_selected(self):
+        # without a join
+        names = ['model1', 'model2']
+        models = [classes.SqliteModel.insert({"name": name}) for name in names]
+        results = classes.SqliteModel.query().select(["id"]).get()
+        assert type(results) is list
+        assert len(results) == 2
+        assert all(["id" in r.data for r in results])
+        assert all(["name" not in r.data for r in results])
+
+        # with a join
+        for model in models:
+            attachment = classes.Attachment({"details": f"test for {model.data['name']}"})
+            attachment.attach_to(model).save()
+        sqb = classes.SqliteModel.query()
+        sqb.join(classes.Attachment, ["id", "related_id"])
+        sqb.select(["example.name", "attachments.id"])
+        results = sqb.get()
+        assert type(results) is list
+        assert len(results) == 2
+        assert all(["example" in r.data and "attachments" in r.data for r in results])
+        assert all([list(dict.keys(r.data["example"])) == ["name"] for r in results])
+        assert all([list(dict.keys(r.data["attachments"])) == ["id"] for r in results])
+
+    def test_SqliteQueryBuilder_group_groups_results(self):
+        names = ['model1', 'model2']
+        models = [classes.SqliteModel.insert({"name": name}) for name in names]
+        for model in models:
+            for i in range(5):
+                attachment = classes.Attachment({"details": f"test data {i}"})
+                attachment.attach_to(model).save()
+        sqb = classes.Attachment.query().group("related_id")
+        sqb.select(["count(*)", "related_id"])
+        results = sqb.get()
+        assert type(results) is list
+        assert all([isinstance(r, interfaces.RowProtocol) for r in results])
+        assert all([list(dict.keys(r.data)) == ["count(*)", "related_id"] for r in results])
+
 
     # JoinedModel test
     def test_JoinedModel_get_models_returns_correct_models(self):

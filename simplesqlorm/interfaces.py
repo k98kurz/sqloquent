@@ -115,6 +115,14 @@ class JoinedModelProtocol(Protocol):
 
 
 @runtime_checkable
+class RowProtocol(Protocol):
+    @property
+    def data(self) -> dict:
+        """Returns the underlying row data."""
+        ...
+
+
+@runtime_checkable
 class QueryBuilderProtocol(Protocol):
     """Duck typed protocol showing how a query builder should function."""
     def __init__(self, model: ModelProtocol, *args, **kwargs) -> None:
@@ -190,7 +198,15 @@ class QueryBuilderProtocol(Protocol):
         """Prepares the query for a join over multiple tables/models."""
         ...
 
-    def get(self) -> list[ModelProtocol|JoinedModelProtocol]:
+    def select(self, columns: list[str]) -> QueryBuilderProtocol:
+        """Sets the columns to select."""
+        ...
+
+    def group(self, by: str) -> QueryBuilderProtocol:
+        """Adds a group by constraint."""
+        ...
+
+    def get(self) -> list[ModelProtocol|JoinedModelProtocol|RowProtocol]:
         """Run the query on the datastore and return a list of results."""
         ...
 
