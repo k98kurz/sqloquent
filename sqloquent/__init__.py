@@ -1,4 +1,4 @@
-from simplesqlorm.classes import (
+from sqloquent.classes import (
     SqlModel,
     SqlQueryBuilder,
     SqliteContext,
@@ -12,7 +12,7 @@ from simplesqlorm.classes import (
     JoinSpec,
     dynamic_sqlite_model,
 )
-from simplesqlorm.interfaces import (
+from sqloquent.interfaces import (
     CursorProtocol,
     DBContextProtocol,
     ModelProtocol,
@@ -21,7 +21,7 @@ from simplesqlorm.interfaces import (
     RowProtocol,
     RelationProtocol,
 )
-from simplesqlorm.relations import (
+from sqloquent.relations import (
     Relation,
     HasOne,
     HasMany,
@@ -32,7 +32,7 @@ from simplesqlorm.relations import (
     belongs_to,
     belongs_to_many
 )
-from simplesqlorm.migration import (
+from sqloquent.migration import (
     Column,
     SqliteTable,
     Migration,

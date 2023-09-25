@@ -80,7 +80,7 @@ the `SqliteModel`, filling these attributes as shown below:
 Additionally, set up any relevant relations using the ORM helper methods.
 
 ```python
-from simplesqlorm import SqliteModel, has_many, belongs_to
+from sqloquent import SqliteModel, has_many, belongs_to
 
 
 class ModelA(SqliteModel):
@@ -115,7 +115,7 @@ relations with `_{related_name}: RelatedModel` attributes and
 encoded using `json.dumps` and stored in text columns.
 
 ```python
-from simplesqlorm import SqliteModel
+from sqloquent import SqliteModel
 
 
 class ModelA(SqliteModel):
@@ -219,7 +219,7 @@ and inject the class from step 2 into `self.query_builder_class` in the
 `__init__` method. Example:
 
 ```python
-from simplesqlorm import QueryBuilderProtocol, SqlModel
+from sqloquent import QueryBuilderProtocol, SqlModel
 
 
 class SomeDBModel(SqlModel):
@@ -269,25 +269,25 @@ inheritance + injection pattern to couple the supplied classes to the desired
 but it should work with others.)
 
 ```python
-import simplesqlorm
+import sqloquent
 
 env_db_file_path = 'some_file.db'
-HashedModel_original = simplesqlorm.HashedModel
-DeletedModel_original = simplesqlorm.DeletedModel
-Attachment_original = simplesqlorm.Attachment
+HashedModel_original = sqloquent.HashedModel
+DeletedModel_original = sqloquent.DeletedModel
+Attachment_original = sqloquent.Attachment
 
 
-class HashedModel(simplesqlorm.HashedModel, simplesqlorm.SqliteModel):
+class HashedModel(sqloquent.HashedModel, sqloquent.SqliteModel):
     file_path: str = env_db_file_path
-simplesqlorm.HashedModel = HashedModel
+sqloquent.HashedModel = HashedModel
 
-class DeletedModel(simplesqlorm.DeletedModel, simplesqlorm.SqliteModel):
+class DeletedModel(sqloquent.DeletedModel, sqloquent.SqliteModel):
     file_path: str = env_db_file_path
-simplesqlorm.DeletedModel = DeletedModel
+sqloquent.DeletedModel = DeletedModel
 
-class Attachment(simplesqlorm.Attachment, simplesqlorm.SqliteModel):
+class Attachment(sqloquent.Attachment, sqloquent.SqliteModel):
     file_path: str = env_db_file_path
-simplesqlorm.Attachment = Attachment
+sqloquent.Attachment = Attachment
 ```
 
 This must be done exactly once. The value supplied for `file_path` (or relevant

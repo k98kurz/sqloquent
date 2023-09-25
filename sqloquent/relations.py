@@ -1,16 +1,15 @@
 from __future__ import annotations
 from abc import abstractmethod
 from copy import deepcopy
-from simplesqlorm.interfaces import ModelProtocol, QueryBuilderProtocol
+from sqloquent.interfaces import ModelProtocol, QueryBuilderProtocol
 from typing import Optional
 
 
 """
-    Puts the R in "simple SQL ORM" and removes the "simple". Convoluted
-    change-tracking measures were taken as a premature optimization
-    initiative to reduce the frequency of db calls. However, these
-    measures often have to call the db anyway just to maintain data
-    integrity, so it is arguable if it is at all helpful. I will
+    Puts the R in ORM. Change-tracking measures were taken as an
+    optimization strategy to reduce the frequency of db calls. However,
+    these measures often have to call the db anyway just to maintain
+    data integrity, so it is arguable if it is at all helpful. I will
     experiment with scrapping it entirely in the future and then do some
     performance profiling to see if it is worth keeping. Problems for an
     older me.
