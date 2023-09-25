@@ -6,15 +6,23 @@ from simplesqlorm.classes import (
     SqliteQueryBuilder,
     DeletedModel,
     HashedModel,
-    Attachment
+    Attachment,
+    Row,
+    JoinedModel,
+    JoinSpec,
+    dynamic_sqlite_model,
 )
 from simplesqlorm.interfaces import (
     CursorProtocol,
     DBContextProtocol,
     ModelProtocol,
-    QueryBuilderProtocol
+    QueryBuilderProtocol,
+    JoinedModelProtocol,
+    RowProtocol,
+    RelationProtocol,
 )
 from simplesqlorm.relations import (
+    Relation,
     HasOne,
     HasMany,
     BelongsTo,
