@@ -32,3 +32,9 @@ from simplesqlorm.relations import (
     belongs_to,
     belongs_to_many
 )
+from simplesqlorm.migration import (
+    Column,
+    SqliteTable,
+    Migration,
+    get_index_name,
+)

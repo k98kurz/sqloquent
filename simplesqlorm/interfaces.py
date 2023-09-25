@@ -1,6 +1,15 @@
 from __future__ import annotations
 from types import TracebackType
-from typing import Any, Generator, Optional, Protocol, Type, Union, runtime_checkable
+from typing import (
+    Any,
+    Callable,
+    Generator,
+    Optional,
+    Protocol,
+    Type,
+    Union,
+    runtime_checkable,
+)
 
 
 @runtime_checkable
@@ -303,3 +312,106 @@ class RelationProtocol(Protocol):
         """Produces a property to be set on a model, allowing it to access
             the related model through the relation.
         """
+
+
+@runtime_checkable
+class ColumnProtocol(Protocol):
+    @property
+    def name(self) -> str:
+        ...
+
+    @property
+    def is_nullable(self) -> str:
+        ...
+
+    def validate(self) -> None:
+        """Should raise an exception if the column specification is invalid."""
+        ...
+
+    def not_null(self) -> ColumnProtocol:
+        ...
+
+    def nullable(self) -> ColumnProtocol:
+        ...
+
+    def index(self) -> ColumnProtocol:
+        ...
+
+    def unique(self) -> ColumnProtocol:
+        ...
+
+    def drop(self) -> ColumnProtocol:
+        ...
+
+    def rename(self) -> ColumnProtocol:
+        ...
+
+
+@runtime_checkable
+class TableProtocol(Protocol):
+    @property
+    def name(self) -> str:
+        ...
+
+    @classmethod
+    def create(cls, name: str) -> TableProtocol:
+        ...
+
+    @classmethod
+    def alter(cls, name: str) -> TableProtocol:
+        ...
+
+    @classmethod
+    def drop(cls, name: str) -> TableProtocol:
+        ...
+
+    def rename(self, name: str) -> TableProtocol:
+        ...
+
+    def index(self, columns: list[ColumnProtocol|str]) -> TableProtocol:
+        ...
+
+    def drop_index(self, columns: list[ColumnProtocol|str]) -> TableProtocol:
+        ...
+
+    def unique(self, columns: list[ColumnProtocol|str]) -> TableProtocol:
+        ...
+
+    def drop_unique(self, columns: list[ColumnProtocol|str]) -> TableProtocol:
+        ...
+
+    def drop_column(self, column: ColumnProtocol|str) -> TableProtocol:
+        ...
+
+    def rename_column(self, column: ColumnProtocol|list[str]) -> TableProtocol:
+        ...
+
+    def sql(self) -> list[str]:
+        ...
+
+
+@runtime_checkable
+class MigrationProtocol(Protocol):
+    def up(self, callback: Callable[[], list[TableProtocol]]) -> None:
+        """Specify the forward migration."""
+        ...
+
+    def down(self, callback: Callable[[], list[TableProtocol]]) -> None:
+        """Specify the backward migration."""
+        ...
+
+    def get_apply_sql(self) -> None:
+        """Get the SQL for the forward migration."""
+        ...
+
+    def apply(self) -> None:
+        """Apply the forward migration."""
+        ...
+
+    def get_undo_sql(self) -> None:
+        """Get the SQL for the backward migration."""
+        ...
+
+    def undo(self) -> None:
+        """Apply the backward migration."""
+        ...
