@@ -19,7 +19,7 @@ class SqliteContext:
     connection: sqlite3.Connection
     cursor: sqlite3.Cursor
 
-    def __init__(self, model: type) -> None:
+    def __init__(self, model: type[SqliteModel]) -> None:
         tert(type(model) is type, 'model must be child class of SqliteModel')
         tert(issubclass(model, SqliteModel),
             'model must be child class of SqliteModel')
@@ -96,6 +96,10 @@ class SqlModel:
             return False
 
         return hash(self) == hash(other)
+
+    def __repr__(self) -> str:
+        return f"SqlModel(table='{self.table}', id_field='{self.id_field}', " + \
+            f"fields={self.fields}, data={self.data})"
 
     @classmethod
     def generate_id(cls) -> str:
@@ -197,6 +201,10 @@ class SqliteModel(SqlModel):
         self.query_builder_class = SqliteQueryBuilder
         super().__init__(data)
 
+    def __repr__(self) -> str:
+        return f"SqliteModel(file_path='{self.file_path}', table='{self.table}', " +\
+            f"id_field='{self.id_field}', fields={self.fields}, data={self.data})"
+
 
 @dataclass
 class JoinedModel:
@@ -206,6 +214,10 @@ class JoinedModel:
     def __init__(self, models: list[Type[SqlModel]], data: dict) -> None:
         self.models = models
         self.data = self.parse_data(models, data)
+
+    def __repr__(self) -> str:
+        return f"JoinedModel(models={[m.__name__ for m in self.models]}, " + \
+            f"data={self.data})"
 
     @staticmethod
     def parse_data(models: list[Type[SqlModel]], data: dict) -> dict:
@@ -243,6 +255,13 @@ class JoinSpec:
 class Row(SqlModel):
     table: str = field()
     data: dict = field()
+
+
+def dynamic_sqlite_model(db_file_path: str, table_name: str = '') -> type[SqlModel]:
+    class DynamicModel(SqliteModel):
+        file_path: str = db_file_path
+        table: str = table_name
+    return DynamicModel
 
 
 @dataclass

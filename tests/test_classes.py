@@ -60,18 +60,25 @@ class TestClasses(unittest.TestCase):
         return super().tearDown()
 
     # general tests
-    def test_imports_without_errors(self):
-        assert True
-
-    def test_classes_contains_correct_classes(self):
-        assert hasattr(classes, 'SqlQueryBuilder')
-        assert type(classes.SqlQueryBuilder) is type
-        assert hasattr(classes, 'SqliteQueryBuilder')
-        assert type(classes.SqliteQueryBuilder) is type
+    def test_classes_contains_correct_classes_and_functions(self):
+        assert hasattr(classes, 'SqliteContext')
+        assert type(classes.SqliteContext) is type
         assert hasattr(classes, 'SqlModel')
         assert type(classes.SqlModel) is type
         assert hasattr(classes, 'SqliteModel')
         assert type(classes.SqliteModel) is type
+        assert hasattr(classes, 'JoinedModel')
+        assert type(classes.JoinedModel) is type
+        assert hasattr(classes, 'JoinSpec')
+        assert type(classes.JoinSpec) is type
+        assert hasattr(classes, 'Row')
+        assert type(classes.Row) is type
+        assert hasattr(classes, 'dynamic_sqlite_model')
+        assert callable(classes.dynamic_sqlite_model)
+        assert hasattr(classes, 'SqlQueryBuilder')
+        assert type(classes.SqlQueryBuilder) is type
+        assert hasattr(classes, 'SqliteQueryBuilder')
+        assert type(classes.SqliteQueryBuilder) is type
         assert hasattr(classes, 'DeletedModel')
         assert type(classes.DeletedModel) is type
         assert hasattr(classes, 'HashedModel')
@@ -250,6 +257,62 @@ class TestClasses(unittest.TestCase):
         assert model.data['name'] == 'Tarzan'
         model.reload()
         assert model.data['name'] == 'Jane'
+
+
+    # JoinedModel test
+    def test_JoinedModel_get_models_returns_correct_models(self):
+        model1 = classes.SqliteModel.insert({"name": "model 1"})
+        model2 = classes.Attachment({"details": "attachment 1"})
+        model2.attach_to(model1)
+        model2 = model2.save()
+
+        joined = classes.JoinedModel(
+            [classes.SqliteModel, classes.Attachment],
+            {
+                **{
+                    f"{classes.SqliteModel.table}.{k}": v
+                    for k,v in model1.data.items()
+                },
+                **{
+                    f"{classes.Attachment.table}.{k}": v
+                    for k,v in model2.data.items()
+                },
+            }
+        )
+
+        models = joined.get_models()
+        assert type(models) is list and len(models) == 2
+        assert model1 in models
+        assert model2 in models
+
+
+    # Row test
+    def test_Row_initializes_correctly(self):
+        row = classes.Row("some_table", {})
+        assert isinstance(row, interfaces.RowProtocol)
+        assert row.table == "some_table"
+        assert row.data == {}
+
+
+    # dynamic_sqlite_model test
+    def test_dynamic_sqlite_model_returns_type_ModelProtocol(self):
+        filepath = "some/path/to/file.db"
+        tablename = "some_table"
+        modelclass = classes.dynamic_sqlite_model(filepath, tablename)
+        assert type(modelclass) is type
+        assert issubclass(modelclass, classes.SqliteModel)
+        model = modelclass()
+        assert isinstance(model, interfaces.ModelProtocol)
+        assert hasattr(model, "file_path") and model.file_path == filepath
+        assert hasattr(model, "table") and model.table == tablename
+
+        modelclass = classes.dynamic_sqlite_model("some/path/to/file.db")
+        assert type(modelclass) is type
+        assert issubclass(modelclass, classes.SqliteModel)
+        model = modelclass()
+        assert isinstance(model, interfaces.ModelProtocol)
+        assert hasattr(model, "file_path") and model.file_path == filepath
+        assert model.table == ""
 
 
     # SqlQueryBuilder tests
@@ -833,33 +896,6 @@ class TestClasses(unittest.TestCase):
         assert type(results) is list
         assert all([isinstance(r, interfaces.RowProtocol) for r in results])
         assert all([list(dict.keys(r.data)) == ["count(*)", "related_id"] for r in results])
-
-
-    # JoinedModel test
-    def test_JoinedModel_get_models_returns_correct_models(self):
-        model1 = classes.SqliteModel.insert({"name": "model 1"})
-        model2 = classes.Attachment({"details": "attachment 1"})
-        model2.attach_to(model1)
-        model2 = model2.save()
-
-        joined = classes.JoinedModel(
-            [classes.SqliteModel, classes.Attachment],
-            {
-                **{
-                    f"{classes.SqliteModel.table}.{k}": v
-                    for k,v in model1.data.items()
-                },
-                **{
-                    f"{classes.Attachment.table}.{k}": v
-                    for k,v in model2.data.items()
-                },
-            }
-        )
-
-        models = joined.get_models()
-        assert type(models) is list and len(models) == 2
-        assert model1 in models
-        assert model2 in models
 
 
     # HashedModel tests
