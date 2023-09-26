@@ -50,6 +50,11 @@ class ModelProtocol(Protocol):
         ...
 
     @property
+    def fields(self) -> tuple[str]:
+        """Tuple of str field names."""
+        ...
+
+    @property
     def data(self) -> dict:
         """Dict for storing model data."""
         ...

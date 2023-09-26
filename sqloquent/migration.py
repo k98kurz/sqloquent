@@ -231,7 +231,7 @@ class SqliteTable:
 
 @dataclass
 class Migration:
-    connection_info: Any = field(default="")
+    connection_info: str = field(default="")
     model_factory: Callable[[Any], ModelProtocol] = field(default=dynamic_sqlite_model)
     context_manager: type[DBContextProtocol] = field(default=SqliteContext)
     up_callbacks: list[Callable[[], list[TableProtocol]]] = field(default_factory=list)

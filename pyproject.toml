@@ -22,3 +22,6 @@ classifiers = [
 [project.urls]
 "Homepage" = "https://github.com/k98kurz/sqloquent"
 "Bug Tracker" = "https://github.com/k98kurz/sqloquent/issues"
+
+[project.scripts]
+sqloquent = "sqloquent.tools:run_cli"
