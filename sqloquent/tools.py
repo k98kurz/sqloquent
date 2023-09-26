@@ -94,6 +94,23 @@ def make_migration_from_model(model_name: str, model_path: str) -> str:
     return src
 
 
+def make_model(name: str, base: str = 'SqliteModel', fields: list[str] = None) -> str:
+    """Generate a model scaffold with the given name."""
+    vert(base in ('SqliteModel', 'SqlModel', 'HashedModel'),
+         "base must be one of ('SqliteModel', 'SqlModel', 'HashedModel')")
+    table_name = _pascalcase_to_snake_case(name)
+    src = f"from sqloquent import {base}\n\n"
+    src += f"class {name}({base}):\n"
+    src += f"    table: str = '{table_name}'\n"
+    if base == "SqliteModel":
+        src += f"    file_path: str = 'temp.db'\n"
+    if fields:
+        src += f"    fields: tuple[str] = {tuple(fields)}\n"
+    else:
+        src += f"    fields: tuple[str] = ('id',)\n\n"
+    return src
+
+
 def help_cli(name: str) -> str:
     name = name.split("/")[-1]
     """Produce and return the help text."""
@@ -101,7 +118,7 @@ def help_cli(name: str) -> str:
     {name} make migration --alter name
     {name} make migration --drop name
     {name} make migration --model name path/to/model/file
-    {name} make model name [--sqlite|--sql] (inherits SqliteModel by default)
+    {name} make model name [--sqlite|--sql|--hashed] (inherits SqliteModel by default)
     {name} migrate path/to/migration/file
     {name} rollback path/to/migration/file
     {name} refresh path/to/migration/file
@@ -142,7 +159,17 @@ def run_cli() -> None:
                     exit(1)
                 return print(make_migration_from_model(name, argv[5]))
         elif kind == "model":
-            ...
+            if len(argv) < 4:
+                print("make model missing parameter: name")
+                print(help_cli(argv[0]))
+                exit(1)
+            name = argv[3]
+            if len(argv) == 5:
+                if argv[4] == "--sql":
+                    return print(make_model(name, 'SqlModel'))
+                elif argv[4] == "--hashed":
+                    return print(make_model(name, 'HashedModel'))
+            return print(make_model(name))
         else:
             print(f"unrecognized make kind: {kind}")
             exit(1)
