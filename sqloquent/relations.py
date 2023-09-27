@@ -2,6 +2,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from copy import deepcopy
 from sqloquent.interfaces import ModelProtocol, QueryBuilderProtocol
+from sqloquent.tools import _pascalcase_to_snake_case
 from typing import Optional
 
 
@@ -969,10 +970,13 @@ class BelongsToMany(Relation):
         return secondary
 
 
+def _get_id_field(cls: type[ModelProtocol]) -> str:
+    return _pascalcase_to_snake_case(cls.__name__) + f'_{cls.id_field}'
+
 def has_one(cls: type[ModelProtocol], owned_model: type[ModelProtocol],
             foreign_id_field: str = None) -> property:
     if foreign_id_field is None:
-        foreign_id_field = (f'{cls.__name__}_{cls.id_field}').lower()
+        foreign_id_field = _get_id_field(cls)
 
     relation = HasOne(foreign_id_field, primary_class=cls, secondary_class=owned_model)
     relation.inverse = BelongsTo(foreign_id_field, primary_class=owned_model, secondary_class=cls)
@@ -981,7 +985,7 @@ def has_one(cls: type[ModelProtocol], owned_model: type[ModelProtocol],
 def has_many(cls: type[ModelProtocol], owned_model: type[ModelProtocol],
              foreign_id_field: str = None) -> property:
     if foreign_id_field is None:
-        foreign_id_field = (f'{cls.__name__}_{cls.id_field}').lower()
+        foreign_id_field = _get_id_field(cls)
 
     relation = HasMany(foreign_id_field, primary_class=cls, secondary_class=owned_model)
     relation.inverse = BelongsTo(foreign_id_field, primary_class=owned_model, secondary_class=cls)
@@ -990,7 +994,7 @@ def has_many(cls: type[ModelProtocol], owned_model: type[ModelProtocol],
 def belongs_to(cls: type[ModelProtocol], owner_model: type[ModelProtocol],
                foreign_id_field: str = None, inverse_is_many: bool = False) -> property:
     if foreign_id_field is None:
-        foreign_id_field = (f'{owner_model.__name__}_{owner_model.id_field}').lower()
+        foreign_id_field = _get_id_field(owner_model)
 
     relation = BelongsTo(foreign_id_field, primary_class=cls, secondary_class=owner_model)
     if inverse_is_many:
@@ -1003,9 +1007,9 @@ def belongs_to_many(cls: type[ModelProtocol], other_model: type[ModelProtocol],
                 pivot: type[ModelProtocol],
                 primary_id_field: str = None, secondary_id_field: str = None) -> property:
     if primary_id_field is None:
-        primary_id_field = (f'{cls.__name__}_{cls.id_field}').lower()
+        primary_id_field = _get_id_field(cls)
     if secondary_id_field is None:
-        secondary_id_field = (f'{other_model.__name__}_{other_model.id_field}').lower()
+        secondary_id_field = _get_id_field(other_model)
 
     relation = BelongsToMany(pivot, primary_id_field, secondary_id_field,
                              primary_class=cls, secondary_class=other_model)
