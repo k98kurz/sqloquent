@@ -1,4 +1,4 @@
-from context import classes, interfaces, relations
+from context import classes, errors, interfaces, relations
 from genericpath import isfile
 import os
 import sqlite3
@@ -82,27 +82,27 @@ class TestRelations(unittest.TestCase):
             secondary_class=self.OwnedModel
         )
 
-        with self.assertRaises(AssertionError) as e:
+        with self.assertRaises(TypeError) as e:
             relation.single_model_precondition('not a ModelProtocol')
         assert str(e.exception) == 'model must implement ModelProtocol'
 
-        with self.assertRaises(AssertionError) as e:
+        with self.assertRaises(TypeError) as e:
             relation.multi_model_precondition('not a list of ModelProtocol')
         assert str(e.exception) == 'must be a list of ModelProtocol'
 
-        with self.assertRaises(AssertionError) as e:
+        with self.assertRaises(TypeError) as e:
             relation.multi_model_precondition(['not a ModelProtocol'])
         assert str(e.exception) == 'must be a list of ModelProtocol'
 
-        with self.assertRaises(AssertionError) as e:
+        with self.assertRaises(TypeError) as e:
             relation.primary_model_precondition('not a ModelProtocol')
         assert str(e.exception) == 'primary must be instance of OwnerModel'
 
-        with self.assertRaises(AssertionError) as e:
+        with self.assertRaises(TypeError) as e:
             relation.secondary_model_precondition('not a ModelProtocol')
         assert str(e.exception) == 'secondary must be instance of OwnedModel'
 
-        with self.assertRaises(AssertionError) as e:
+        with self.assertRaises(TypeError) as e:
             relation.pivot_preconditions('not a type')
         assert str(e.exception) == 'pivot must be class implementing ModelProtocol'
 
@@ -128,7 +128,7 @@ class TestRelations(unittest.TestCase):
         )
         assert isinstance(hasone, relations.HasOne)
 
-        with self.assertRaises(AssertionError) as e:
+        with self.assertRaises(TypeError) as e:
             relations.HasOne(
                 b'not a str',
                 primary_class=self.OwnerModel,
@@ -149,11 +149,11 @@ class TestRelations(unittest.TestCase):
         hasone.primary = primary
         assert hasone.primary is primary
 
-        with self.assertRaises(AssertionError) as e:
+        with self.assertRaises(TypeError) as e:
             hasone.secondary = 'not a ModelProtocol'
         assert str(e.exception) == 'model must implement ModelProtocol'
 
-        with self.assertRaises(AssertionError) as e:
+        with self.assertRaises(TypeError) as e:
             hasone.secondary = self.OwnerModel({'data': '1234f'})
         assert str(e.exception) == 'secondary must be instance of OwnedModel'
 
@@ -177,7 +177,7 @@ class TestRelations(unittest.TestCase):
             secondary_class=self.OwnedModel
         )
 
-        with self.assertRaises(AssertionError) as e:
+        with self.assertRaises(errors.UsageError) as e:
             hasone.save()
         assert str(e.exception) == 'cannot save incomplete HasOne'
 
@@ -419,7 +419,7 @@ class TestRelations(unittest.TestCase):
         )
         assert isinstance(hasmany, relations.HasMany)
 
-        with self.assertRaises(AssertionError) as e:
+        with self.assertRaises(TypeError) as e:
             relations.HasMany(
                 b'not a str',
                 primary_class=self.OwnerModel,
@@ -440,11 +440,11 @@ class TestRelations(unittest.TestCase):
         hasmany.primary = primary
         assert hasmany.primary is primary
 
-        with self.assertRaises(AssertionError) as e:
+        with self.assertRaises(TypeError) as e:
             hasmany.secondary = secondary
         assert str(e.exception) == 'must be a list of ModelProtocol'
 
-        with self.assertRaises(AssertionError) as e:
+        with self.assertRaises(TypeError) as e:
             hasmany.secondary = [self.OwnerModel({'data': '1234f'})]
         assert str(e.exception) == 'secondary must be instance of OwnedModel'
 
@@ -468,7 +468,7 @@ class TestRelations(unittest.TestCase):
             secondary_class=self.OwnedModel
         )
 
-        with self.assertRaises(AssertionError) as e:
+        with self.assertRaises(errors.UsageError) as e:
             hasmany.save()
         assert str(e.exception) == 'cannot save incomplete HasMany'
 
@@ -712,7 +712,7 @@ class TestRelations(unittest.TestCase):
         )
         assert isinstance(belongsto, relations.BelongsTo)
 
-        with self.assertRaises(AssertionError) as e:
+        with self.assertRaises(TypeError) as e:
             relations.BelongsTo(
                 b'not a str',
                 primary_class=self.OwnerModel,
@@ -733,7 +733,7 @@ class TestRelations(unittest.TestCase):
         belongsto.primary = primary
         assert belongsto.primary is primary
 
-        with self.assertRaises(AssertionError) as e:
+        with self.assertRaises(TypeError) as e:
             belongsto.secondary = primary
         assert str(e.exception) == 'secondary must be instance of OwnerModel'
 
@@ -757,7 +757,7 @@ class TestRelations(unittest.TestCase):
             secondary_class=self.OwnerModel
         )
 
-        with self.assertRaises(AssertionError) as e:
+        with self.assertRaises(errors.UsageError) as e:
             belongsto.save()
         assert str(e.exception) == 'cannot save incomplete BelongsTo'
 
@@ -1044,7 +1044,7 @@ class TestRelations(unittest.TestCase):
         )
         assert isinstance(belongstomany, relations.BelongsToMany)
 
-        with self.assertRaises(AssertionError) as e:
+        with self.assertRaises(TypeError) as e:
             relations.BelongsToMany(
                 Pivot,
                 b'not a str',
@@ -1067,11 +1067,11 @@ class TestRelations(unittest.TestCase):
         belongstomany.primary = primary
         assert belongstomany.primary is primary
 
-        with self.assertRaises(AssertionError) as e:
+        with self.assertRaises(TypeError) as e:
             belongstomany.secondary = secondary
         assert str(e.exception) == 'must be a list of ModelProtocol'
 
-        with self.assertRaises(AssertionError) as e:
+        with self.assertRaises(TypeError) as e:
             belongstomany.secondary = [primary]
         assert str(e.exception) == 'secondary must be instance of OwnerModel'
 
@@ -1099,7 +1099,7 @@ class TestRelations(unittest.TestCase):
             secondary_class=self.OwnerModel
         )
 
-        with self.assertRaises(AssertionError) as e:
+        with self.assertRaises(errors.UsageError) as e:
             belongstomany.save()
         assert str(e.exception) == 'cannot save incomplete BelongsToMany'
 

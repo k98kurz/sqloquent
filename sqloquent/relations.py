@@ -1,8 +1,9 @@
 from __future__ import annotations
+from .errors import tert, vert, tressa
+from .interfaces import ModelProtocol, QueryBuilderProtocol
+from .tools import _pascalcase_to_snake_case
 from abc import abstractmethod
 from copy import deepcopy
-from sqloquent.interfaces import ModelProtocol, QueryBuilderProtocol
-from sqloquent.tools import _pascalcase_to_snake_case
 from typing import Optional
 
 
@@ -56,23 +57,32 @@ class Relation:
 
     @staticmethod
     def single_model_precondition(model) -> None:
-        assert isinstance(model, ModelProtocol), 'model must implement ModelProtocol'
+        """Precondition check for a single model. Raises TypeError if
+            the check fails.
+        """
+        tert(isinstance(model, ModelProtocol), 'model must implement ModelProtocol')
 
     @staticmethod
     def multi_model_precondition(model) -> None:
-        assert type(model) in (list, tuple), \
-            'must be a list of ModelProtocol'
+        """Precondition checks for a list of models. Raises TypeError if
+            any check fails.
+        """
+        tert(type(model) in (list, tuple), 'must be a list of ModelProtocol')
         for item in model:
-            assert isinstance(item, ModelProtocol), \
-                'must be a list of ModelProtocol'
+            tert(isinstance(item, ModelProtocol), 'must be a list of ModelProtocol')
 
     @property
     def primary(self) -> ModelProtocol:
+        """The primary model instance. Setting raises TypeError if a
+            precondition check fails.
+        """
         return self._primary
 
     @primary.setter
     def primary(self, primary: Optional[ModelProtocol]) -> None:
-        """Sets the primary model instance."""
+        """Sets the primary model instance. Raises TypeError if a
+            precondition check fails.
+        """
         if self.secondary_to_remove and self.primary:
             self.save()
 
@@ -98,6 +108,7 @@ class Relation:
 
     @property
     def secondary(self) -> Optional[ModelProtocol|tuple[ModelProtocol]]:
+        """The secondary model instance(s)."""
         return self._secondary
 
     @secondary.setter
@@ -107,18 +118,27 @@ class Relation:
         pass
 
     def primary_model_precondition(self, primary: ModelProtocol) -> None:
+        """Precondition check for the primary instance. Raises TypeError
+            if the check fails.
+        """
         if self.primary_class is not None:
-            assert isinstance(primary, self.primary_class), \
-                f'primary must be instance of {self.primary_class.__name__}'
+            tert(isinstance(primary, self.primary_class),
+                f'primary must be instance of {self.primary_class.__name__}')
 
     def secondary_model_precondition(self, secondary: ModelProtocol) -> None:
-        assert isinstance(secondary, self.secondary_class), \
-            f'secondary must be instance of {self.secondary_class.__name__}'
+        """Precondition check for a secondary instance. Raises TypeError
+            if the check fails.
+        """
+        tert(isinstance(secondary, self.secondary_class),
+            f'secondary must be instance of {self.secondary_class.__name__}')
 
     @staticmethod
     def pivot_preconditions(pivot: type[ModelProtocol]) -> None:
-        assert isinstance(pivot, type), \
-            'pivot must be class implementing ModelProtocol'
+        """Precondition check for a pivot type. Raises TypeError if the
+            check fails.
+        """
+        tert(isinstance(pivot, type),
+             'pivot must be class implementing ModelProtocol')
 
     @abstractmethod
     def save(self) -> None:
@@ -134,11 +154,13 @@ class Relation:
         pass
 
     def get_cache_key(self) -> str:
+        """Returns the cache key for the Relation."""
         return (f'{self.primary_class.__name__}_{self.__class__.__name__}'
                      f'_{self.secondary_class.__name__}')
 
     @abstractmethod
     def create_property(self) -> property:
+        """Creates a property to be used on a model."""
         pass
 
 
@@ -152,18 +174,22 @@ class HasOne(Relation):
 
     def __init__(self, foreign_id_field: str, *args, **kwargs) -> None:
         """Set the foreign_id_field attribute, then let the Relation init
-            handle the rest.
+            handle the rest. Raises TypeError if foreign_id_field is not
+            a str.
         """
-        assert isinstance(foreign_id_field, str), 'foreign_id_field must be str'
+        tert(isinstance(foreign_id_field, str), 'foreign_id_field must be str')
         self.foreign_id_field = foreign_id_field
         super().__init__(*args, **kwargs)
 
     @property
     def secondary(self) -> Optional[ModelProtocol]:
+        """The secondary model instance. Setting raises TypeError if the
+            precondition check fails.
+        """
         return self._secondary
 
     @secondary.setter
-    def secondary(self, secondary: ModelProtocol) -> None:
+    def secondary(self, secondary: ModelProtocol|None) -> None:
         """Sets the secondary model instance. Includes convoluted change-
             tracking measures to reduce the frequency of database calls.
         """
@@ -206,15 +232,16 @@ class HasOne(Relation):
         """Save the relation by setting/unsetting the relevant database
             values and unset the following attributes: primary_to_add,
             primary_to_remove, secondary_to_add, and secondary_to_remove.
+            Raises UsageError if the relation is missing data.
         """
-        assert self.primary is not None \
-            or self.primary_to_remove is not None \
-            or self.primary_to_add is not None, \
-            'cannot save incomplete HasOne'
-        assert self.secondary is not None \
-            or len(self.secondary_to_remove) > 0 \
-            or len(self.secondary_to_add) > 0, \
-            'cannot save incomplete HasOne'
+        tressa(self.primary is not None
+               or self.primary_to_remove is not None
+               or self.primary_to_add is not None,
+               'cannot save incomplete HasOne')
+        tressa(self.secondary is not None
+               or len(self.secondary_to_remove) > 0
+               or len(self.secondary_to_add) > 0,
+               'cannot save incomplete HasOne')
 
         qb = self.secondary_class.query()
         remove = False
@@ -291,11 +318,15 @@ class HasOne(Relation):
         raise ValueError('cannot reload an empty relation')
 
     def get_cache_key(self) -> str:
+        """Returns the cache key for this relation."""
         return f'{super().get_cache_key()}_{self.foreign_id_field}'
 
     def create_property(self) -> property:
         """Creates a property that can be used to set relation properties
-            on models.
+            on models. Sets the relevant post-init hook to set up the
+            relation on newly created models. Setting the secondary
+            property on the instance will raise a TypeError if the
+            precondition check fails.
         """
         relation = self
         cache_key = self.get_cache_key()
@@ -310,6 +341,7 @@ class HasOne(Relation):
         HasOneWrapped.__name__ = f'HasOne{self.secondary_class.__name__}'
 
         def setup_relation(self: ModelProtocol):
+            """Sets up the HasOne relation during instance initialization."""
             if not hasattr(self, 'relations'):
                 self.relations = {}
             self.relations[cache_key] = deepcopy(relation)
@@ -322,6 +354,9 @@ class HasOne(Relation):
 
         @property
         def secondary(self: ModelProtocol) -> ModelProtocol:
+            """The secondary model instance. Setting raises TypeError if
+                the precondition check fails.
+            """
             if cache_key not in self.relations or \
                 self.relations[cache_key] is None or \
                 self.relations[cache_key].secondary is None:
@@ -343,7 +378,11 @@ class HasOne(Relation):
 
         @secondary.setter
         def secondary(self: ModelProtocol, model: ModelProtocol) -> None:
-            assert isinstance(model, ModelProtocol), 'model must implement ModelProtocol'
+            """Sets the secondary model. Raises TypeError if the
+                precondition check fails.
+            """
+            tert(isinstance(model, ModelProtocol),
+                 'model must implement ModelProtocol')
             if not hasattr(model, 'relations'):
                 model.relations = {}
 
@@ -370,6 +409,9 @@ class HasMany(HasOne):
     """
     @property
     def secondary(self) -> Optional[tuple[ModelProtocol]]:
+        """The secondary model instance. Setting raises TypeError if the
+            precondition check fails.
+        """
         return self._secondary
 
     @secondary.setter
@@ -424,9 +466,11 @@ class HasMany(HasOne):
         self._secondary = tuple(secondary)
 
     def save(self) -> None:
-        """Save the relation by setting the relevant database value(s)."""
-        assert self.primary is not None, 'cannot save incomplete HasMany'
-        assert self.secondary is not None, 'cannot save incomplete HasMany'
+        """Save the relation by setting the relevant database value(s).
+            Raises UsageError if the relation is incomplete.
+        """
+        tressa(self.primary is not None, 'cannot save incomplete HasMany')
+        tressa(self.secondary is not None, 'cannot save incomplete HasMany')
 
         qb = self.secondary_class.query()
         owner_id = self.primary.data[self.primary_class.id_field]
@@ -507,7 +551,10 @@ class HasMany(HasOne):
 
     def create_property(self) -> property:
         """Creates a property that can be used to set relation properties
-            on models.
+            on models. Sets the relevant post-init hook to set up the
+            relation on newly created models. Setting the secondary
+            property on the instance will raise a TypeError if the
+            precondition check fails.
         """
         relation = self
         cache_key = self.get_cache_key()
@@ -520,6 +567,7 @@ class HasMany(HasOne):
         HasManyTuple.__name__ = f'HasMany{self.secondary_class.__name__}'
 
         def setup_relation(self: ModelProtocol):
+            """Sets up the HasMany relation during instance initialization."""
             if not hasattr(self.__class__, 'id_relations'):
                 self.__class__.id_relations = {}
             if not hasattr(self, 'relations'):
@@ -541,6 +589,9 @@ class HasMany(HasOne):
 
         @property
         def secondary(self: ModelProtocol) -> HasManyTuple[ModelProtocol]:
+            """The secondary model instance. Setting raises TypeError if
+                the precondition check fails.
+            """
             if cache_key not in self.relations or \
                 self.relations[cache_key] is None or \
                 self.relations[cache_key].secondary is None:
@@ -559,6 +610,13 @@ class HasMany(HasOne):
 
         @secondary.setter
         def secondary(self: ModelProtocol, models: Optional[list[ModelProtocol]]) -> None:
+            """Sets the secondary model instances. Raises TypeError if a
+                precondition check fails.
+            """
+            tert(type(models) in (list, tuple),
+                 'models must be list[ModelProtocol] or tuple[ModelProtocol]')
+            tert(all([isinstance(m, ModelProtocol) for m in models]),
+                 'models must be list[ModelProtocol] or tuple[ModelProtocol]')
             self.relations[cache_key].secondary = models
 
             if hasattr(relation, 'inverse') and relation.inverse:
@@ -579,8 +637,11 @@ class BelongsTo(HasOne):
         on the owned model.
     """
     def save(self) -> None:
-        assert self._primary is not None, 'cannot save incomplete BelongsTo'
-        assert self._secondary is not None, 'cannot save incomplete BelongsTo'
+        """Persists the relation to the database. Raises UsageError if
+            the relation is incomplete.
+        """
+        tressa(self._primary is not None, 'cannot save incomplete BelongsTo')
+        tressa(self._secondary is not None, 'cannot save incomplete BelongsTo')
 
         if self.secondary_class.id_field not in self._secondary.data:
             self._secondary.save()
@@ -630,7 +691,10 @@ class BelongsTo(HasOne):
 
     def create_property(self) -> property:
         """Creates a property that can be used to set relation properties
-            on models.
+            on models. Sets the relevant post-init hook to set up the
+            relation on newly created models. Setting the secondary
+            property on the instance will raise a TypeError if the
+            precondition check fails.
         """
         relation = self
         cache_key = self.get_cache_key()
@@ -645,6 +709,7 @@ class BelongsTo(HasOne):
         BelongsToWrapped.__name__ = f'BelongsTo{self.secondary_class.__name__}'
 
         def setup_relation(self: ModelProtocol):
+            """Sets up the HasMany relation during instance initialization."""
             if not hasattr(self, 'relations'):
                 self.relations = {}
             self.relations[cache_key] = deepcopy(relation)
@@ -657,6 +722,9 @@ class BelongsTo(HasOne):
 
         @property
         def secondary(self: ModelProtocol) -> ModelProtocol:
+            """The secondary model instance. Setting raises TypeError if
+                the precondition check fails.
+            """
             if cache_key not in self.relations or \
                 self.relations[cache_key] is None or \
                 self.relations[cache_key].secondary is None:
@@ -677,7 +745,8 @@ class BelongsTo(HasOne):
 
         @secondary.setter
         def secondary(self: ModelProtocol, model: ModelProtocol) -> None:
-            assert isinstance(model, ModelProtocol), 'model must implement ModelProtocol'
+            tert(isinstance(model, ModelProtocol),
+                 'model must implement ModelProtocol')
             if not hasattr(model, 'relations'):
                 model.relations = {}
 
@@ -710,10 +779,11 @@ class BelongsToMany(Relation):
                 secondary_id_field: str,
                 *args, **kwargs) -> None:
         """Set the pivot and query_builder_pivot attributes, then let the
-            Relation class handle the rest.
+            Relation class handle the rest. Raises TypeError if
+            either primary_id_field or secondary_id_field is not a str.
         """
-        assert type(primary_id_field) is type(secondary_id_field) is str, \
-            'primary_id_field and secondary_id_field must be str'
+        tert(type(primary_id_field) is type(secondary_id_field) is str,
+             'primary_id_field and secondary_id_field must be str')
         self.pivot = pivot
         self.primary_id_field = primary_id_field
         self.secondary_id_field = secondary_id_field
@@ -721,6 +791,9 @@ class BelongsToMany(Relation):
 
     @property
     def secondary(self) -> Optional[list[ModelProtocol]]:
+        """The secondary model instances. Setting raises TypeError if a
+            precondition check fails.
+        """
         return self._secondary
 
     @secondary.setter
@@ -738,8 +811,8 @@ class BelongsToMany(Relation):
         self.multi_model_precondition(secondary)
         secondary_list = []
         for model in secondary:
-            assert isinstance(model, self.secondary_class), \
-                f'secondary must be instance of {self.secondary_class.__name__}'
+            tert(isinstance(model, self.secondary_class),
+                 f'secondary must be instance of {self.secondary_class.__name__}')
             # deduplication without using sets to maintain order
             if model not in secondary_list:
                 secondary_list.append(model)
@@ -787,9 +860,11 @@ class BelongsToMany(Relation):
         self._pivot = pivot
 
     def save(self) -> None:
-        """Save the relation by setting/unsetting the relevant database value(s)."""
-        assert self._primary is not None, 'cannot save incomplete BelongsToMany'
-        assert self._secondary is not None, 'cannot save incomplete BelongsToMany'
+        """Save the relation by setting/unsetting the relevant database
+            value(s). Raises UsageError if the relation is incomplete.
+        """
+        tressa(self._primary is not None, 'cannot save incomplete BelongsToMany')
+        tressa(self._secondary is not None, 'cannot save incomplete BelongsToMany')
 
         secondary_ids_to_remove = [
             item.data[item.id_field]
@@ -909,12 +984,16 @@ class BelongsToMany(Relation):
         raise ValueError('cannot reload an empty relation')
 
     def get_cache_key(self) -> str:
+        """Returns the cache key for this relation."""
         return f'{super().get_cache_key()}_{self.pivot.__name__}_' \
             f'{self.primary_id_field}_{self.secondary_id_field}'
 
     def create_property(self) -> property:
         """Creates a property that can be used to set relation properties
-            on models.
+            on models. Sets the relevant post-init hook to set up the
+            relation on newly created models. Setting the secondary
+            property on the instance will raise a TypeError if the
+            precondition check fails.
         """
         relation = self
         cache_key = self.get_cache_key()
@@ -927,6 +1006,7 @@ class BelongsToMany(Relation):
         BelongsToManyTuple.__name__ = f'BelongsToMany{self.secondary_class.__name__}'
 
         def setup_relation(self: ModelProtocol):
+            """Sets up the HasMany relation during instance initialization."""
             if not hasattr(self, 'relations'):
                 self.relations = {}
             self.relations[cache_key] = deepcopy(relation)
@@ -939,6 +1019,9 @@ class BelongsToMany(Relation):
 
         @property
         def secondary(self: ModelProtocol) -> BelongsToManyTuple[ModelProtocol]:
+            """The secondary model instances. Setting raises TypeError
+                if a precondition check fails.
+            """
             if cache_key not in self.relations or \
                 self.relations[cache_key] is None or \
                 self.relations[cache_key].secondary is None:
@@ -957,6 +1040,9 @@ class BelongsToMany(Relation):
 
         @secondary.setter
         def secondary(self: ModelProtocol, models: Optional[list[ModelProtocol]]) -> None:
+            """Sets the secondary model instances. Raises TypeError if
+                the precondition check fails.
+            """
             self.relations[cache_key].secondary = models
 
             if hasattr(relation, 'inverse') and relation.inverse:
