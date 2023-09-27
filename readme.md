@@ -1,7 +1,7 @@
 # Sqloquent
 
-This is a SQL ORM system with included bindings for sqlite. Loosely inspired by
-Eloquent.
+This is a SQL library with included bindings for sqlite. Inspired by Laravel and
+in particular Eloquent.
 
 ## Overview
 
@@ -34,7 +34,7 @@ restore the deleted record.
 - [x] SqlQueryBuilder join functionality
 - [x] SqlQueryBuilder select functionality
 - [x] SqlQueryBuilder group by functionality
-- [ ] Code scaffold tools + CLI
+- [x] Code scaffold tools + CLI
 - [ ] Refactor: replace monkeypatching with injection
 - [ ] Publish to pypi
 - [ ] Simple schema migration system eventually
@@ -45,13 +45,33 @@ Requires python 3.7+ probably.
 
 ### Setup
 
-To install, clone/unpack the repo.
+```bash
+pip install sqloquent
+```
 
 ### Usage
 
 There are two primary ways to use this package: either with the bundled sqlite3
 coupling or with a custom coupling to an arbitrary SQL database client. The
 cryptographic audit trail features can be used with any SQL database coupling.
+
+#### CLI Tool
+
+For ease of development, a CLI tool is included which can be used for generating
+code scaffolds/boilerplates and for managing migrations. After installing via
+pip, run `sqloquent` in the terminal to view the help text.
+
+The CLI tool can generate models and migrations, including the ability to
+generate migrations from completed models. Migrations can be handled manually or
+using an automatic method that tracks migrations via a `migrations` table. To
+use the migration tools, the environment variable `CONNECTION_STRING` must be
+set either in the CLI environment or in an .env file, e.g.
+`CONNECTION_STRING=path/to/file.db`. To insert this connection string into
+generated scaffold code, also define a `MAKE_WITH_CONNSTRING` environment
+variable and set it to anythong other than "false" or "0"; this is a convenience
+feature for working with sqlite3, since that is the only bundled coupling, but
+overwriting the `file_path` attribute on models at the app execution entry point
+is probably a better strategy.
 
 #### Note About Table Construction
 
@@ -369,200 +389,55 @@ a single model.
 
 ## Interfaces and Classes
 
-Below are the interfaces and classes, along with attributes and methods. Note
-that any type that includes itself in a return signature indicates a jquery-
-style monad/chaining pattern.
+Below is a list of interfaces, classes, errors, and functions. See the
+[dox.md](https://github.com/k98kurz/sqloquent/blob/master/dox.md) file generated
+by [autodox](https://pypi.org/project/autodox) for full documentation.
 
 ### Interfaces
 
 - CursorProtocol(Protocol)
-    - `execute(sql: str) -> CursorProtocol`
-    - `executemany(sql: str) -> CursorProtocol`
-    - `fetchone() -> Any`
-    - `fetchall() -> Any`
 - DBContextProtocol(Protocol)
-    - `__init__(self, model: ModelProtocol) -> None`
-    - `__enter__(self) -> CursorProtocol`
-    - `__exit__(self, __exc_type: Optional[Type[BaseException]],`
-                `__exc_value: Optional[BaseException],`
-                `__traceback: Optional[TracebackType]) -> None`
 - ModelProtocol(Protocol)
-    - `@property id_field(self) -> str`
-    - `@property data(self) -> dict`
-    - `__hash__(self) -> int`
-    - `__eq__(self, other) -> bool`
-    - `@classmethod find(cls, id: Any) -> Optional[ModelProtocol]`
-    - `@classmethod insert(cls, data: dict) -> Optional[ModelProtocol]`
-    - `@classmethod insert_many(cls, data: dict) -> int`
-    - `update(self, updates: dict, conditions: dict = None) -> ModelProtocol`
-    - `save(self) -> ModelProtocol`
-    - `delete(self) -> None`
-    - `reload(self) -> ModelProtocol`
-    - `@classmethod query(cls, conditions: dict = None) -> QueryBuilderProtocol`
+- JoinedModelProtocol(Protocol)
+- RowProtocol(Protocol)
 - QueryBuilderProtocol(Protocol)
-    - `@property model(self) -> Type[ModelProtocol]`
-    - `equal(self, field: str, data: str) -> QueryBuilderProtocol`
-    - `not_equal(self, field: str, data: Any) -> QueryBuilderProtocol`
-    - `less(self, field: str, data: str) -> QueryBuilderProtocol`
-    - `greater(self, field: str, data: str) -> QueryBuilderProtocol`
-    - `starts_with(self, field: str, data: str) -> QueryBuilderProtocol`
-    - `contains(self, field: str, data: str) -> QueryBuilderProtocol`
-    - `excludes(self, field: str, data: str) -> QueryBuilderProtocol`
-    - `ends_with(self, field: str, data: str) -> QueryBuilderProtocol`
-    - `is_in(self, field: str, data: Union[tuple, list]) -> QueryBuilderProtocol`
-    - `order_by(self, field: str, direction: str = 'desc') -> QueryBuilderProtocol`
-    - `skip(self, offset: int) -> QueryBuilderProtocol`
-    - `reset(self) -> QueryBuilderProtocol`
-    - `insert(self, data: dict) -> Optional[ModelProtocol]`
-    - `insert_many(self, items: list[dict]) -> int`
-    - `find(self, id: str) -> Optional[ModelProtocol]`
-    - `get(self) -> list[ModelProtocol]`
-    - `count(self) -> int`
-    - `take(self, number: int) -> Optional[list[ModelProtocol]]`
-    - `chunk(self, number: int) -> Generator[list[ModelProtocol], None, None]`
-    - `first(self) -> Optional[ModelProtocol]`
-    - `update(self, updates: dict, conditions: dict = {}) -> int`
-    - `delete(self) -> int`
-    - `to_sql(self) -> str`
-    - `execute_raw(self, sql: str) -> tuple[int, Any]`
 - RelationProtocol(Protocol)
-    - `@property primary(self) -> ModelProtocol`
-    - `@property secondary(self) -> ModelProtocol`
-    - `@staticmethod single_model_precondition(model) -> None`
-    - `@staticmethod multi_model_precondition(model) -> None`
-    - `primary_model_precondition(self, primary: ModelProtocol) -> None`
-    - `secondary_model_precondition(self, secondary: ModelProtocol) -> None`
-    - `@staticmethod pivot_preconditions(pivot: type[ModelProtocol]) -> None`
-    - `save(self) -> None`
-    - `reload(self) -> None`
-    - `get_cache_key(self) -> str`
-    - `create_property(self) -> property`
+- ColumnProtocol(Protocol)
+- TableProtocol(Protocol)
+- MigrationProtocol(Protocol)
 
 ### Classes
 
-Classes implement the protocols or extend the classes indicated. Only additional
-and/or overridden methods/attributes (or just really important ones) are included
-in this list.
+Classes implement the protocols or extend the classes indicated.
 
 - SqliteContext(DBContextProtocol)
-    - `connection: sqlite3.Connection`
-    - `cursor: sqlite3.Cursor`
 - SqlModel(ModelProtocol)
-    - `table: str = 'example'`
-    - `id_field: str = 'id'`
-    - `fields: tuple = ('id', 'name')`
-    - `query_builder_class: Type[QueryBuilderProtocol]`
-    - `data: dict`
-    - `__init__(self, data: dict = {}) -> None`
-    - `@staticmethod encode_value(val: Any) -> str`
-    - `@classmethod generate_id(cls) -> str`
 - SqliteModel(SqlModel)
-    - `file_path: str = 'database.db'`
-    - `__init__(self, data: dict = {}) -> None`
+- JoinedModel(JoinedModelProtocol)
+- JoinSpec
+- Row(RowProtocol)
 - SqlQueryBuilder(QueryBuilderProtocol)
-    - `model: type`
-    - `context_manager: Type[DBContextProtocol] = field(default=None)`
-    - `clauses: list = field(default_factory=list)`
-    - `params: list = field(default_factory=list)`
-    - `order_field: str = field(default=None)`
-    - `order_dir: str = field(default='desc')`
-    - `limit: int = field(default=None)`
-    - `offset: int = field(default=None)`
-    - `@property model(self) -> type`
-    - `@model.setter model(self, model: type) -> None`
 - SqliteQueryBuilder(SqlQueryBuilder)
-    - `__init__(self, model: type, *args, **kwargs) -> None`
 - DeletedModel(SqlModel)
-    - `table: str = 'deleted_records'`
-    - `fields: tuple = ('id', 'model_class', 'record_id', 'record')`
-    - `restore(self) -> SqlModel`
 - HashedModel(SqlModel)
-    - `table: str = 'hashed_records'`
-    - `fields: tuple = ('id', 'data')`
-    - `@classmethod generate_id(cls, data: dict) -> str`
-    - `@classmethod insert(cls, data: dict) -> Optional[HashedModel]`
-    - `@classmethod insert_many(cls, items: list[dict]) -> int`
-    - `update(self, updates: dict) -> HashedModel`
-    - `delete(self) -> DeletedModel`
 - Attachment(HashedModel)
-    - `table: str = 'attachments'`
-    - `fields: tuple = ('id', 'related_model', 'related_id', 'details')`
-    - `_related: SqlModel = None`
-    - `_details: dict = None`
-    - `related(self, reload: bool = False) -> SqlModel`
-    - `attach_to(self, related: SqlModel) -> Attachment`
-    - `details(self, reload: bool = False) -> dict`
-    - `set_details(self, details: dict = {}) -> Attachment`
-    - `@classmethod insert(cls, data: dict) -> Optional[Attachment]`
-- Relation(RelationProtocol):
-    - `primary_class: type[ModelProtocol]`
-    - `secondary_class: type[ModelProtocol]`
-    - `primary_to_add: ModelProtocol`
-    - `primary_to_remove: ModelProtocol`
-    - `secondary_to_add: list[ModelProtocol]`
-    - `secondary_to_remove: list[ModelProtocol]`
-    - `primary: ModelProtocol`
-    - `secondary: ModelProtocol|tuple[ModelProtocol]`
-    - `inverse: Optional[Relation|list[Relation]]`
-    - `__init__(self,`
-                `primary_class: type[ModelProtocol],`
-                `secondary_class: type[ModelProtocol],`
-                `primary_to_add: ModelProtocol = None,`
-                `primary_to_remove: ModelProtocol = None,`
-                `secondary_to_add: list[ModelProtocol] = [],`
-                `secondary_to_remove: list[ModelProtocol] = [],`
-                `primary: ModelProtocol = None,`
-                `secondary: ModelProtocol|tuple[ModelProtocol] = None,`
-                `inverse: Optional[Relation] = None`
-        `) -> None`
+- Relation(RelationProtocol)
 - HasOne(Relation)
-    - `foreign_id_field: str`
-    - `__init__(self, foreign_id_field: str, *args, **kwargs) -> None`
-    - `@property secondary(self) -> Optional[ModelProtocol]`
-    - `@secondary.setter secondary(self, secondary: ModelProtocol) -> None`
-    - `save(self) -> None`
-    - `reload(self) -> HasOne`
-    - `get_cache_key(self) -> str`
-    - `create_property(self) -> property`
 - HasMany(HasOne)
-    - `@property secondary(self) -> Optional[ModelProtocol]`
-    - `@secondary.setter secondary(self, secondary: ModelProtocol) -> None`
-    - `save(self) -> None`
-    - `reload(self) -> HasMany`
-    - `create_property(self) -> property`
 - BelongsTo(HasOne)
-    - `save(self) -> None`
-    - `reload(self) -> BelongsTo`
-    - `create_property(self) -> property`
 - BelongsToMany(Relation)
-    - `pivot: type[ModelProtocol]`
-    - `primary_id_field: str`
-    - `secondary_id_field: str`
-    - `__init__(self, pivot: type[ModelProtocol],`
-                `primary_id_field: str,`
-                `secondary_id_field: str,`
-                `*args, **kwargs) -> None`
-    - `@property secondary(self) -> Optional[list[ModelProtocol]]`
-    - `@secondary.setter secondary(self, secondary: Optional[list[ModelProtocol]]) -> None`
-    - `@property pivot(self) -> type[ModelProtocol]`
-    - `@pivot.setter pivot(self, pivot: type[ModelProtocol]) -> None`
-    - `save(self) -> None`
-    - `reload(self) -> BelongsTo`
-    - `create_property(self) -> property`
 
 ### Functions
 
-The package includes some ORM helper functions for setting up relations.
+The package includes some ORM helper functions for setting up relations and some
+other useful functions.
 
-- `has_one(cls: type[ModelProtocol], owned_model: type[ModelProtocol],`
-            `foreign_id_field: str = None) -> property`
-- `has_many(cls: type[ModelProtocol], owned_model: type[ModelProtocol],`
-             `foreign_id_field: str = None) -> property`
-- `belongs_to(cls: type[ModelProtocol], owner_model: type[ModelProtocol],`
-               `foreign_id_field: str = None, inverse_is_many: bool = False) -> property`
-- `belongs_to_many(cls: type[ModelProtocol], other_model: type[ModelProtocol],`
-                `pivot: type[ModelProtocol],`
-                `primary_id_field: str = None, secondary_id_field: str = None) -> property`
+- has_one
+- has_many
+- belongs_to
+- belongs_to_many
+- dynamic_sqlite_model
+- get_index_name
 
 ## Tests
 
@@ -571,11 +446,15 @@ Open a terminal in the root directory and run the following:
 ```
 python tests/test_classes.py
 python tests/test_relations.py
+python tests/test_migration.py
+python tests/test_tools.py
+python tests/test_integration.py
 ```
 
 The tests demonstrate the intended (and actual) behavior of the classes, as
 well as some contrived examples of how they are used. Perusing the tests will be
-informative to anyone seeking to use/break this package.
+informative to anyone seeking to use/break this package, especially the
+integration test which demonstrates the full package.
 
 ## ISC License
 
