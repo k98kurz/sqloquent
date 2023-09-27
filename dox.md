@@ -4,6 +4,8 @@
 
 ### `SqlModel`
 
+General model for mapping a SQL row to an in-memory object.
+
 #### Annotations
 
 - table: str
@@ -19,6 +21,8 @@
 Encode a value for hashing.
 
 ##### `@classmethod generate_id() -> str:`
+
+Generates and returns a hexadecimal UUID4.
 
 ##### `@classmethod find(id: Any) -> Optional[SqlModel]:`
 
@@ -50,6 +54,8 @@ Reload values from datastore. Return self in monad pattern.
 
 ##### `@classmethod query(conditions: dict = None) -> QueryBuilderProtocol:`
 
+Returns a query builder with any conditions provided.
+
 ### `SqlQueryBuilder`
 
 Main query builder class. Extend with child class to bind to a specific
@@ -71,7 +77,8 @@ database, c.f. SqliteQueryBuilder.
 
 #### Properties
 
-- model
+- model: The model type that non-joined query results will be.
+
 #### Methods
 
 ##### `equal(field: str, data: Any) -> SqlQueryBuilder:`
@@ -206,6 +213,8 @@ Model for interacting with sqlite database.
 
 ### `SqliteQueryBuilder(SqlQueryBuilder)`
 
+SqlQueryBuilder using a SqliteContext.
+
 ### `DeletedModel(SqlModel)`
 
 Model for preserving and restoring deleted HashedModel records.
@@ -235,6 +244,8 @@ Model for interacting with sqlite database using hash for id.
 
 ##### `@classmethod generate_id(data: dict) -> str:`
 
+Generate an ID by hashing the non-ID contents.
+
 ##### `@classmethod insert(data: dict) -> Optional[HashedModel]:`
 
 Insert a new record to the datastore. Return instance.
@@ -254,6 +265,8 @@ Delete the model, putting it in the deleted_records table, then return the
 DeletedModel.
 
 ### `Attachment(HashedModel)`
+
+Class for attaching immutable json data to a record.
 
 #### Annotations
 
@@ -283,9 +296,11 @@ self._details dict to json. Return self in monad pattern.
 
 ##### `@classmethod insert(data: dict) -> Optional[Attachment]:`
 
+Redefined for better LSP support.
+
 ### `Row(SqlModel)`
 
-Row(table: 'str', data: 'dict')
+Class for representing a row from a query when no better model exists.
 
 #### Annotations
 
@@ -294,7 +309,7 @@ Row(table: 'str', data: 'dict')
 
 ### `JoinedModel`
 
-JoinedModel(models: 'list[Type[SqlModel]]', data: 'dict') -> 'None'
+Class for representing the results of SQL JOIN queries.
 
 #### Annotations
 
@@ -305,12 +320,15 @@ JoinedModel(models: 'list[Type[SqlModel]]', data: 'dict') -> 'None'
 
 ##### `@staticmethod parse_data(models: list[Type[SqlModel]], data: dict) -> dict:`
 
+Parse data of form {table.column:value} to {table:{column:value}}.
+
 ##### `get_models() -> list[SqlModel]:`
+
+Returns the underlying models.
 
 ### `JoinSpec`
 
-JoinSpec(kind: 'str', model_1: 'SqlModel', column_1: 'str', comparison: 'str',
-model_2: 'SqlModel', column_2: 'str')
+Class for representing joins to be executed by a query builder.
 
 #### Annotations
 
@@ -323,28 +341,46 @@ model_2: 'SqlModel', column_2: 'str')
 
 ### `CursorProtocol(Protocol)`
 
+Interface showing how a DB cursor should function.
+
 #### Methods
 
-##### `execute(sql: str) -> CursorProtocol:`
+##### `execute(sql: str, parameters: list[str] = []) -> CursorProtocol:`
 
-##### `executemany(sql: str) -> CursorProtocol:`
+Execute a single query with the given parameters.
+
+##### `executemany(sql: str, seq_of_parameters: Iterable[list[str]] = []) -> CursorProtocol:`
+
+Execute a query once for each list of parameters.
+
+##### `executescript(sql: str) -> CursorProtocol:`
+
+Execute a SQL script without parameters. No implicit transaciton handling.
 
 ##### `fetchone() -> Any:`
 
+Get one record returned by the previous query.
+
 ##### `fetchall() -> Any:`
+
+Get all records returned by the previous query.
 
 ### `DBContextProtocol(Protocol)`
 
+Interface showing how a context manager for connecting to a database should
+behave.
+
 ### `ModelProtocol(Protocol)`
 
-Duck typed protocol showing how a model should function.
+Interface showing how a model should function.
 
 #### Properties
 
-- table - Str with the name of the table.
-- id_field - Str with the name of the id field.
-- fields - Tuple of str field names.
-- data - Dict for storing model data.
+- table: Str with the name of the table.
+- id_field: Str with the name of the id field.
+- fields: Tuple of str field names.
+- data: Dict for storing model data.
+
 #### Methods
 
 ##### `@classmethod find(id: Any) -> Optional[ModelProtocol]:`
@@ -381,11 +417,12 @@ Return a QueryBuilderProtocol for the model.
 
 ### `QueryBuilderProtocol(Protocol)`
 
-Duck typed protocol showing how a query builder should function.
+Interface showing how a query builder should function.
 
 #### Properties
 
-- model - The class of the relevant model.
+- model: The class of the relevant model.
+
 #### Methods
 
 ##### `equal(field: str, data: str) -> QueryBuilderProtocol:`
@@ -499,9 +536,12 @@ Execute raw SQL against the database. Return rowcount and fetchall results.
 
 ### `JoinedModelProtocol(Protocol)`
 
+Interface for representations of JOIN query results.
+
 #### Properties
 
-- data - Dict for storing models data.
+- data: Dict for storing models data.
+
 #### Methods
 
 ##### `@staticmethod parse_data(models: list[Type[ModelProtocol]], data: dict) -> dict:`
@@ -514,17 +554,21 @@ Returns the underlying models.
 
 ### `RowProtocol(Protocol)`
 
+Interface for a generic row representation.
+
 #### Properties
 
-- data - Returns the underlying row data.
+- data: Returns the underlying row data.
+
 ### `RelationProtocol(Protocol)`
 
-Duck typed protocol showing how a relation should function.
+Interface showing how a relation should function.
 
 #### Properties
 
-- primary - Property that accesses the primary instance.
-- secondary - Property that accesses the secondary instance(s).
+- primary: Property that accesses the primary instance.
+- secondary: Property that accesses the secondary instance(s).
+
 #### Methods
 
 ##### `@staticmethod single_model_precondition() -> None:`
@@ -586,6 +630,7 @@ Base class for setting up relations.
 
 - primary
 - secondary
+
 #### Methods
 
 ##### `@staticmethod single_model_precondition() -> None:`
@@ -625,6 +670,7 @@ class is set on the owner model.
 #### Properties
 
 - secondary
+
 #### Methods
 
 ##### `save() -> None:`
@@ -653,6 +699,7 @@ model.
 #### Properties
 
 - secondary
+
 #### Methods
 
 ##### `save() -> None:`
@@ -705,6 +752,7 @@ This requires the use of a pivot.
 
 - secondary
 - pivot
+
 #### Methods
 
 ##### `save() -> None:`
@@ -815,7 +863,7 @@ Return the SQL clauses to be run.
 ### `Migration`
 
 Migration(connection_info: 'str' = '', model_factory: 'Callable[[Any],
-ModelProtocol]' = <function dynamic_sqlite_model at 0x7fba9bc41e10>,
+ModelProtocol]' = <function dynamic_sqlite_model at 0x7f8f49181ea0>,
 context_manager: 'type[DBContextProtocol]' = <class
 'sqloquent.classes.SqliteContext'>, up_callbacks: 'list[Callable[[],
 list[TableProtocol]]]' = <factory>, down_callbacks: 'list[Callable[[],
@@ -833,17 +881,22 @@ list[TableProtocol]]]' = <factory>)
 
 ##### `dynamic_sqlite_model(db_file_path: str, table_name: str = '') -> type[SqlModel]:`
 
+Generates a dynamic sqlite model for instantiating context managers.
+
 ##### `up(callback: Callable[[], list[TableProtocol]]) -> None:`
 
-Specify the forward migration.
+Specify the forward migration. May be called multiple times for multi-step
+migrations.
 
 ##### `down(callback: Callable[[], list[TableProtocol]]) -> None:`
 
-Specify the backward migration.
+Specify the backward migration. May be called multiple times for multi-step
+migrations.
 
 ##### `get_apply_sql() -> str:`
 
-Get the SQL for the forward migration.
+Get the SQL for the forward migration. Note that this may call all registered
+callbacks and result in unexpected behavior.
 
 ##### `apply() -> None:`
 
@@ -851,7 +904,8 @@ Apply the forward migration.
 
 ##### `get_undo_sql() -> str:`
 
-Get the SQL for the backward migration.
+Get the SQL for the backward migration. Note that this may call all registered
+callbacks and result in unexpected behavior.
 
 ##### `undo() -> None:`
 
@@ -860,6 +914,8 @@ Apply the backward migration.
 ## Functions
 
 ### `dynamic_sqlite_model(db_file_path: str, table_name: str = '') -> type[SqlModel]:`
+
+Generates a dynamic sqlite model for instantiating context managers.
 
 ### `has_one(cls: type[ModelProtocol], owned_model: type[ModelProtocol], foreign_id_field: str = None) -> property:`
 
@@ -872,9 +928,5 @@ Apply the backward migration.
 ### `get_index_name(table: TableProtocol, columns: list[Column | str], is_unique: bool = False) -> str:`
 
 Generate the name for an index from the table, columns, and type.
-
-### `help_cli(name: str) -> str:`
-
-### `run_cli():`
 
 

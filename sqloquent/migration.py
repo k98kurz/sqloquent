@@ -238,15 +238,22 @@ class Migration:
     down_callbacks: list[Callable[[], list[TableProtocol]]] = field(default_factory=list)
 
     def up(self, callback: Callable[[], list[TableProtocol]]) -> None:
-        """Specify the forward migration."""
+        """Specify the forward migration. May be called multiple times
+            for multi-step migrations.
+        """
         self.up_callbacks.append(callback)
 
     def down(self, callback: Callable[[], list[TableProtocol]]) -> None:
-        """Specify the backward migration."""
+        """Specify the backward migration. May be called multiple times
+            for multi-step migrations.
+        """
         self.down_callbacks.append(callback)
 
     def get_apply_sql(self) -> str:
-        """Get the SQL for the forward migration."""
+        """Get the SQL for the forward migration. Note that this may
+            call all registered callbacks and result in unexpected
+            behavior.
+        """
         clauses: list[str] = []
         for callback in self.up_callbacks:
             tables = callback()
@@ -266,7 +273,10 @@ class Migration:
                 cursor.executescript(sql)
 
     def get_undo_sql(self) -> str:
-        """Get the SQL for the backward migration."""
+        """Get the SQL for the backward migration. Note that this may
+            call all registered callbacks and result in unexpected
+            behavior.
+        """
         clauses: list[str] = []
         for callback in self.down_callbacks:
             tables = callback()

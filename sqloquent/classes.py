@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from hashlib import sha256
 from types import TracebackType
 from typing import Any, Generator, Optional, Type, Union
-from uuid import uuid1
+from uuid import uuid4
 import json
 import sqlite3
 
@@ -43,6 +43,7 @@ class SqliteContext:
 
 
 class SqlModel:
+    """General model for mapping a SQL row to an in-memory object."""
     table: str = 'example'
     id_field: str = 'id'
     fields: tuple = ('id', 'name')
@@ -103,7 +104,8 @@ class SqlModel:
 
     @classmethod
     def generate_id(cls) -> str:
-        return uuid1().bytes.hex()
+        """Generates and returns a hexadecimal UUID4."""
+        return uuid4().bytes.hex()
 
     @classmethod
     def find(cls, id: Any) -> Optional[SqlModel]:
@@ -184,6 +186,7 @@ class SqlModel:
 
     @classmethod
     def query(cls, conditions: dict = None) -> QueryBuilderProtocol:
+        """Returns a query builder with any conditions provided."""
         sqb = cls().query_builder_class(model=cls)
 
         if conditions is not None:
@@ -208,6 +211,7 @@ class SqliteModel(SqlModel):
 
 @dataclass
 class JoinedModel:
+    """Class for representing the results of SQL JOIN queries."""
     models: list[Type[SqlModel]]
     data: dict
 
@@ -221,6 +225,7 @@ class JoinedModel:
 
     @staticmethod
     def parse_data(models: list[Type[SqlModel]], data: dict) -> dict:
+        """Parse data of form {table.column:value} to {table:{column:value}}."""
         result = {}
         for model in models:
             result[model.table] = {}
@@ -232,6 +237,7 @@ class JoinedModel:
         return result
 
     def get_models(self) -> list[SqlModel]:
+        """Returns the underlying models."""
         instances = []
         for model in self.models:
             if model.table in self.data:
@@ -243,6 +249,7 @@ class JoinedModel:
 
 @dataclass
 class JoinSpec:
+    """Class for representing joins to be executed by a query builder."""
     kind: str = field()
     model_1: SqlModel = field()
     column_1: str = field()
@@ -253,11 +260,13 @@ class JoinSpec:
 
 @dataclass
 class Row(SqlModel):
+    """Class for representing a row from a query when no better model exists."""
     table: str = field()
     data: dict = field()
 
 
 def dynamic_sqlite_model(db_file_path: str, table_name: str = '') -> type[SqlModel]:
+    """Generates a dynamic sqlite model for instantiating context managers."""
     class DynamicModel(SqliteModel):
         file_path: str = db_file_path
         table: str = table_name
@@ -283,6 +292,7 @@ class SqlQueryBuilder:
 
     @property
     def model(self) -> type:
+        """The model type that non-joined query results will be."""
         return self._model
 
     @model.setter
@@ -756,6 +766,7 @@ class SqlQueryBuilder:
 
 
 class SqliteQueryBuilder(SqlQueryBuilder):
+    """SqlQueryBuilder using a SqliteContext."""
     def __init__(self, model: type, *args, **kwargs) -> None:
         super().__init__(model, SqliteContext, *args, **kwargs)
 
@@ -793,6 +804,7 @@ class HashedModel(SqlModel):
 
     @classmethod
     def generate_id(cls, data: dict) -> str:
+        """Generate an ID by hashing the non-ID contents."""
         data = { k: data[k] for k in data if k in cls.fields and k != cls.id_field }
         preimage = json.dumps(
             cls.encode_value(data),
@@ -857,6 +869,7 @@ class HashedModel(SqlModel):
 
 
 class Attachment(HashedModel):
+    """Class for attaching immutable json data to a record."""
     table: str = 'attachments'
     fields: tuple = ('id', 'related_model', 'related_id', 'details')
     _related: SqlModel = None
@@ -898,4 +911,5 @@ class Attachment(HashedModel):
 
     @classmethod
     def insert(cls, data: dict) -> Optional[Attachment]:
+        """Redefined for better LSP support."""
         return super().insert(data)

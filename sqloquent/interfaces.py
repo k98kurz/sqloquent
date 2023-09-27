@@ -4,6 +4,7 @@ from typing import (
     Any,
     Callable,
     Generator,
+    Iterable,
     Optional,
     Protocol,
     Type,
@@ -14,21 +15,36 @@ from typing import (
 
 @runtime_checkable
 class CursorProtocol(Protocol):
-    def execute(sql: str) -> CursorProtocol:
+    """Interface showing how a DB cursor should function."""
+    def execute(self, sql: str, parameters: list[str] = []) -> CursorProtocol:
+        """Execute a single query with the given parameters."""
         ...
 
-    def executemany(sql: str) -> CursorProtocol:
+    def executemany(self, sql: str,
+                    seq_of_parameters: Iterable[list[str]] = []) -> CursorProtocol:
+        """Execute a query once for each list of parameters."""
         ...
 
-    def fetchone() -> Any:
+    def executescript(self, sql: str) -> CursorProtocol:
+        """Execute a SQL script without parameters. No implicit
+            transaciton handling.
+        """
         ...
 
-    def fetchall() -> Any:
+    def fetchone(self) -> Any:
+        """Get one record returned by the previous query."""
+        ...
+
+    def fetchall(self) -> Any:
+        """Get all records returned by the previous query."""
         ...
 
 
 @runtime_checkable
 class DBContextProtocol(Protocol):
+    """Interface showing how a context manager for connecting
+        to a database should behave.
+    """
     def __init__(self, model: ModelProtocol) -> None:
         ...
 
@@ -43,7 +59,7 @@ class DBContextProtocol(Protocol):
 
 @runtime_checkable
 class ModelProtocol(Protocol):
-    """Duck typed protocol showing how a model should function."""
+    """Interface showing how a model should function."""
     @property
     def table(self) -> str:
         """Str with the name of the table."""
@@ -115,6 +131,7 @@ class ModelProtocol(Protocol):
 
 @runtime_checkable
 class JoinedModelProtocol(Protocol):
+    """Interface for representations of JOIN query results."""
     def __init__(self, models: list[Type[ModelProtocol]], data: dict) -> None:
         ...
 
@@ -135,6 +152,7 @@ class JoinedModelProtocol(Protocol):
 
 @runtime_checkable
 class RowProtocol(Protocol):
+    """Interface for a generic row representation."""
     @property
     def data(self) -> dict:
         """Returns the underlying row data."""
@@ -143,7 +161,7 @@ class RowProtocol(Protocol):
 
 @runtime_checkable
 class QueryBuilderProtocol(Protocol):
-    """Duck typed protocol showing how a query builder should function."""
+    """Interface showing how a query builder should function."""
     def __init__(self, model: ModelProtocol, *args, **kwargs) -> None:
         ...
 
@@ -268,7 +286,7 @@ class QueryBuilderProtocol(Protocol):
 
 @runtime_checkable
 class RelationProtocol(Protocol):
-    """Duck typed protocol showing how a relation should function."""
+    """Interface showing how a relation should function."""
     def __init__(self, *args, **kwargs) -> None:
         """The exact initialization will depend upon relation subtype."""
         ...
@@ -326,12 +344,16 @@ class RelationProtocol(Protocol):
 
 @runtime_checkable
 class ColumnProtocol(Protocol):
+    """Interface for a column class (for migrations).
+    """
     @property
     def name(self) -> str:
+        """The name of the column."""
         ...
 
     @property
     def is_nullable(self) -> str:
+        """Whether or not the column can be null."""
         ...
 
     def validate(self) -> None:
@@ -339,79 +361,106 @@ class ColumnProtocol(Protocol):
         ...
 
     def not_null(self) -> ColumnProtocol:
+        """Disable null values for this column."""
         ...
 
     def nullable(self) -> ColumnProtocol:
+        """Enable null values for this column."""
         ...
 
     def index(self) -> ColumnProtocol:
+        """Should generate a simple index for this column."""
         ...
 
     def unique(self) -> ColumnProtocol:
+        """Should generate a unique index for this column."""
         ...
 
     def drop(self) -> ColumnProtocol:
+        """Should drop the column from the table."""
         ...
 
-    def rename(self) -> ColumnProtocol:
+    def rename(self, new_name: str) -> ColumnProtocol:
+        """Should rename the column."""
         ...
 
 
 @runtime_checkable
 class TableProtocol(Protocol):
+    """Interface for a table class (for migrations)."""
     @property
     def name(self) -> str:
+        """The name of the table."""
         ...
 
     @classmethod
     def create(cls, name: str) -> TableProtocol:
+        """For creating a table."""
         ...
 
     @classmethod
     def alter(cls, name: str) -> TableProtocol:
+        """For altering a table."""
         ...
 
     @classmethod
     def drop(cls, name: str) -> TableProtocol:
+        """For dropping a table."""
         ...
 
     def rename(self, name: str) -> TableProtocol:
+        """Rename the table."""
         ...
 
     def index(self, columns: list[ColumnProtocol|str]) -> TableProtocol:
+        """Create a simple index or a composite index."""
         ...
 
     def drop_index(self, columns: list[ColumnProtocol|str]) -> TableProtocol:
+        """Drop a simple index or a composite index."""
         ...
 
     def unique(self, columns: list[ColumnProtocol|str]) -> TableProtocol:
+        """Create a simple unique index or a composite unique index."""
         ...
 
     def drop_unique(self, columns: list[ColumnProtocol|str]) -> TableProtocol:
+        """Drop a simple unique index or a composite unique index."""
         ...
 
     def drop_column(self, column: ColumnProtocol|str) -> TableProtocol:
+        """Drop the specified column."""
         ...
 
     def rename_column(self, column: ColumnProtocol|list[str]) -> TableProtocol:
+        """Rename the specified column."""
         ...
 
     def sql(self) -> list[str]:
+        """Return the SQL for the table structure changes."""
         ...
 
 
 @runtime_checkable
 class MigrationProtocol(Protocol):
+    """Interface for a migration class."""
     def up(self, callback: Callable[[], list[TableProtocol]]) -> None:
-        """Specify the forward migration."""
+        """Specify the forward migration. May be called multiple times
+            for multi-step migrations.
+        """
         ...
 
     def down(self, callback: Callable[[], list[TableProtocol]]) -> None:
-        """Specify the backward migration."""
+        """Specify the backward migration. May be called multiple times
+            for multi-step migrations.
+        """
         ...
 
     def get_apply_sql(self) -> None:
-        """Get the SQL for the forward migration."""
+        """Get the SQL for the forward migration. Note that this may
+            call all registered callbacks and result in unexpected
+            behavior.
+        """
         ...
 
     def apply(self) -> None:
@@ -419,7 +468,10 @@ class MigrationProtocol(Protocol):
         ...
 
     def get_undo_sql(self) -> None:
-        """Get the SQL for the backward migration."""
+        """Get the SQL for the backward migration. Note that this may
+            call all registered callbacks and result in unexpected
+            behavior.
+        """
         ...
 
     def undo(self) -> None:
