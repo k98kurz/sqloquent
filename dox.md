@@ -52,6 +52,9 @@ Reload values from datastore. Return self in monad pattern.
 
 ### `SqlQueryBuilder`
 
+Main query builder class. Extend with child class to bind to a specific
+database, c.f. SqliteQueryBuilder.
+
 #### Annotations
 
 - model: Type[SqlModel]
@@ -186,12 +189,16 @@ Execute raw SQL against the database. Return rowcount and fetchall results.
 
 ### `SqliteContext`
 
+Context manager for sqlite.
+
 #### Annotations
 
 - connection: sqlite3.Connection
 - cursor: sqlite3.Cursor
 
 ### `SqliteModel(SqlModel)`
+
+Model for interacting with sqlite database.
 
 #### Annotations
 
@@ -200,6 +207,8 @@ Execute raw SQL against the database. Return rowcount and fetchall results.
 ### `SqliteQueryBuilder(SqlQueryBuilder)`
 
 ### `DeletedModel(SqlModel)`
+
+Model for preserving and restoring deleted HashedModel records.
 
 #### Annotations
 
@@ -214,6 +223,8 @@ Restore a deleted record, remove from deleted_records, and return the restored
 model.
 
 ### `HashedModel(SqlModel)`
+
+Model for interacting with sqlite database using hash for id.
 
 #### Annotations
 
@@ -274,12 +285,16 @@ self._details dict to json. Return self in monad pattern.
 
 ### `Row(SqlModel)`
 
+Row(table: 'str', data: 'dict')
+
 #### Annotations
 
 - table: str
 - data: dict
 
 ### `JoinedModel`
+
+JoinedModel(models: 'list[Type[SqlModel]]', data: 'dict') -> 'None'
 
 #### Annotations
 
@@ -293,6 +308,9 @@ self._details dict to json. Return self in monad pattern.
 ##### `get_models() -> list[SqlModel]:`
 
 ### `JoinSpec`
+
+JoinSpec(kind: 'str', model_1: 'SqlModel', column_1: 'str', comparison: 'str',
+model_2: 'SqlModel', column_2: 'str')
 
 #### Annotations
 
@@ -318,6 +336,8 @@ self._details dict to json. Return self in monad pattern.
 ### `DBContextProtocol(Protocol)`
 
 ### `ModelProtocol(Protocol)`
+
+Duck typed protocol showing how a model should function.
 
 #### Properties
 
@@ -360,6 +380,8 @@ Reload values from datastore. Return self in monad pattern.
 Return a QueryBuilderProtocol for the model.
 
 ### `QueryBuilderProtocol(Protocol)`
+
+Duck typed protocol showing how a query builder should function.
 
 #### Properties
 
@@ -497,6 +519,8 @@ Returns the underlying models.
 - data - Returns the underlying row data.
 ### `RelationProtocol(Protocol)`
 
+Duck typed protocol showing how a relation should function.
+
 #### Properties
 
 - primary - Property that accesses the primary instance.
@@ -541,6 +565,8 @@ Produces a property to be set on a model, allowing it to access the related
 model through the relation.
 
 ### `Relation`
+
+Base class for setting up relations.
 
 #### Annotations
 
@@ -588,6 +614,10 @@ Reload the relation from the database. Return self in monad pattern.
 
 ### `HasOne(Relation)`
 
+Class for the relation where primary owns a secondary: primary.data[id_field] =
+secondary.data[foreign_id_field]. An inverse of BelongsTo. An instance of this
+class is set on the owner model.
+
 #### Annotations
 
 - foreign_id_field: str
@@ -615,6 +645,11 @@ Creates a property that can be used to set relation properties on models.
 
 ### `HasMany(HasOne)`
 
+Class for the relation where primary owns multiple secondary models:
+model.data[foreign_id_field] = primary.data[id_field] for model in secondary.
+The other inverse of BelongsTo. An instance of this class is set on the owner
+model.
+
 #### Properties
 
 - secondary
@@ -638,6 +673,10 @@ Creates a property that can be used to set relation properties on models.
 
 ### `BelongsTo(HasOne)`
 
+Class for the relation where primary belongs to a secondary:
+primary.data[foreign_id_field] = secondary.data[id_field]. Inverse of HasOne and
+HasMany. An instance of this class is set on the owned model.
+
 #### Methods
 
 ##### `save() -> None:`
@@ -651,6 +690,10 @@ Reload the relation from the database. Return self in monad pattern.
 Creates a property that can be used to set relation properties on models.
 
 ### `BelongsToMany(Relation)`
+
+Class for the relation where each primary can have many secondary and each
+secondary can have many primary; e.g. users and roles, or roles and permissions.
+This requires the use of a pivot.
 
 #### Annotations
 
@@ -680,6 +723,9 @@ Creates a property that can be used to set relation properties on models.
 
 ### `Column`
 
+Column(name: 'str', datatype: 'str', table: 'TableProtocol', is_nullable: 'bool'
+= True, new_name: 'str' = None)
+
 #### Annotations
 
 - name: str
@@ -705,6 +751,14 @@ Creates a property that can be used to set relation properties on models.
 ##### `rename(new_name: str) -> Column:`
 
 ### `Table`
+
+Table(name: 'str', new_name: 'str' = None, columns_to_add: 'list[Column]' =
+<factory>, columns_to_drop: 'list[Column | str]' = <factory>, columns_to_rename:
+'list[Column | list[str]]' = <factory>, indices_to_add: 'list[list[Column |
+str]]' = <factory>, indices_to_drop: 'list[list[Column | str]]' = <factory>,
+uniques_to_add: 'list[list[Column | str]]' = <factory>, uniques_to_drop:
+'list[list[Column | str]]' = <factory>, is_create: 'bool' = False, is_drop:
+'bool' = False)
 
 #### Annotations
 
@@ -759,6 +813,13 @@ Rename the table.
 Return the SQL clauses to be run.
 
 ### `Migration`
+
+Migration(connection_info: 'str' = '', model_factory: 'Callable[[Any],
+ModelProtocol]' = <function dynamic_sqlite_model at 0x7fba9bc41e10>,
+context_manager: 'type[DBContextProtocol]' = <class
+'sqloquent.classes.SqliteContext'>, up_callbacks: 'list[Callable[[],
+list[TableProtocol]]]' = <factory>, down_callbacks: 'list[Callable[[],
+list[TableProtocol]]]' = <factory>)
 
 #### Annotations
 
