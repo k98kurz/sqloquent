@@ -36,17 +36,17 @@ class TestMigration(unittest.TestCase):
         assert type(migration.Column) is type
         assert hasattr(migration, 'get_index_name')
         assert callable(migration.get_index_name)
-        assert hasattr(migration, 'SqliteTable')
-        assert type(migration.SqliteTable) is type
+        assert hasattr(migration, 'Table')
+        assert type(migration.Table) is type
         assert hasattr(migration, 'Migration')
         assert type(migration.Migration) is type
 
     def test_Column_class_implements_ColumnProtocol(self):
-        c = migration.Column('test', 'integer', migration.SqliteTable("test"))
+        c = migration.Column('test', 'integer', migration.Table("test"))
         assert isinstance(c, interfaces.ColumnProtocol)
 
     def test_Column_validate_rejects_bad_names(self):
-        t = migration.SqliteTable("test")
+        t = migration.Table("test")
         disallowed = set(string.punctuation + string.whitespace)
         disallowed.remove("_")
         valid = "hello_world5"
@@ -59,8 +59,8 @@ class TestMigration(unittest.TestCase):
             migration.Column("8" + valid, "integer", t).validate()
         assert str(e.exception) == "Column name must start with a letter"
 
-    def test_SqliteTable_implements_TableProtocol(self):
-        t = migration.SqliteTable("test")
+    def test_Table_implements_TableProtocol(self):
+        t = migration.Table("test")
         assert isinstance(t, interfaces.TableProtocol)
 
     def test_Migration_implements_TableProtocol(self):
@@ -68,7 +68,7 @@ class TestMigration(unittest.TestCase):
         assert isinstance(m, interfaces.MigrationProtocol)
 
     def test_get_index_name_works(self):
-        t = migration.SqliteTable("test")
+        t = migration.Table("test")
         idxname = migration.get_index_name(t, ["thing"])
         assert type(idxname) is str
         assert idxname == "idx_test_thing"
@@ -76,34 +76,34 @@ class TestMigration(unittest.TestCase):
         assert type(idxname) is str
         assert idxname == "udx_test_thing"
 
-    # SqliteTable tests
-    def test_SqliteTable_sql_returns_list_str(self):
-        t = migration.SqliteTable('test')
+    # Table tests
+    def test_Table_sql_returns_list_str(self):
+        t = migration.Table('test')
         t.columns_to_add.append(migration.Column('test1', 'integer', t))
         sql = t.sql()
         assert type(sql) is list
         assert all([type(s) is str for s in sql])
 
-    def test_SqliteTable_create_returns_instance(self):
-        t = migration.SqliteTable.create('test')
-        assert isinstance(t, migration.SqliteTable)
+    def test_Table_create_returns_instance(self):
+        t = migration.Table.create('test')
+        assert isinstance(t, migration.Table)
 
-    def test_SqliteTable_alter_returns_instance(self):
-        t = migration.SqliteTable.alter('test')
-        assert isinstance(t, migration.SqliteTable)
+    def test_Table_alter_returns_instance(self):
+        t = migration.Table.alter('test')
+        assert isinstance(t, migration.Table)
 
-    def test_SqliteTable_drop_returns_instance(self):
-        t = migration.SqliteTable.drop('test')
-        assert isinstance(t, migration.SqliteTable)
+    def test_Table_drop_returns_instance(self):
+        t = migration.Table.drop('test')
+        assert isinstance(t, migration.Table)
 
-    def test_SqliteTable_create(self):
-        t = migration.SqliteTable.create('things')
+    def test_Table_create(self):
+        t = migration.Table.create('things')
         t.integer("id")
         sql = t.sql()
         assert len(sql) == 1
         assert sql[0] == "create table if not exists things (id integer)"
 
-        t = migration.SqliteTable.create('things')
+        t = migration.Table.create('things')
         t.integer("id").unique()
         t.text("name").index()
         sql = t.sql()
@@ -112,7 +112,7 @@ class TestMigration(unittest.TestCase):
         assert sql[1] == "create unique index if not exists udx_things_id on things (id)"
         assert sql[2] == "create index if not exists idx_things_name on things (name)"
 
-        t = migration.SqliteTable.create('things')
+        t = migration.Table.create('things')
         col1 = t.integer("id")
         col2 = t.text("name")
         t.unique([col1, col2])
@@ -121,7 +121,7 @@ class TestMigration(unittest.TestCase):
         assert sql[0] == "create table if not exists things (id integer, name text)"
         assert sql[1] == "create unique index if not exists udx_things_id_name on things (id, name)"
 
-        t = migration.SqliteTable.create('things')
+        t = migration.Table.create('things')
         t.integer("id")
         t.text("name")
         t.numeric("parts")
@@ -132,8 +132,8 @@ class TestMigration(unittest.TestCase):
         assert sql[0] == "create table if not exists things (id integer, " + \
             "name text, parts numeric, fraction real, data blob)", f"\'{sql[0]}\' is wrong"
 
-    def test_SqliteTable_alter(self):
-        t = migration.SqliteTable.alter('things')
+    def test_Table_alter(self):
+        t = migration.Table.alter('things')
         t.rename("things2")
         sql = t.sql()
         assert len(sql) == 1
@@ -143,7 +143,7 @@ class TestMigration(unittest.TestCase):
             t.integer("should_not_work")
             t.sql()
 
-        t = migration.SqliteTable.alter('things')
+        t = migration.Table.alter('things')
         t.drop_column("test")
         t.rename_column(["first", "second"])
         migration.Column("p1", "integer", t).rename("p2")
@@ -157,8 +157,8 @@ class TestMigration(unittest.TestCase):
         assert sql[3] == "alter table things rename column first to second"
         assert sql[4] == "alter table things rename column p1 to p2"
 
-    def test_SqliteTable_drop(self):
-        t = migration.SqliteTable.drop("things")
+    def test_Table_drop(self):
+        t = migration.Table.drop("things")
         sql = t.sql()
         assert len(sql) == 1
         assert sql[0] == "drop table if exists things"
@@ -186,13 +186,13 @@ class TestMigration(unittest.TestCase):
 
     def test_Migration_up_and_down_e2e(self):
         def create_things_table():
-            t = migration.SqliteTable.create("things")
+            t = migration.Table.create("things")
             t.integer("id").unique()
             t.text("name").index()
             return [t]
 
         def drop_things_table():
-            t = migration.SqliteTable.drop("things")
+            t = migration.Table.drop("things")
             return [t]
 
         m = migration.Migration(DB_FILEPATH)

@@ -57,7 +57,7 @@ class SqlModel:
                 self.data[key] = data[key]
 
         if hasattr(self, '_post_init_hooks'):
-            tert(isinstance(self._post_init_hooks, dict), \
+            tert(isinstance(self._post_init_hooks, dict),
                 '_post_init_hooks must be a dict mapping names to Callables')
             for _, call in self._post_init_hooks.items():
                 vert(callable(call),

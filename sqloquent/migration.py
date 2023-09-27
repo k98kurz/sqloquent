@@ -62,7 +62,7 @@ def get_index_name(table: TableProtocol, columns: list[Column|str],
 
 
 @dataclass
-class SqliteTable:
+class Table:
     name: str = field()
     new_name: str = field(default=None)
     columns_to_add: list[Column] = field(default_factory=list)
@@ -76,43 +76,43 @@ class SqliteTable:
     is_drop: bool = field(default=False)
 
     @classmethod
-    def create(cls, name: str) -> SqliteTable:
+    def create(cls, name: str) -> Table:
         return cls(name=name, is_create=True)
 
     @classmethod
-    def alter(cls, name: str) -> SqliteTable:
+    def alter(cls, name: str) -> Table:
         return cls(name=name)
 
     @classmethod
-    def drop(cls, name: str) -> SqliteTable:
+    def drop(cls, name: str) -> Table:
         return cls(name=name, is_drop=True)
 
-    def rename(self, name: str) -> SqliteTable:
+    def rename(self, name: str) -> Table:
         """Rename the table."""
         self.new_name = name
         return self
 
-    def index(self, columns: list[Column|str]) -> SqliteTable:
+    def index(self, columns: list[Column|str]) -> Table:
         self.indices_to_add.append(columns)
         return self
 
-    def drop_index(self, columns: list[Column|str]) -> SqliteTable:
+    def drop_index(self, columns: list[Column|str]) -> Table:
         self.indices_to_drop.append(columns)
         return self
 
-    def unique(self, columns: list[Column|str]) -> SqliteTable:
+    def unique(self, columns: list[Column|str]) -> Table:
         self.uniques_to_add.append(columns)
         return self
 
-    def drop_unique(self, columns: list[Column|str]) -> SqliteTable:
+    def drop_unique(self, columns: list[Column|str]) -> Table:
         self.uniques_to_drop.append(columns)
         return self
 
-    def drop_column(self, column: Column|str) -> SqliteTable:
+    def drop_column(self, column: Column|str) -> Table:
         self.columns_to_drop.append(column)
         return self
 
-    def rename_column(self, column: Column|list[str]) -> SqliteTable:
+    def rename_column(self, column: Column|list[str]) -> Table:
         self.columns_to_rename.append(column)
         return self
 

@@ -34,7 +34,7 @@ from sqloquent.relations import (
 )
 from sqloquent.migration import (
     Column,
-    SqliteTable,
+    Table,
     Migration,
     get_index_name,
 )

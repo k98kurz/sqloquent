@@ -45,6 +45,11 @@ class DBContextProtocol(Protocol):
 class ModelProtocol(Protocol):
     """Duck typed protocol showing how a model should function."""
     @property
+    def table(self) -> str:
+        """Str with the name of the table."""
+        ...
+
+    @property
     def id_field(self) -> str:
         """Str with the name of the id field."""
         ...
