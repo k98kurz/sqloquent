@@ -1,6 +1,6 @@
 from __future__ import annotations
 from .classes import SqliteContext, dynamic_sqlite_model
-from .errors import tressa
+from .errors import tressa, vert
 from .interfaces import DBContextProtocol, TableProtocol, ModelProtocol
 from dataclasses import dataclass, field
 from typing import Any, Callable
@@ -9,6 +9,7 @@ import string
 
 @dataclass
 class Column:
+    """Column class for creating migrations."""
     name: str = field()
     datatype: str = field()
     table: TableProtocol = field()
@@ -16,33 +17,42 @@ class Column:
     new_name: str = field(default=None)
 
     def validate(self) -> None:
+        """Validate the Column name. Raises TypeError or ValueError if
+            the column name is invalid.
+        """
         allowed = set(string.ascii_letters + string.digits + "_")
-        tressa(all([n in allowed for n in self.name]),
+        vert(all([n in allowed for n in self.name]),
                "Column name can contain only letters, numbers, and underscores")
-        tressa(self.name[0] in string.ascii_letters,
+        vert(self.name[0] in string.ascii_letters,
                "Column name must start with a letter")
 
     def not_null(self) -> Column:
+        """Marks the column as not nullable."""
         self.is_nullable = False
         return self
 
     def nullable(self) -> Column:
+        """Marks the column as nullable."""
         self.is_nullable = True
         return self
 
     def index(self) -> Column:
+        """Creates an index on the column."""
         self.table.index([self])
         return self
 
     def unique(self) -> Column:
+        """Creates an unique index on the column."""
         self.table.unique([self])
         return self
 
     def drop(self) -> Column:
+        """Drops the column."""
         self.table.drop_column(self)
         return self
 
     def rename(self, new_name: str) -> Column:
+        """Marks the column as needing to be renamed."""
         self.new_name = new_name
         self.table.rename_column(self)
         return self
@@ -63,6 +73,7 @@ def get_index_name(table: TableProtocol, columns: list[Column|str],
 
 @dataclass
 class Table:
+    """Table class for creating migrations."""
     name: str = field()
     new_name: str = field(default=None)
     columns_to_add: list[Column] = field(default_factory=list)
@@ -77,14 +88,17 @@ class Table:
 
     @classmethod
     def create(cls, name: str) -> Table:
+        """For creating a table."""
         return cls(name=name, is_create=True)
 
     @classmethod
     def alter(cls, name: str) -> Table:
+        """For altering a table."""
         return cls(name=name)
 
     @classmethod
     def drop(cls, name: str) -> Table:
+        """For dropping a table."""
         return cls(name=name, is_drop=True)
 
     def rename(self, name: str) -> Table:
@@ -93,61 +107,75 @@ class Table:
         return self
 
     def index(self, columns: list[Column|str]) -> Table:
+        """Create a simple index or a composite index."""
         self.indices_to_add.append(columns)
         return self
 
     def drop_index(self, columns: list[Column|str]) -> Table:
+        """Drop a simple index or a composite index."""
         self.indices_to_drop.append(columns)
         return self
 
     def unique(self, columns: list[Column|str]) -> Table:
+        """Create a simple unique index or a composite unique index."""
         self.uniques_to_add.append(columns)
         return self
 
     def drop_unique(self, columns: list[Column|str]) -> Table:
+        """Drop a simple unique index or a composite unique index."""
         self.uniques_to_drop.append(columns)
         return self
 
     def drop_column(self, column: Column|str) -> Table:
+        """Drop the specified column."""
         self.columns_to_drop.append(column)
         return self
 
     def rename_column(self, column: Column|list[str]) -> Table:
+        """Rename the specified column."""
         self.columns_to_rename.append(column)
         return self
 
     def integer(self, name: str) -> Column:
+        """Creates an integer column."""
         column = Column(name, "integer", table=self)
         column.validate()
         self.columns_to_add.append(column)
         return column
 
     def numeric(self, name: str) -> Column:
+        """Creates a numeric column."""
         column = Column(name, "numeric", table=self)
         column.validate()
         self.columns_to_add.append(column)
         return column
 
     def real(self, name: str) -> Column:
+        """Creates a real column."""
         column = Column(name, "real", table=self)
         column.validate()
         self.columns_to_add.append(column)
         return column
 
     def text(self, name: str) -> Column:
+        """Creates a text column."""
         column = Column(name, "text", table=self)
         column.validate()
         self.columns_to_add.append(column)
         return column
 
     def blob(self, name: str) -> Column:
+        """Creates a blob column."""
         column = Column(name, "blob", table=self)
         column.validate()
         self.columns_to_add.append(column)
         return column
 
     def sql(self) -> list[str]:
-        """Return the SQL clauses to be run."""
+        """Return the SQL for the table structure changes. Raises
+            UsageError if the Table was used incorrectly. Raises
+            TypeError or ValueError if a Column fails validation.
+        """
         clauses = []
 
         if self.is_drop:
@@ -231,6 +259,7 @@ class Table:
 
 @dataclass
 class Migration:
+    """Migration class for updating a database schema."""
     connection_info: str = field(default="")
     model_factory: Callable[[Any], ModelProtocol] = field(default=dynamic_sqlite_model)
     context_manager: type[DBContextProtocol] = field(default=SqliteContext)

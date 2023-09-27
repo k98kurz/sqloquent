@@ -628,20 +628,33 @@ Base class for setting up relations.
 
 #### Properties
 
-- primary
-- secondary
+- primary: The primary model instance. Setting raises TypeError if a
+precondition check fails.
+- secondary: The secondary model instance(s).
 
 #### Methods
 
 ##### `@staticmethod single_model_precondition() -> None:`
 
+Precondition check for a single model. Raises TypeError if the check fails.
+
 ##### `@staticmethod multi_model_precondition() -> None:`
+
+Precondition checks for a list of models. Raises TypeError if any check fails.
 
 ##### `primary_model_precondition(primary: ModelProtocol) -> None:`
 
+Precondition check for the primary instance. Raises TypeError if the check
+fails.
+
 ##### `secondary_model_precondition(secondary: ModelProtocol) -> None:`
 
+Precondition check for a secondary instance. Raises TypeError if the check
+fails.
+
 ##### `@staticmethod pivot_preconditions(pivot: type[ModelProtocol]) -> None:`
+
+Precondition check for a pivot type. Raises TypeError if the check fails.
 
 ##### `save() -> None:`
 
@@ -655,7 +668,11 @@ Reload the relation from the database. Return self in monad pattern.
 
 ##### `get_cache_key() -> str:`
 
+Returns the cache key for the Relation.
+
 ##### `create_property() -> property:`
+
+Creates a property to be used on a model.
 
 ### `HasOne(Relation)`
 
@@ -669,7 +686,8 @@ class is set on the owner model.
 
 #### Properties
 
-- secondary
+- secondary: The secondary model instance. Setting raises TypeError if the
+precondition check fails.
 
 #### Methods
 
@@ -677,7 +695,7 @@ class is set on the owner model.
 
 Save the relation by setting/unsetting the relevant database values and unset
 the following attributes: primary_to_add, primary_to_remove, secondary_to_add,
-and secondary_to_remove.
+and secondary_to_remove. Raises UsageError if the relation is missing data.
 
 ##### `reload() -> HasOne:`
 
@@ -685,9 +703,14 @@ Reload the relation from the database. Return self in monad pattern.
 
 ##### `get_cache_key() -> str:`
 
+Returns the cache key for this relation.
+
 ##### `create_property() -> property:`
 
-Creates a property that can be used to set relation properties on models.
+Creates a property that can be used to set relation properties on models. Sets
+the relevant post-init hook to set up the relation on newly created models.
+Setting the secondary property on the instance will raise a TypeError if the
+precondition check fails.
 
 ### `HasMany(HasOne)`
 
@@ -698,13 +721,15 @@ model.
 
 #### Properties
 
-- secondary
+- secondary: The secondary model instance. Setting raises TypeError if the
+precondition check fails.
 
 #### Methods
 
 ##### `save() -> None:`
 
-Save the relation by setting the relevant database value(s).
+Save the relation by setting the relevant database value(s). Raises UsageError
+if the relation is incomplete.
 
 ##### `reload() -> HasMany:`
 
@@ -716,7 +741,10 @@ Creates the base query for the underlying relation.
 
 ##### `create_property() -> property:`
 
-Creates a property that can be used to set relation properties on models.
+Creates a property that can be used to set relation properties on models. Sets
+the relevant post-init hook to set up the relation on newly created models.
+Setting the secondary property on the instance will raise a TypeError if the
+precondition check fails.
 
 ### `BelongsTo(HasOne)`
 
@@ -728,13 +756,19 @@ HasMany. An instance of this class is set on the owned model.
 
 ##### `save() -> None:`
 
+Persists the relation to the database. Raises UsageError if the relation is
+incomplete.
+
 ##### `reload() -> BelongsTo:`
 
 Reload the relation from the database. Return self in monad pattern.
 
 ##### `create_property() -> property:`
 
-Creates a property that can be used to set relation properties on models.
+Creates a property that can be used to set relation properties on models. Sets
+the relevant post-init hook to set up the relation on newly created models.
+Setting the secondary property on the instance will raise a TypeError if the
+precondition check fails.
 
 ### `BelongsToMany(Relation)`
 
@@ -750,14 +784,16 @@ This requires the use of a pivot.
 
 #### Properties
 
-- secondary
+- secondary: The secondary model instances. Setting raises TypeError if a
+precondition check fails.
 - pivot
 
 #### Methods
 
 ##### `save() -> None:`
 
-Save the relation by setting/unsetting the relevant database value(s).
+Save the relation by setting/unsetting the relevant database value(s). Raises
+UsageError if the relation is incomplete.
 
 ##### `reload() -> BelongsToMany:`
 
@@ -765,14 +801,18 @@ Reload the relation from the database. Return self in monad pattern.
 
 ##### `get_cache_key() -> str:`
 
+Returns the cache key for this relation.
+
 ##### `create_property() -> property:`
 
-Creates a property that can be used to set relation properties on models.
+Creates a property that can be used to set relation properties on models. Sets
+the relevant post-init hook to set up the relation on newly created models.
+Setting the secondary property on the instance will raise a TypeError if the
+precondition check fails.
 
 ### `Column`
 
-Column(name: 'str', datatype: 'str', table: 'TableProtocol', is_nullable: 'bool'
-= True, new_name: 'str' = None)
+Column class for creating migrations.
 
 #### Annotations
 
@@ -786,27 +826,36 @@ Column(name: 'str', datatype: 'str', table: 'TableProtocol', is_nullable: 'bool'
 
 ##### `validate() -> None:`
 
+Validate the Column name. Raises TypeError or ValueError if the column name is
+invalid.
+
 ##### `not_null() -> Column:`
+
+Marks the column as not nullable.
 
 ##### `nullable() -> Column:`
 
+Marks the column as nullable.
+
 ##### `index() -> Column:`
+
+Creates an index on the column.
 
 ##### `unique() -> Column:`
 
+Creates an unique index on the column.
+
 ##### `drop() -> Column:`
+
+Drops the column.
 
 ##### `rename(new_name: str) -> Column:`
 
+Marks the column as needing to be renamed.
+
 ### `Table`
 
-Table(name: 'str', new_name: 'str' = None, columns_to_add: 'list[Column]' =
-<factory>, columns_to_drop: 'list[Column | str]' = <factory>, columns_to_rename:
-'list[Column | list[str]]' = <factory>, indices_to_add: 'list[list[Column |
-str]]' = <factory>, indices_to_drop: 'list[list[Column | str]]' = <factory>,
-uniques_to_add: 'list[list[Column | str]]' = <factory>, uniques_to_drop:
-'list[list[Column | str]]' = <factory>, is_create: 'bool' = False, is_drop:
-'bool' = False)
+Table class for creating migrations.
 
 #### Annotations
 
@@ -826,9 +875,15 @@ uniques_to_add: 'list[list[Column | str]]' = <factory>, uniques_to_drop:
 
 ##### `@classmethod create(name: str) -> Table:`
 
+For creating a table.
+
 ##### `@classmethod alter(name: str) -> Table:`
 
+For altering a table.
+
 ##### `@classmethod drop(name: str) -> Table:`
+
+For dropping a table.
 
 ##### `rename(name: str) -> Table:`
 
@@ -836,38 +891,57 @@ Rename the table.
 
 ##### `index(columns: list[Column | str]) -> Table:`
 
+Create a simple index or a composite index.
+
 ##### `drop_index(columns: list[Column | str]) -> Table:`
+
+Drop a simple index or a composite index.
 
 ##### `unique(columns: list[Column | str]) -> Table:`
 
+Create a simple unique index or a composite unique index.
+
 ##### `drop_unique(columns: list[Column | str]) -> Table:`
+
+Drop a simple unique index or a composite unique index.
 
 ##### `drop_column(column: Column | str) -> Table:`
 
+Drop the specified column.
+
 ##### `rename_column(column: Column | list[str]) -> Table:`
+
+Rename the specified column.
 
 ##### `integer(name: str) -> Column:`
 
+Creates an integer column.
+
 ##### `numeric(name: str) -> Column:`
+
+Creates a numeric column.
 
 ##### `real(name: str) -> Column:`
 
+Creates a real column.
+
 ##### `text(name: str) -> Column:`
+
+Creates a text column.
 
 ##### `blob(name: str) -> Column:`
 
+Creates a blob column.
+
 ##### `sql() -> list[str]:`
 
-Return the SQL clauses to be run.
+Return the SQL for the table structure changes. Raises UsageError if the Table
+was used incorrectly. Raises TypeError or ValueError if a Column fails
+validation.
 
 ### `Migration`
 
-Migration(connection_info: 'str' = '', model_factory: 'Callable[[Any],
-ModelProtocol]' = <function dynamic_sqlite_model at 0x7f8f49181ea0>,
-context_manager: 'type[DBContextProtocol]' = <class
-'sqloquent.classes.SqliteContext'>, up_callbacks: 'list[Callable[[],
-list[TableProtocol]]]' = <factory>, down_callbacks: 'list[Callable[[],
-list[TableProtocol]]]' = <factory>)
+Migration class for updating a database schema.
 
 #### Annotations
 
