@@ -92,7 +92,7 @@ To use the supplied sqlite3 coupling without the cryptographic features, extend
 the `SqliteModel`, filling these attributes as shown below:
 
 - `table: str`: the name of the table
-- `fields: tuple`: the ordered tuple of column names
+- `columns: tuple`: the ordered tuple of column names
 
 Additionally, set up any relevant relations using the ORM helper methods.
 
@@ -102,7 +102,7 @@ from sqloquent import SqliteModel, has_many, belongs_to
 
 class ModelA(SqliteModel):
     table: str = 'model_a'
-    fields: tuple = ('id', 'name', 'details')
+    columns: tuple = ('id', 'name', 'details')
     _details: dict = None
 
     def details(self, reload: bool = False) -> dict:
@@ -112,6 +112,7 @@ class ModelA(SqliteModel):
         return self._details
 
     def set_details(self, details: dict = {}) -> ModelA:
+        """Sets details and encodes to json str."""
         if details:
             self._details = details
         self.data['details'] = json.dumps(self._details)
@@ -119,17 +120,19 @@ class ModelA(SqliteModel):
 
 class ModelB(SqliteModel):
     table: str = 'model_b'
-    fields: tuple = ('id', 'name', 'model_a_id', 'number')
+    columns: tuple = ('id', 'name', 'model_a_id', 'number')
 
 
 ModelA.model_b = has_many(ModelA, ModelB, 'model_a_id')
 ModelB.model_a = belongs_to(ModelB, ModelA, 'model_a_id', True)
 ```
 
-If you do not want to use the bundled ORM system, set up any relevant
-relations with `_{related_name}: RelatedModel` attributes and
-`{related_name}(self, reload: bool = False)` methods. Dicts should be
-encoded using `json.dumps` and stored in text columns.
+If you do not want to use the bundled ORM system, set up any relevant relations
+with `_{related_name}: RelatedModel` attributes and
+`{related_name}(self, reload: bool = False)` methods. Dicts should be encoded
+using `json.dumps` and stored in text columns. More flexibility can be gained at
+the expense of performance by using the packify package, e.g. to encode sets or
+classes that implement the `packify.Packable` interface.
 
 ```python
 from sqloquent import SqliteModel
@@ -137,11 +140,12 @@ from sqloquent import SqliteModel
 
 class ModelA(SqliteModel):
     table: str = 'model_a'
-    fields: tuple = ('id', 'name', 'details')
+    columns: tuple = ('id', 'name', 'details')
     _model_b: ModelB = None
     _details: dict = None
 
     def model_b(self, reload: bool = False) -> list[ModelB]:
+        """The related model."""
         if self._model_b is None or reload:
             self._model_b = ModelB.query({'model_a_id': self.data['id']}).get()
         return self._model_b
@@ -161,6 +165,7 @@ class ModelA(SqliteModel):
         return self._details
 
     def set_details(self, details: dict = {}) -> ModelA:
+        """Sets details and encodes to json str."""
         if details:
             self._details = details
         self.data['details'] = json.dumps(self._details)
@@ -168,10 +173,11 @@ class ModelA(SqliteModel):
 
 class ModelB(SqliteModel):
     table: str = 'model_b'
-    fields: tuple = ('id', 'name', 'model_a_id', 'number')
+    columns: tuple = ('id', 'name', 'model_a_id', 'number')
     _model_a: ModelA = None
 
     def model_a(self, reload: bool = False) -> Optional[ModelA]:
+        """Return the related model."""
         if self._model_a is None or reload:
             self._model_a = ModelA.find(self.data['model_a_id'])
         return self._model_a
@@ -214,6 +220,11 @@ with SomeDBContextImplementation(SomeModel) as cursor:
     cursor.execute('...')
 ```
 
+Note that the connection information should be injected here in the context
+manager. The bundled sqlite bindings put the file path to the sqlite db on the
+models themselves to avoid having to rewrite and rebind the whole system to
+customize the db file path.
+
 ##### 2. Extend `SqlQueryBuilder`
 
 Extend `SqlQueryBuilder` and supply the class from step 1 as the
@@ -253,7 +264,7 @@ class SomeDBModel(SqlModel):
 To create models, simply extend the class from step 3, filling these attributes:
 
 - `table: str`: the name of the table
-- `fields: tuple`: the ordered tuple of column names
+- `columns: tuple`: the ordered tuple of column names
 
 Additionally, set up any relevant relations using the ORM functions or,
 if you don't want to use the ORM, with `_{related_name}: RelatedModel`
@@ -324,7 +335,7 @@ class User(SqlModel):
     ...
 
 class Avatar(SqlModel):
-    fields = ('id', 'url', 'user_id')
+    columns = ('id', 'url', 'user_id')
 
 User_Avatar = HasOne('user_id', User, Avatar)
 User_Avatar.inverse = BelongsTo('user_id', Post, User)
@@ -363,13 +374,13 @@ class User(SqlModel):
             self.befriended_by = self.befriended_by + new_friends
 
 class Avatar(SqlModel):
-    fields = ('id', 'url', 'user_id')
+    columns = ('id', 'url', 'user_id')
 
 class Post(SqlModel):
-    fields = ('id', 'content', 'user_id')
+    columns = ('id', 'content', 'user_id')
 
 class Friendships(SqlModel):
-    fields = ('id', 'user1_id', 'user2_id')
+    columns = ('id', 'user1_id', 'user2_id')
 
 User.avatar = has_one(User, Avatar)
 User.posts = has_many(User, Post)
@@ -453,7 +464,7 @@ python tests/test_integration.py
 The tests demonstrate the intended (and actual) behavior of the classes, as
 well as some contrived examples of how they are used. Perusing the tests will be
 informative to anyone seeking to use/break this package, especially the
-integration test which demonstrates the full package. There are currently 187
+integration test which demonstrates the full package. There are currently 188
 unit tests + 1 e2e integration test.
 
 ## ISC License

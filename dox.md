@@ -9,8 +9,8 @@ General model for mapping a SQL row to an in-memory object.
 #### Annotations
 
 - table: str
-- id_field: str
-- fields: tuple
+- id_column: str
+- columns: tuple
 - query_builder_class: Type[QueryBuilderProtocol]
 - data: dict
 
@@ -18,7 +18,7 @@ General model for mapping a SQL row to an in-memory object.
 
 ##### `@staticmethod encode_value(val: Any) -> str:`
 
-Encode a value for hashing.
+Encode a value for hashing. Uses the pack function from packify.
 
 ##### `@classmethod generate_id() -> str:`
 
@@ -30,19 +30,24 @@ Find a record by its id and return it. Return None if it does not exist.
 
 ##### `@classmethod insert(data: dict) -> Optional[SqlModel]:`
 
-Insert a new record to the datastore. Return instance.
+Insert a new record to the datastore. Return instance. Raises TypeError if data
+is not a dict.
 
 ##### `@classmethod insert_many(items: list[dict]) -> int:`
 
-Insert a batch of records and return the number of items inserted.
+Insert a batch of records and return the number of items inserted. Raises
+TypeError if items is not list[dict].
 
 ##### `update(updates: dict, conditions: dict = None) -> SqlModel:`
 
 Persist the specified changes to the datastore. Return self in monad pattern.
+Raises TypeError or ValueError for invalid updates or conditions (self.data must
+include the id to update or conditions must be specified).
 
 ##### `save() -> SqlModel:`
 
-Persist to the datastore. Return self in monad pattern.
+Persist to the datastore. Return self in monad pattern. Calls insert or update
+and raises appropriate errors.
 
 ##### `delete() -> None:`
 
@@ -50,11 +55,13 @@ Delete the record.
 
 ##### `reload() -> SqlModel:`
 
-Reload values from datastore. Return self in monad pattern.
+Reload values from datastore. Return self in monad pattern. Raises UsageError if
+id is not set in self.data.
 
 ##### `@classmethod query(conditions: dict = None) -> QueryBuilderProtocol:`
 
-Returns a query builder with any conditions provided.
+Returns a query builder with any conditions provided. Conditions are parsed as
+key=value and cannot handle other comparison types.
 
 ### `SqlQueryBuilder`
 
@@ -67,7 +74,7 @@ database, c.f. SqliteQueryBuilder.
 - context_manager: Type[DBContextProtocol]
 - clauses: list
 - params: list
-- order_field: str
+- order_column: str
 - order_dir: str
 - limit: int
 - offset: int
@@ -77,57 +84,70 @@ database, c.f. SqliteQueryBuilder.
 
 #### Properties
 
-- model: The model type that non-joined query results will be.
+- model: The model type that non-joined query results will be. Setting raises
+TypeError if supplied something other than a subclass of SqlModel.
 
 #### Methods
 
-##### `equal(field: str, data: Any) -> SqlQueryBuilder:`
+##### `equal(column: str, data: Any) -> SqlQueryBuilder:`
 
-Save the 'field = data' clause and param, then return self.
+Save the 'column = data' clause and param, then return self. Raises TypeError
+for invalid column.
 
-##### `not_equal(field: str, data: Any) -> SqlQueryBuilder:`
+##### `not_equal(column: str, data: Any) -> SqlQueryBuilder:`
 
-Save the 'field != data' clause and param, then return self.
+Save the 'column != data' clause and param, then return self. Raises TypeError
+for invalid column.
 
-##### `less(field: str, data: Any) -> SqlQueryBuilder:`
+##### `less(column: str, data: Any) -> SqlQueryBuilder:`
 
-Save the 'field < data' clause and param, then return self.
+Save the 'column < data' clause and param, then return self. Raises TypeError
+for invalid column.
 
-##### `greater(field: str, data: Any) -> SqlQueryBuilder:`
+##### `greater(column: str, data: Any) -> SqlQueryBuilder:`
 
-Save the 'field > data' clause and param, then return self.
+Save the 'column > data' clause and param, then return self. Raises TypeError
+for invalid column.
 
-##### `starts_with(field: str, data: str) -> SqlQueryBuilder:`
+##### `starts_with(column: str, data: str) -> SqlQueryBuilder:`
 
-Save the 'field like data%' clause and param, then return self.
+Save the 'column like data%' clause and param, then return self. Raises
+TypeError or ValueError for invalid column or data.
 
-##### `contains(field: str, data: str) -> SqlQueryBuilder:`
+##### `contains(column: str, data: str) -> SqlQueryBuilder:`
 
-Save the 'field like %data%' clause and param, then return self.
+Save the 'column like %data%' clause and param, then return self. Raises
+TypeError or ValueError for invalid column or data.
 
-##### `excludes(field: str, data: str) -> SqlQueryBuilder:`
+##### `excludes(column: str, data: str) -> SqlQueryBuilder:`
 
-Save the 'field not like %data%' clause and param, then return self.
+Save the 'column not like %data%' clause and param, then return self. Raises
+TypeError or ValueError for invalid column or data.
 
-##### `ends_with(field: str, data: str) -> SqlQueryBuilder:`
+##### `ends_with(column: str, data: str) -> SqlQueryBuilder:`
 
-Save the 'field like %data' clause and param, then return self.
+Save the 'column like %data' clause and param, then return self. Raises
+TypeError or ValueError for invalid column or data.
 
-##### `is_in(field: str, data: Union[tuple, list]) -> SqlQueryBuilder:`
+##### `is_in(column: str, data: Union[tuple, list]) -> SqlQueryBuilder:`
 
-Save the 'field in data' clause and param, then return self.
+Save the 'column in data' clause and param, then return self. Raises TypeError
+or ValueError for invalid column or data.
 
-##### `not_in(field: str, data: Union[tuple, list]) -> SqlQueryBuilder:`
+##### `not_in(column: str, data: Union[tuple, list]) -> SqlQueryBuilder:`
 
-Save the 'field not in data' clause and param, then return self.
+Save the 'column not in data' clause and param, then return self. Raises
+TypeError or ValueError for invalid column or data.
 
-##### `order_by(field: str, direction: str = 'desc') -> SqlQueryBuilder:`
+##### `order_by(column: str, direction: str = 'desc') -> SqlQueryBuilder:`
 
-Sets query order.
+Sets query order. Raises TypeError or ValueError for invalid column or
+direction.
 
 ##### `skip(offset: int) -> SqlQueryBuilder:`
 
-Sets the number of rows to skip.
+Sets the number of rows to skip. Raises TypeError or ValueError for invalid
+offset.
 
 ##### `reset() -> SqlQueryBuilder:`
 
@@ -135,11 +155,13 @@ Returns a fresh instance using the configured model.
 
 ##### `insert(data: dict) -> Optional[SqlModel]:`
 
-Insert a record and return a model instance.
+Insert a record and return a model instance. Raises TypeError for invalid data
+or ValueError if a record with the same id already exists.
 
 ##### `insert_many(items: list[dict]) -> int:`
 
-Insert a batch of records and return the number inserted.
+Insert a batch of records and return the number inserted. Raises TypeError for
+invalid items.
 
 ##### `find(id: Any) -> Optional[SqlModel]:`
 
@@ -147,15 +169,16 @@ Find a record by its id and return it.
 
 ##### `join(model: Type[SqlModel] | list[Type[SqlModel]], on: list[str], kind: str = 'inner') -> SqlQueryBuilder:`
 
-Prepares the query for a join over multiple tables/models.
+Prepares the query for a join over multiple tables/models. Raises TypeError or
+ValueError for invalid model, on, or kind.
 
 ##### `select(columns: list[str]) -> QueryBuilderProtocol:`
 
-Sets the columns to select.
+Sets the columns to select. Raises TypeError for invalid columns.
 
 ##### `group(by: str) -> SqlQueryBuilder:`
 
-Adds a GROUP BY constraint.
+Adds a GROUP BY constraint. Raises TypeError for invalid by.
 
 ##### `get() -> list[SqlModel | JoinedModel | Row]:`
 
@@ -167,11 +190,13 @@ Returns the number of records matching the query.
 
 ##### `take(limit: int) -> Optional[list[SqlModel]]:`
 
-Takes the specified number of rows.
+Takes the specified number of rows. Raises TypeError or ValueError for invalid
+limit.
 
 ##### `chunk(number: int) -> Generator[list[SqlModel], None, None]:`
 
-Chunk all matching rows the specified number of rows at a time.
+Chunk all matching rows the specified number of rows at a time. Raises TypeError
+or ValueError for invalid number.
 
 ##### `first() -> Optional[SqlModel]:`
 
@@ -179,7 +204,8 @@ Run the query on the datastore and return the first result.
 
 ##### `update(updates: dict, conditions: dict = {}) -> int:`
 
-Update the datastore and return number of records updated.
+Update the datastore and return number of records updated. Raises TypeError for
+invalid updates or conditions.
 
 ##### `delete() -> int:`
 
@@ -222,47 +248,63 @@ Model for preserving and restoring deleted HashedModel records.
 #### Annotations
 
 - table: str
-- fields: tuple
+- columns: tuple
 
 #### Methods
 
-##### `restore() -> SqlModel:`
+##### `restore(inject: dict = {}) -> SqlModel:`
 
 Restore a deleted record, remove from deleted_records, and return the restored
-model.
+model. Raises ValueError if model_class cannot be found. Raises TypeError if
+model_class is not a subclass of SqlModel. Uses packify.unpack to unpack the
+record. Raises TypeError if packed record is not a dict.
+
+### `DeletedSqliteModel(DeletedModel)`
+
+Model for preserving and restoring deleted HashedSqliteModel records.
 
 ### `HashedModel(SqlModel)`
 
-Model for interacting with sqlite database using hash for id.
+Model for interacting with sql database using hash for id.
 
 #### Annotations
 
 - table: str
-- fields: tuple
+- columns: tuple
 
 #### Methods
 
 ##### `@classmethod generate_id(data: dict) -> str:`
 
-Generate an ID by hashing the non-ID contents.
+Generate an id by hashing the non-id contents. Raises TypeError for unencodable
+type (calls packify.pack).
 
 ##### `@classmethod insert(data: dict) -> Optional[HashedModel]:`
 
-Insert a new record to the datastore. Return instance.
+Insert a new record to the datastore. Return instance. Raises TypeError for
+non-dict data or unencodable type (calls cls.generate_id, which calls
+packify.pack).
 
 ##### `@classmethod insert_many(items: list[dict]) -> int:`
 
-Insert a batch of records and return the number of items inserted.
+Insert a batch of records and return the number of items inserted. Raises
+TypeError for invalid items or unencodable value (calls cls.generate_id, which
+calls packify.pack).
 
 ##### `update(updates: dict) -> HashedModel:`
 
 Persist the specified changes to the datastore, creating a new record in the
-process. Return new record in monad pattern.
+process. Return new record in monad pattern. Raises TypeError or ValueError for
+invalid updates.
 
 ##### `delete() -> DeletedModel:`
 
 Delete the model, putting it in the deleted_records table, then return the
-DeletedModel.
+DeletedModel. Raises packify.UsageError for unserializable data.
+
+### `HashedSqliteModel(HashedModel)`
+
+Model for interacting with sqlite database using hash for id.
 
 ### `Attachment(HashedModel)`
 
@@ -271,9 +313,9 @@ Class for attaching immutable json data to a record.
 #### Annotations
 
 - table: str
-- fields: tuple
+- columns: tuple
 - _related: SqlModel
-- _details: dict
+- _details: Any
 
 #### Methods
 
@@ -287,16 +329,19 @@ Attach to related model then return self.
 
 ##### `details(reload: bool = False) -> dict:`
 
-Decode json str to dict.
+Decode packed bytes to dict.
 
-##### `set_details(details: dict = {}) -> Attachment:`
+##### `set_details(details: Any = {}) -> Attachment:`
 
-Set the details field using either a supplied dict or by encoding the
-self._details dict to json. Return self in monad pattern.
+Set the details column using either supplied data or by packifying
+self._details. Return self in monad pattern. Raises packify.UsageError or
+TypeError if details contains unseriazliable type.
 
 ##### `@classmethod insert(data: dict) -> Optional[Attachment]:`
 
 Redefined for better LSP support.
+
+### `AttachmentSqlite(Attachment)`
 
 ### `Row(SqlModel)`
 
@@ -320,11 +365,12 @@ Class for representing the results of SQL JOIN queries.
 
 ##### `@staticmethod parse_data(models: list[Type[SqlModel]], data: dict) -> dict:`
 
-Parse data of form {table.column:value} to {table:{column:value}}.
+Parse data of form {table.column:value} to {table:{column:value}}. Raises
+TypeError for invalid models or data.
 
 ##### `get_models() -> list[SqlModel]:`
 
-Returns the underlying models.
+Returns the underlying models. Calls the find method for each model.
 
 ### `JoinSpec`
 
@@ -377,8 +423,8 @@ Interface showing how a model should function.
 #### Properties
 
 - table: Str with the name of the table.
-- id_field: Str with the name of the id field.
-- fields: Tuple of str field names.
+- id_column: Str with the name of the id column.
+- columns: Tuple of str column names.
 - data: Dict for storing model data.
 
 #### Methods
@@ -425,43 +471,43 @@ Interface showing how a query builder should function.
 
 #### Methods
 
-##### `equal(field: str, data: str) -> QueryBuilderProtocol:`
+##### `equal(column: str, data: str) -> QueryBuilderProtocol:`
 
-Save the 'field = data' clause and param, then return self.
+Save the 'column = data' clause and param, then return self.
 
-##### `not_equal(field: str, data: Any) -> QueryBuilderProtocol:`
+##### `not_equal(column: str, data: Any) -> QueryBuilderProtocol:`
 
-Save the 'field != data' clause and param, then return self.
+Save the 'column != data' clause and param, then return self.
 
-##### `less(field: str, data: str) -> QueryBuilderProtocol:`
+##### `less(column: str, data: str) -> QueryBuilderProtocol:`
 
-Save the 'field < data' clause and param, then return self.
+Save the 'column < data' clause and param, then return self.
 
-##### `greater(field: str, data: str) -> QueryBuilderProtocol:`
+##### `greater(column: str, data: str) -> QueryBuilderProtocol:`
 
-Save the 'field > data' clause and param, then return self.
+Save the 'column > data' clause and param, then return self.
 
-##### `starts_with(field: str, data: str) -> QueryBuilderProtocol:`
+##### `starts_with(column: str, data: str) -> QueryBuilderProtocol:`
 
-Save the 'field like data%' clause and param, then return self.
+Save the 'column like data%' clause and param, then return self.
 
-##### `contains(field: str, data: str) -> QueryBuilderProtocol:`
+##### `contains(column: str, data: str) -> QueryBuilderProtocol:`
 
-Save the 'field like %data%' clause and param, then return self.
+Save the 'column like %data%' clause and param, then return self.
 
-##### `excludes(field: str, data: str) -> QueryBuilderProtocol:`
+##### `excludes(column: str, data: str) -> QueryBuilderProtocol:`
 
-Save the 'field not like %data%' clause and param, then return self.
+Save the 'column not like %data%' clause and param, then return self.
 
-##### `ends_with(field: str, data: str) -> QueryBuilderProtocol:`
+##### `ends_with(column: str, data: str) -> QueryBuilderProtocol:`
 
-Save the 'field like %data' clause and param, then return self.
+Save the 'column like %data' clause and param, then return self.
 
-##### `is_in(field: str, data: Union[tuple, list]) -> QueryBuilderProtocol:`
+##### `is_in(column: str, data: Union[tuple, list]) -> QueryBuilderProtocol:`
 
-Save the 'field in data' clause and param, then return self.
+Save the 'column in data' clause and param, then return self.
 
-##### `order_by(field: str, direction: str = 'desc') -> QueryBuilderProtocol:`
+##### `order_by(column: str, direction: str = 'desc') -> QueryBuilderProtocol:`
 
 Sets query order.
 
@@ -587,7 +633,7 @@ Checks that primary is instance of self.primary_class.
 
 Checks that secondary is instance of self.secondary_class.
 
-##### `@staticmethod pivot_preconditions(pivot: type[ModelProtocol]) -> None:`
+##### `@staticmethod pivot_preconditions(pivot: Type[ModelProtocol]) -> None:`
 
 Checks preconditions for a pivot.
 
@@ -614,8 +660,8 @@ Base class for setting up relations.
 
 #### Annotations
 
-- primary_class: type[ModelProtocol]
-- secondary_class: type[ModelProtocol]
+- primary_class: Type[ModelProtocol]
+- secondary_class: Type[ModelProtocol]
 - primary_to_add: ModelProtocol
 - primary_to_remove: ModelProtocol
 - secondary_to_add: list[ModelProtocol]
@@ -652,7 +698,7 @@ fails.
 Precondition check for a secondary instance. Raises TypeError if the check
 fails.
 
-##### `@staticmethod pivot_preconditions(pivot: type[ModelProtocol]) -> None:`
+##### `@staticmethod pivot_preconditions(pivot: Type[ModelProtocol]) -> None:`
 
 Precondition check for a pivot type. Raises TypeError if the check fails.
 
@@ -676,13 +722,13 @@ Creates a property to be used on a model.
 
 ### `HasOne(Relation)`
 
-Class for the relation where primary owns a secondary: primary.data[id_field] =
-secondary.data[foreign_id_field]. An inverse of BelongsTo. An instance of this
+Class for the relation where primary owns a secondary: primary.data[id_column] =
+secondary.data[foreign_id_column]. An inverse of BelongsTo. An instance of this
 class is set on the owner model.
 
 #### Annotations
 
-- foreign_id_field: str
+- foreign_id_column: str
 
 #### Properties
 
@@ -715,7 +761,7 @@ precondition check fails.
 ### `HasMany(HasOne)`
 
 Class for the relation where primary owns multiple secondary models:
-model.data[foreign_id_field] = primary.data[id_field] for model in secondary.
+model.data[foreign_id_column] = primary.data[id_column] for model in secondary.
 The other inverse of BelongsTo. An instance of this class is set on the owner
 model.
 
@@ -749,8 +795,8 @@ precondition check fails.
 ### `BelongsTo(HasOne)`
 
 Class for the relation where primary belongs to a secondary:
-primary.data[foreign_id_field] = secondary.data[id_field]. Inverse of HasOne and
-HasMany. An instance of this class is set on the owned model.
+primary.data[foreign_id_column] = secondary.data[id_column]. Inverse of HasOne
+and HasMany. An instance of this class is set on the owned model.
 
 #### Methods
 
@@ -778,9 +824,9 @@ This requires the use of a pivot.
 
 #### Annotations
 
-- pivot: type[ModelProtocol]
-- primary_id_field: str
-- secondary_id_field: str
+- pivot: Type[ModelProtocol]
+- primary_id_column: str
+- secondary_id_column: str
 
 #### Properties
 
@@ -947,15 +993,16 @@ Migration class for updating a database schema.
 
 - connection_info: str
 - model_factory: Callable[[Any], ModelProtocol]
-- context_manager: type[DBContextProtocol]
+- context_manager: Type[DBContextProtocol]
 - up_callbacks: list[Callable[[], list[TableProtocol]]]
 - down_callbacks: list[Callable[[], list[TableProtocol]]]
 
 #### Methods
 
-##### `dynamic_sqlite_model(db_file_path: str, table_name: str = '') -> type[SqlModel]:`
+##### `dynamic_sqlite_model(db_file_path: str | bytes, table_name: str = '') -> Type[SqlModel]:`
 
-Generates a dynamic sqlite model for instantiating context managers.
+Generates a dynamic sqlite model for instantiating context managers. Raises
+TypeError for invalid db_file_path or table_name.
 
 ##### `up(callback: Callable[[], list[TableProtocol]]) -> None:`
 
@@ -987,17 +1034,18 @@ Apply the backward migration.
 
 ## Functions
 
-### `dynamic_sqlite_model(db_file_path: str, table_name: str = '') -> type[SqlModel]:`
+### `dynamic_sqlite_model(db_file_path: str | bytes, table_name: str = '') -> Type[SqlModel]:`
 
-Generates a dynamic sqlite model for instantiating context managers.
+Generates a dynamic sqlite model for instantiating context managers. Raises
+TypeError for invalid db_file_path or table_name.
 
-### `has_one(cls: type[ModelProtocol], owned_model: type[ModelProtocol], foreign_id_field: str = None) -> property:`
+### `has_one(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol], foreign_id_column: str = None) -> property:`
 
-### `has_many(cls: type[ModelProtocol], owned_model: type[ModelProtocol], foreign_id_field: str = None) -> property:`
+### `has_many(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol], foreign_id_column: str = None) -> property:`
 
-### `belongs_to(cls: type[ModelProtocol], owner_model: type[ModelProtocol], foreign_id_field: str = None, inverse_is_many: bool = False) -> property:`
+### `belongs_to(cls: Type[ModelProtocol], owner_model: Type[ModelProtocol], foreign_id_column: str = None, inverse_is_many: bool = False) -> property:`
 
-### `belongs_to_many(cls: type[ModelProtocol], other_model: type[ModelProtocol], pivot: type[ModelProtocol], primary_id_field: str = None, secondary_id_field: str = None) -> property:`
+### `belongs_to_many(cls: Type[ModelProtocol], other_model: Type[ModelProtocol], pivot: Type[ModelProtocol], primary_id_column: str = None, secondary_id_column: str = None) -> property:`
 
 ### `get_index_name(table: TableProtocol, columns: list[Column | str], is_unique: bool = False) -> str:`
 
