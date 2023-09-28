@@ -290,11 +290,11 @@ class HasOne(Relation):
         self.secondary_to_remove = []
 
         if hasattr(self, 'inverse') and self.inverse:
+            self.inverse.secondary = self.primary
             self.inverse.primary_to_add = None
             self.inverse.primary_to_remove = None
             self.inverse.secondary_to_add = []
             self.inverse.secondary_to_remove = []
-            self.inverse.reload()
 
     def reload(self) -> HasOne:
         """Reload the relation from the database. Return self in monad pattern."""
@@ -338,7 +338,7 @@ class HasOne(Relation):
             def __bool__(self) -> bool:
                 return len(self.data.keys()) > 0
 
-        HasOneWrapped.__name__ = f'HasOne{self.secondary_class.__name__}'
+        HasOneWrapped.__name__ = f'(HasOne){self.secondary_class.__name__}'
 
         def setup_relation(self: ModelProtocol):
             """Sets up the HasOne relation during instance initialization."""
@@ -372,7 +372,9 @@ class HasOne(Relation):
 
             model = HasOneWrapped(self.relations[cache_key].secondary.data)
             if hasattr(self.relations[cache_key].secondary, 'relations'):
-                model.relations = self.relations[cache_key].secondary.relations
+                model.relations = {
+                    f"{cache_key}_inverse": self.relations[cache_key]
+                }
 
             return model
 
@@ -508,12 +510,20 @@ class HasMany(HasOne):
         self.secondary_to_add = []
         self.secondary_to_remove = []
 
-        if hasattr(self, 'inverse') and self.inverse:
+        if hasattr(self, 'inverse') and type(self.inverse) is list:
             for inverse in self.inverse:
+                inverse.secondary = self.primary
                 inverse.primary_to_add = None
                 inverse.primary_to_remove = None
                 inverse.secondary_to_add = []
                 inverse.secondary_to_remove = []
+
+        if hasattr(self, 'inverse') and isinstance(self.inverse, Relation):
+            self.inverse.secondary = self.primary
+            self.inverse.primary_to_add = None
+            self.inverse.primary_to_remove = None
+            self.inverse.secondary_to_add = []
+            self.inverse.secondary_to_remove = []
 
     def reload(self) -> HasMany:
         """Reload the relation from the database. Return self in monad pattern."""
@@ -564,7 +574,7 @@ class HasMany(HasOne):
             def __call__(self) -> HasMany:
                 return self.relation
 
-        HasManyTuple.__name__ = f'HasMany{self.secondary_class.__name__}'
+        HasManyTuple.__name__ = f'(HasMany){self.secondary_class.__name__}'
 
         def setup_relation(self: ModelProtocol):
             """Sets up the HasMany relation during instance initialization."""
@@ -706,7 +716,7 @@ class BelongsTo(HasOne):
             def __bool__(self) -> bool:
                 return len(self.data.keys()) > 0
 
-        BelongsToWrapped.__name__ = f'BelongsTo{self.secondary_class.__name__}'
+        BelongsToWrapped.__name__ = f'(BelongsTo){self.secondary_class.__name__}'
 
         def setup_relation(self: ModelProtocol):
             """Sets up the HasMany relation during instance initialization."""
@@ -740,7 +750,9 @@ class BelongsTo(HasOne):
 
             model = BelongsToWrapped(self.relations[cache_key].secondary.data)
             if hasattr(self.relations[cache_key].secondary, 'relations'):
-                model.relations = self.relations[cache_key].secondary.relations
+                model.relations = {
+                    f"{cache_key}_inverse": self.relations[cache_key]
+                }
             return model
 
         @secondary.setter
