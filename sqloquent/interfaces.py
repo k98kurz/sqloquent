@@ -320,7 +320,7 @@ class RelationProtocol(Protocol):
         ...
 
     @staticmethod
-    def pivot_preconditions(pivot: type[ModelProtocol]) -> None:
+    def pivot_preconditions(pivot: Type[ModelProtocol]) -> None:
         """Checks preconditions for a pivot."""
         ...
 

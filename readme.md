@@ -27,21 +27,18 @@ restore the deleted record.
 - [x] Base interfaces
 - [x] Base test suite
 - [x] Base classes
-- [x] Cryptographic bonus code
-- [x] Add chunk generator to `QueryBuilderProtocol` and `SqlQueryBuilder`
-- [x] Decent documentation
 - [x] ORM
-- [x] SqlQueryBuilder join functionality
-- [x] SqlQueryBuilder select functionality
-- [x] SqlQueryBuilder group by functionality
+- [x] Cryptographic bonus code
+- [x] Detailed query builder
 - [x] Code scaffold tools + CLI
+- [x] Schema migration system
+- [x] Decent documentation
 - [ ] Refactor: replace monkeypatching with injection
 - [ ] Publish to pypi
-- [ ] Simple schema migration system eventually
 
 ## Setup and Usage
 
-Requires python 3.7+ probably.
+Requires Python 3.10+. Have not tested with older Python versions.
 
 ### Setup
 
@@ -84,11 +81,10 @@ setting the id via `cls.generate_id()`. However, this is not recommended unless
 the autoincrement id can be discerned from the db cursor in some way, which did
 not work with sqlite3 when I tried it.
 
-This does not include a database migration system. That might be an eventual
-improvement, but it is not currently planned. Table construction and management
-will have to be done manually or with a migration tool. (I am fond of the
-migration system used by Laravel, so the temptation to build a python equivalent
-is strong. Hell, this whole project was inspired loosely by Eloquent.)
+Use one of the variants of the `sqloquent make migration` command to create a
+migration scaffold, then edit the result as necessary. If you specify the
+`--model name path/to/model/file` variant, the resultant source will include a
+unique index on the id column and simple indices on all other columns.
 
 #### Using the sqlite3 coupling
 
@@ -196,8 +192,8 @@ To couple to a SQL database client, complete the following steps.
 
 If the database client does not include a cursor that implements the
 `CursorProtocol`, one must be implemented. Besides the methods `execute`,
-`executemany`, `fetchone`, and `fetchall`, an int `rowcount` attribute should be
-available and updated after calling `execute`.
+`executemany`, `executescript`, `fetchone`, and `fetchall`, an int `rowcount`
+attribute should be available and updated after calling `execute`.
 
 If a `rowcount` attribute is not available, then the following methods of the
 base `SqlQueryBuilder` will need to be overridden in step 2:
@@ -419,8 +415,11 @@ Classes implement the protocols or extend the classes indicated.
 - SqlQueryBuilder(QueryBuilderProtocol)
 - SqliteQueryBuilder(SqlQueryBuilder)
 - DeletedModel(SqlModel)
+- DeletedSqliteModel(DeletedModel, SqliteModel)
 - HashedModel(SqlModel)
+- HashedSqliteModel(HashedModel, SqliteModel)
 - Attachment(HashedModel)
+- AttachmentSqlite(HashedSqliteModel)
 - Relation(RelationProtocol)
 - HasOne(Relation)
 - HasMany(HasOne)
@@ -454,7 +453,8 @@ python tests/test_integration.py
 The tests demonstrate the intended (and actual) behavior of the classes, as
 well as some contrived examples of how they are used. Perusing the tests will be
 informative to anyone seeking to use/break this package, especially the
-integration test which demonstrates the full package.
+integration test which demonstrates the full package. There are currently 187
+unit tests + 1 e2e integration test.
 
 ## ISC License
 

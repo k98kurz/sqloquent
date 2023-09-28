@@ -3,8 +3,8 @@ from context import classes, interfaces
 from genericpath import isfile
 from hashlib import sha256
 from types import GeneratorType
-import json
 import os
+import packify
 import sqlite3
 import unittest
 
@@ -24,11 +24,11 @@ class TestClasses(unittest.TestCase):
         self.db = sqlite3.connect(self.db_filepath)
         self.cursor = self.db.cursor()
         self.cursor.execute('create table deleted_records (id text not null, ' +
-            'model_class text not null, record_id text not null, record text not null)')
+            'model_class text not null, record_id text not null, record blob not null)')
         self.cursor.execute('create table example (id text, name text)')
         self.cursor.execute('create table hashed_records (id text, data text)')
         self.cursor.execute('create table attachments (id text, ' +
-            'related_model text, related_id text, details text)')
+            'related_model text, related_id text, details blob)')
 
         return super().setUp()
 
@@ -143,28 +143,25 @@ class TestClasses(unittest.TestCase):
             _ = TestModel()
         assert str(e.exception) == '_post_init_hooks must be a dict mapping names to Callables'
 
-    def test_SqlModel_encode_value_raises_TypeError_for_unrecognized_type(self):
-        with self.assertRaises(TypeError) as e:
+    def test_SqlModel_encode_value_raises_packify_UsageError_for_unrecognized_type(self):
+        with self.assertRaises(packify.UsageError) as e:
             classes.SqlModel.encode_value(classes.SqlModel)
-        assert 'unrecognized type' in str(e.exception)
 
     def test_SqlModel_encode_value_encodes_values_properly(self):
         bstr = b'123'
-        assert classes.SqlModel.encode_value(bstr) == bstr.hex()
+        assert classes.SqlModel.encode_value(bstr) == packify.pack(bstr).hex()
 
         list_of_bytes = [b'123', b'321']
-        list_of_hex = [s.hex() for s in list_of_bytes]
-        assert classes.SqlModel.encode_value(list_of_bytes) == list_of_hex
+        expected = packify.pack(list_of_bytes).hex()
+        assert classes.SqlModel.encode_value(list_of_bytes) == expected
 
         tuple_of_bytes = (b'123', b'321')
-        assert classes.SqlModel.encode_value(tuple_of_bytes) == list_of_hex
+        expected = packify.pack(tuple_of_bytes).hex()
+        assert classes.SqlModel.encode_value(tuple_of_bytes) == expected
 
         unencoded_dict = {b'123': b'321', 1: '123'}
-        encoded_dict = {
-            (b'123').hex(): (b'321').hex(),
-            1: '123'
-        }
-        assert classes.SqlModel.encode_value(unencoded_dict) == encoded_dict
+        expected = packify.pack(unencoded_dict).hex()
+        assert classes.SqlModel.encode_value(unencoded_dict) == expected
 
     def test_SqlModel_insert_raises_TypeError_for_nondict_input(self):
         with self.assertRaises(TypeError) as e:
@@ -902,14 +899,11 @@ class TestClasses(unittest.TestCase):
     def test_HashedModel_issubclass_of_SqlModel(self):
         assert issubclass(classes.HashedModel, classes.SqlModel)
 
-    def test_HashedModel_generated_id_is_sha256_of_json_data(self):
+    def test_HashedModel_generated_id_is_sha256_of_packified_data(self):
         data = { 'data': token_bytes(8).hex() }
         observed = classes.HashedModel.generate_id(data)
-        preimage = json.dumps(
-            classes.HashedModel.encode_value(data),
-            sort_keys=True
-        )
-        expected = sha256(bytes(preimage, 'utf-8')).digest().hex()
+        preimage = packify.pack(data)
+        expected = sha256(preimage).digest().hex()
         assert observed == expected, 'wrong hash encountered'
 
     def test_HashedModel_insert_raises_TypeError_for_nondict_input(self):
@@ -1061,7 +1055,7 @@ class TestClasses(unittest.TestCase):
         assert 'related_id' in attachment.data
         assert attachment.data['related_id'] == hashedmodel.data['id']
 
-    def test_Attachment_set_details_encodes_json_and_details_decodes_json(self):
+    def test_Attachment_set_details_packs_and_details_unpacks(self):
         details = {'123': 'some information'}
         attachment = classes.Attachment()
 
@@ -1069,7 +1063,7 @@ class TestClasses(unittest.TestCase):
 
         attachment.set_details(details)
         assert 'details' in attachment.data
-        assert type(attachment.data['details']) is str
+        assert type(attachment.data['details']) is bytes
 
         assert type(attachment.details()) is dict
         assert attachment.details(True) == details
@@ -1102,7 +1096,7 @@ class TestClasses(unittest.TestCase):
         data = { 'data': token_bytes(8).hex() }
         hashedmodel = classes.HashedModel.insert(data)
         details = {'123': 'some information'}
-        attachment = classes.Attachment({'details': json.dumps(details)})
+        attachment = classes.Attachment({'details': packify.pack(details)})
         attachment.attach_to(hashedmodel)
         attachment.save()
 

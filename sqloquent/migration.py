@@ -3,7 +3,7 @@ from .classes import SqliteContext, dynamic_sqlite_model
 from .errors import tressa, vert
 from .interfaces import DBContextProtocol, TableProtocol, ModelProtocol
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any, Callable, Type
 import string
 
 
@@ -262,7 +262,7 @@ class Migration:
     """Migration class for updating a database schema."""
     connection_info: str = field(default="")
     model_factory: Callable[[Any], ModelProtocol] = field(default=dynamic_sqlite_model)
-    context_manager: type[DBContextProtocol] = field(default=SqliteContext)
+    context_manager: Type[DBContextProtocol] = field(default=SqliteContext)
     up_callbacks: list[Callable[[], list[TableProtocol]]] = field(default_factory=list)
     down_callbacks: list[Callable[[], list[TableProtocol]]] = field(default_factory=list)
 

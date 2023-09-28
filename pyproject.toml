@@ -18,6 +18,9 @@ classifiers = [
   "Operating System :: OS Independent",
   "Topic :: Software Development :: Libraries",
 ]
+dependencies = [
+  "packify >= 0.2.1",
+]
 
 [project.urls]
 "Homepage" = "https://github.com/k98kurz/sqloquent"

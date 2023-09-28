@@ -7,6 +7,7 @@ from genericpath import isdir, isfile
 from os import listdir, environ
 from sys import argv
 from types import ModuleType
+from typing import Type
 import importlib.util
 import re
 
@@ -159,7 +160,7 @@ def refresh(path: str, connection_string: str = 'temp.db') -> None:
     rollback(path, connection_string)
     migrate(path, connection_string)
 
-def _get_migration_model(connection_string: str = 'temp.db') -> type[SqliteModel]:
+def _get_migration_model(connection_string: str = 'temp.db') -> Type[SqliteModel]:
     """Generate a MigrationModel with the given connection_string."""
     class MigrationModel(SqliteModel):
         file_path: str = connection_string

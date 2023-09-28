@@ -4,7 +4,7 @@ from .interfaces import ModelProtocol, QueryBuilderProtocol
 from .tools import _pascalcase_to_snake_case
 from abc import abstractmethod
 from copy import deepcopy
-from typing import Optional
+from typing import Optional, Type
 
 
 """
@@ -20,8 +20,8 @@ from typing import Optional
 
 class Relation:
     """Base class for setting up relations."""
-    primary_class: type[ModelProtocol]
-    secondary_class: type[ModelProtocol]
+    primary_class: Type[ModelProtocol]
+    secondary_class: Type[ModelProtocol]
     primary_to_add: ModelProtocol
     primary_to_remove: ModelProtocol
     secondary_to_add: list[ModelProtocol]
@@ -33,8 +33,8 @@ class Relation:
     _secondary: Optional[ModelProtocol]
 
     def __init__(self,
-        primary_class: type[ModelProtocol],
-        secondary_class: type[ModelProtocol],
+        primary_class: Type[ModelProtocol],
+        secondary_class: Type[ModelProtocol],
         primary_to_add: ModelProtocol = None,
         primary_to_remove: ModelProtocol = None,
         secondary_to_add: list[ModelProtocol] = [],
@@ -133,7 +133,7 @@ class Relation:
             f'secondary must be instance of {self.secondary_class.__name__}')
 
     @staticmethod
-    def pivot_preconditions(pivot: type[ModelProtocol]) -> None:
+    def pivot_preconditions(pivot: Type[ModelProtocol]) -> None:
         """Precondition check for a pivot type. Raises TypeError if the
             check fails.
         """
@@ -782,11 +782,11 @@ class BelongsToMany(Relation):
         and each secondary can have many primary; e.g. users and roles,
         or roles and permissions. This requires the use of a pivot.
     """
-    pivot: type[ModelProtocol]
+    pivot: Type[ModelProtocol]
     primary_id_field: str
     secondary_id_field: str
 
-    def __init__(self, pivot: type[ModelProtocol],
+    def __init__(self, pivot: Type[ModelProtocol],
                 primary_id_field: str,
                 secondary_id_field: str,
                 *args, **kwargs) -> None:
@@ -863,11 +863,11 @@ class BelongsToMany(Relation):
         self._secondary = tuple(secondary)
 
     @property
-    def pivot(self) -> type[ModelProtocol]:
+    def pivot(self) -> Type[ModelProtocol]:
         return self._pivot
 
     @pivot.setter
-    def pivot(self, pivot: type[ModelProtocol]) -> None:
+    def pivot(self, pivot: Type[ModelProtocol]) -> None:
         self.pivot_preconditions(pivot)
         self._pivot = pivot
 
@@ -1068,10 +1068,10 @@ class BelongsToMany(Relation):
         return secondary
 
 
-def _get_id_field(cls: type[ModelProtocol]) -> str:
+def _get_id_field(cls: Type[ModelProtocol]) -> str:
     return _pascalcase_to_snake_case(cls.__name__) + f'_{cls.id_field}'
 
-def has_one(cls: type[ModelProtocol], owned_model: type[ModelProtocol],
+def has_one(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol],
             foreign_id_field: str = None) -> property:
     if foreign_id_field is None:
         foreign_id_field = _get_id_field(cls)
@@ -1080,7 +1080,7 @@ def has_one(cls: type[ModelProtocol], owned_model: type[ModelProtocol],
     relation.inverse = BelongsTo(foreign_id_field, primary_class=owned_model, secondary_class=cls)
     return relation.create_property()
 
-def has_many(cls: type[ModelProtocol], owned_model: type[ModelProtocol],
+def has_many(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol],
              foreign_id_field: str = None) -> property:
     if foreign_id_field is None:
         foreign_id_field = _get_id_field(cls)
@@ -1089,7 +1089,7 @@ def has_many(cls: type[ModelProtocol], owned_model: type[ModelProtocol],
     relation.inverse = BelongsTo(foreign_id_field, primary_class=owned_model, secondary_class=cls)
     return relation.create_property()
 
-def belongs_to(cls: type[ModelProtocol], owner_model: type[ModelProtocol],
+def belongs_to(cls: Type[ModelProtocol], owner_model: Type[ModelProtocol],
                foreign_id_field: str = None, inverse_is_many: bool = False) -> property:
     if foreign_id_field is None:
         foreign_id_field = _get_id_field(owner_model)
@@ -1101,8 +1101,8 @@ def belongs_to(cls: type[ModelProtocol], owner_model: type[ModelProtocol],
         relation.inverse = HasOne(foreign_id_field, primary_class=owner_model, secondary_class=cls)
     return relation.create_property()
 
-def belongs_to_many(cls: type[ModelProtocol], other_model: type[ModelProtocol],
-                pivot: type[ModelProtocol],
+def belongs_to_many(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
+                pivot: Type[ModelProtocol],
                 primary_id_field: str = None, secondary_id_field: str = None) -> property:
     if primary_id_field is None:
         primary_id_field = _get_id_field(cls)
