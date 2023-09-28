@@ -102,9 +102,9 @@ def _make_migration_from_model(model: ModelProtocol, model_name: str,
     src = _make_migration_src_start()
     src += f"def create_table_{table_name}() -> list[Table]:\n"
     src += f"    t = Table.create('{table_name}')\n"
-    for field in model.fields:
-        src += f"    t.text('{field}')"
-        src += ".unique()\n" if field == model.id_field else ".index()\n"
+    for column in model.columns:
+        src += f"    t.text('{column}')"
+        src += ".unique()\n" if column == model.id_column else ".index()\n"
     src += "    ...\n"
     src += "    return [t]\n\n"
     src += f"def drop_table_{table_name}() -> list[Table]:\n"
@@ -136,7 +136,7 @@ def publish_migrations(path: str, connection_string: str = 'temp.db'):
         f.write(attachment_src)
 
 
-def make_model(name: str, base: str = 'SqliteModel', fields: list[str] = None,
+def make_model(name: str, base: str = 'SqliteModel', columns: list[str] = None,
                connection_string: str = 'temp.db') -> str:
     """Generate a model scaffold with the given name."""
     vert(base in ('SqliteModel', 'SqlModel', 'HashedModel', 'HashedSqliteModel'),
@@ -148,11 +148,11 @@ def make_model(name: str, base: str = 'SqliteModel', fields: list[str] = None,
     if base in ("SqliteModel", "HashedSqliteModel"):
         src += f"    file_path: str = '{connection_string}'\n"
     src += f"    table: str = '{table_name}'\n"
-    src += f"    id_field: str = 'id'\n"
-    if fields:
-        src += f"    fields: tuple[str] = {tuple(fields)}\n"
+    src += f"    id_column: str = 'id'\n"
+    if columns:
+        src += f"    columns: tuple[str] = {tuple(columns)}\n"
     else:
-        src += f"    fields: tuple[str] = ('id',)\n"
+        src += f"    columns: tuple[str] = ('id',)\n"
     return src
 
 
@@ -187,7 +187,7 @@ def _get_migration_model(connection_string: str = 'temp.db') -> Type[SqliteModel
     class MigrationModel(SqliteModel):
         file_path: str = connection_string
         table: str = 'migrations'
-        fields: tuple[str] = ('id', 'batch', 'date')
+        columns: tuple[str] = ('id', 'batch', 'date')
     return MigrationModel
 
 def _make_migrations_table_migration(connection_string: str = 'temp.db') -> Migration:

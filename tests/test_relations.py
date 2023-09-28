@@ -11,7 +11,7 @@ DB_FILEPATH = 'test.db'
 class Pivot(classes.SqliteModel):
     file_path: str = DB_FILEPATH
     table: str = 'pivot'
-    fields: tuple = ('id', 'first_id', 'second_id')
+    columns: tuple = ('id', 'first_id', 'second_id')
 
 
 class TestRelations(unittest.TestCase):
@@ -36,12 +36,12 @@ class TestRelations(unittest.TestCase):
         class OwnedModel(classes.SqliteModel):
             file_path: str = DB_FILEPATH
             table: str = 'owned'
-            fields: tuple = ('id', 'owner_id', 'data')
+            columns: tuple = ('id', 'owner_id', 'data')
 
         class OwnerModel(classes.SqliteModel):
             file_path: str = DB_FILEPATH
             table: str = 'owners'
-            fields: tuple = ('id', 'data')
+            columns: tuple = ('id', 'data')
 
         self.OwnedModel = OwnedModel
         self.OwnerModel = OwnerModel
@@ -134,7 +134,7 @@ class TestRelations(unittest.TestCase):
                 primary_class=self.OwnerModel,
                 secondary_class=self.OwnedModel
             )
-        assert str(e.exception) == 'foreign_id_field must be str'
+        assert str(e.exception) == 'foreign_id_column must be str'
 
     def test_HasOne_sets_primary_and_secondary_correctly(self):
         hasone = relations.HasOne(
@@ -161,7 +161,7 @@ class TestRelations(unittest.TestCase):
         hasone.secondary = secondary
         assert hasone.secondary is secondary
 
-    def test_HasOne_get_cache_key_includes_foreign_id_field(self):
+    def test_HasOne_get_cache_key_includes_foreign_id_column(self):
         hasone = relations.HasOne(
             'owner_id',
             primary_class=self.OwnerModel,
@@ -181,7 +181,7 @@ class TestRelations(unittest.TestCase):
             hasone.save()
         assert str(e.exception) == 'cannot save incomplete HasOne'
 
-    def test_HasOne_save_changes_foreign_id_field_on_secondary(self):
+    def test_HasOne_save_changes_foreign_id_column_on_secondary(self):
         hasone = relations.HasOne(
             'owner_id',
             primary_class=self.OwnerModel,
@@ -284,7 +284,7 @@ class TestRelations(unittest.TestCase):
         assert callable(owner.owned)
         assert type(owner.owned()) is relations.HasOne
 
-    def test_HasOne_save_changes_only_foreign_id_field_in_db(self):
+    def test_HasOne_save_changes_only_foreign_id_column_in_db(self):
         hasone = relations.HasOne(
             'owner_id',
             primary_class=self.OwnerModel,
@@ -425,7 +425,7 @@ class TestRelations(unittest.TestCase):
                 primary_class=self.OwnerModel,
                 secondary_class=self.OwnedModel
             )
-        assert str(e.exception) == 'foreign_id_field must be str'
+        assert str(e.exception) == 'foreign_id_column must be str'
 
     def test_HasMany_sets_primary_and_secondary_correctly(self):
         hasmany = relations.HasMany(
@@ -452,7 +452,7 @@ class TestRelations(unittest.TestCase):
         hasmany.secondary = [secondary]
         assert hasmany.secondary == (secondary,)
 
-    def test_HasMany_get_cache_key_includes_foreign_id_field(self):
+    def test_HasMany_get_cache_key_includes_foreign_id_column(self):
         hasmany = relations.HasMany(
             'owner_id',
             primary_class=self.OwnerModel,
@@ -472,7 +472,7 @@ class TestRelations(unittest.TestCase):
             hasmany.save()
         assert str(e.exception) == 'cannot save incomplete HasMany'
 
-    def test_HasMany_save_changes_foreign_id_field_on_secondary(self):
+    def test_HasMany_save_changes_foreign_id_column_on_secondary(self):
         hasmany = relations.HasMany(
             'owner_id',
             primary_class=self.OwnerModel,
@@ -575,7 +575,7 @@ class TestRelations(unittest.TestCase):
         assert callable(owner.owned)
         assert type(owner.owned()) is relations.HasMany
 
-    def test_HasMany_save_changes_only_foreign_id_field_in_db(self):
+    def test_HasMany_save_changes_only_foreign_id_column_in_db(self):
         hasmany = relations.HasMany(
             'owner_id',
             primary_class=self.OwnerModel,
@@ -718,7 +718,7 @@ class TestRelations(unittest.TestCase):
                 primary_class=self.OwnerModel,
                 secondary_class=self.OwnedModel
             )
-        assert str(e.exception) == 'foreign_id_field must be str'
+        assert str(e.exception) == 'foreign_id_column must be str'
 
     def test_BelongsTo_sets_primary_and_secondary_correctly(self):
         belongsto = relations.BelongsTo(
@@ -741,7 +741,7 @@ class TestRelations(unittest.TestCase):
         belongsto.secondary = secondary
         assert belongsto.secondary == secondary
 
-    def test_BelongsTo_get_cache_key_includes_foreign_id_field(self):
+    def test_BelongsTo_get_cache_key_includes_foreign_id_column(self):
         belongsto = relations.BelongsTo(
             'owner_id',
             primary_class=self.OwnedModel,
@@ -761,7 +761,7 @@ class TestRelations(unittest.TestCase):
             belongsto.save()
         assert str(e.exception) == 'cannot save incomplete BelongsTo'
 
-    def test_BelongsTo_save_changes_foreign_id_field_on_secondary(self):
+    def test_BelongsTo_save_changes_foreign_id_column_on_secondary(self):
         belongsto = relations.BelongsTo(
             'owner_id',
             primary_class=self.OwnedModel,
@@ -864,7 +864,7 @@ class TestRelations(unittest.TestCase):
         assert callable(owned.owner)
         assert type(owned.owner()) is relations.BelongsTo
 
-    def test_BelongsTo_save_changes_only_foreign_id_field_in_db(self):
+    def test_BelongsTo_save_changes_only_foreign_id_column_in_db(self):
         belongsto = relations.BelongsTo(
             'owner_id',
             primary_class=self.OwnedModel,
@@ -1050,7 +1050,7 @@ class TestRelations(unittest.TestCase):
                 b'not a str',
                 'second_id'
             )
-        assert str(e.exception) == 'primary_id_field and secondary_id_field must be str'
+        assert str(e.exception) == 'primary_id_column and secondary_id_column must be str'
 
     def test_BelongsToMany_sets_primary_and_secondary_correctly(self):
         belongstomany = relations.BelongsToMany(
@@ -1079,7 +1079,7 @@ class TestRelations(unittest.TestCase):
         belongstomany.secondary = [secondary]
         assert belongstomany.secondary[0] == secondary
 
-    def test_BelongsToMany_get_cache_key_includes_foreign_id_field(self):
+    def test_BelongsToMany_get_cache_key_includes_foreign_id_column(self):
         belongstomany = relations.BelongsToMany(
             Pivot,
             'first_id',
@@ -1103,7 +1103,7 @@ class TestRelations(unittest.TestCase):
             belongstomany.save()
         assert str(e.exception) == 'cannot save incomplete BelongsToMany'
 
-    def test_BelongsToMany_save_changes_foreign_id_field_on_secondary(self):
+    def test_BelongsToMany_save_changes_foreign_id_column_on_secondary(self):
         belongstomany = relations.BelongsToMany(
             Pivot,
             'first_id',
@@ -1223,7 +1223,7 @@ class TestRelations(unittest.TestCase):
         assert callable(owned.owners)
         assert type(owned.owners()) is relations.BelongsToMany
 
-    def test_BelongsToMany_save_changes_only_foreign_id_field_in_db(self):
+    def test_BelongsToMany_save_changes_only_foreign_id_column_in_db(self):
         belongstomany = relations.BelongsToMany(
             Pivot,
             'first_id',
@@ -1381,7 +1381,7 @@ class TestRelations(unittest.TestCase):
         owner2 = self.OwnerModel({'data': 'owner2'})
         owned2 = self.OwnedModel({'data': 'owned2'})
 
-        assert owner1.owned().foreign_id_field == 'owner_id'
+        assert owner1.owned().foreign_id_column == 'owner_id'
 
         owner1.owned = owned1
         owner1.owned().save()
@@ -1430,7 +1430,7 @@ class TestRelations(unittest.TestCase):
         owner2 = self.OwnerModel({'data': 'owner2'})
         owned2 = self.OwnedModel({'data': 'owned2'})
 
-        assert owner1.owned().foreign_id_field == 'owner_id'
+        assert owner1.owned().foreign_id_column == 'owner_id'
 
         owner1.owned = [owned1]
         owner1.owned().save()

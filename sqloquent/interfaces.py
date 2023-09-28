@@ -66,13 +66,13 @@ class ModelProtocol(Protocol):
         ...
 
     @property
-    def id_field(self) -> str:
-        """Str with the name of the id field."""
+    def id_column(self) -> str:
+        """Str with the name of the id column."""
         ...
 
     @property
-    def fields(self) -> tuple[str]:
-        """Tuple of str field names."""
+    def columns(self) -> tuple[str]:
+        """Tuple of str column names."""
         ...
 
     @property
@@ -170,43 +170,43 @@ class QueryBuilderProtocol(Protocol):
         """The class of the relevant model."""
         ...
 
-    def equal(self, field: str, data: str) -> QueryBuilderProtocol:
-        """Save the 'field = data' clause and param, then return self."""
+    def equal(self, column: str, data: str) -> QueryBuilderProtocol:
+        """Save the 'column = data' clause and param, then return self."""
         ...
 
-    def not_equal(self, field: str, data: Any) -> QueryBuilderProtocol:
-        """Save the 'field != data' clause and param, then return self."""
+    def not_equal(self, column: str, data: Any) -> QueryBuilderProtocol:
+        """Save the 'column != data' clause and param, then return self."""
         ...
 
-    def less(self, field: str, data: str) -> QueryBuilderProtocol:
-        """Save the 'field < data' clause and param, then return self."""
+    def less(self, column: str, data: str) -> QueryBuilderProtocol:
+        """Save the 'column < data' clause and param, then return self."""
         ...
 
-    def greater(self, field: str, data: str) -> QueryBuilderProtocol:
-        """Save the 'field > data' clause and param, then return self."""
+    def greater(self, column: str, data: str) -> QueryBuilderProtocol:
+        """Save the 'column > data' clause and param, then return self."""
         ...
 
-    def starts_with(self, field: str, data: str) -> QueryBuilderProtocol:
-        """Save the 'field like data%' clause and param, then return self."""
+    def starts_with(self, column: str, data: str) -> QueryBuilderProtocol:
+        """Save the 'column like data%' clause and param, then return self."""
         ...
 
-    def contains(self, field: str, data: str) -> QueryBuilderProtocol:
-        """Save the 'field like %data%' clause and param, then return self."""
+    def contains(self, column: str, data: str) -> QueryBuilderProtocol:
+        """Save the 'column like %data%' clause and param, then return self."""
         ...
 
-    def excludes(self, field: str, data: str) -> QueryBuilderProtocol:
-        """Save the 'field not like %data%' clause and param, then return self."""
+    def excludes(self, column: str, data: str) -> QueryBuilderProtocol:
+        """Save the 'column not like %data%' clause and param, then return self."""
         ...
 
-    def ends_with(self, field: str, data: str) -> QueryBuilderProtocol:
-        """Save the 'field like %data' clause and param, then return self."""
+    def ends_with(self, column: str, data: str) -> QueryBuilderProtocol:
+        """Save the 'column like %data' clause and param, then return self."""
         ...
 
-    def is_in(self, field: str, data: Union[tuple, list]) -> QueryBuilderProtocol:
-        """Save the 'field in data' clause and param, then return self."""
+    def is_in(self, column: str, data: Union[tuple, list]) -> QueryBuilderProtocol:
+        """Save the 'column in data' clause and param, then return self."""
         ...
 
-    def order_by(self, field: str, direction: str = 'desc') -> QueryBuilderProtocol:
+    def order_by(self, column: str, direction: str = 'desc') -> QueryBuilderProtocol:
         """Sets query order."""
         ...
 

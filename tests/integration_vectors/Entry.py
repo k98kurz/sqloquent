@@ -7,8 +7,8 @@ from .EntryType import EntryType
 class Entry(HashedSqliteModel):
     file_path: str = 'temp.db'
     table: str = 'entries'
-    id_field: str = 'id'
-    fields: tuple[str] = ('id', 'account_id', 'nonce', 'type', 'amount')
+    id_column: str = 'id'
+    columns: tuple[str] = ('id', 'account_id', 'nonce', 'type', 'amount')
 
     @staticmethod
     def _encode(data: dict|None) -> dict|None:

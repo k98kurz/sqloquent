@@ -97,18 +97,18 @@ class TestIntegration(unittest.TestCase):
 
     def test_make_model_returns_str_with_correct_content(self):
         name = f"M{token_hex(4)}"
-        fields = ('id', 'thing1', 'thing2')
+        columns = ('id', 'thing1', 'thing2')
         bases = ('SqliteModel', 'SqlModel', 'HashedModel', 'HashedSqliteModel')
         for base in bases:
             result = tools.make_model(
                 name,
                 base=base,
-                fields=fields,
+                columns=columns,
                 connection_string=DB_FILEPATH
             )
             assert type(result) is str
             assert f"class {name}({base}):" in result
-            assert f"fields: tuple[str] = {fields}" in result
+            assert f"columns: tuple[str] = {columns}" in result
             if base in ('SqliteModel', 'HashedSqliteModel'):
                 assert f"file_path: str = '{DB_FILEPATH}'" in result
 

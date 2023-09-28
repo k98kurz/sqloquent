@@ -7,8 +7,8 @@ from .AccountType import AccountType
 class Account(HashedSqliteModel):
     file_path: str = 'temp.db'
     table: str = 'accounts'
-    id_field: str = 'id'
-    fields: tuple[str] = ('id', 'name', 'ledger_id', 'type')
+    id_column: str = 'id'
+    columns: tuple[str] = ('id', 'name', 'ledger_id', 'type')
 
     @staticmethod
     def _encode(data: dict|None) -> dict|None:

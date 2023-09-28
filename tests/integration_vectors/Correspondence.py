@@ -5,8 +5,8 @@ from sqloquent import HashedSqliteModel
 class Correspondence(HashedSqliteModel):
     file_path: str = 'temp.db'
     table: str = 'correspondences'
-    id_field: str = 'id'
-    fields: tuple[str] = ('id', 'first', 'second', 'data')
+    id_column: str = 'id'
+    columns: tuple[str] = ('id', 'first', 'second', 'data')
 
     @classmethod
     def insert(cls, data: dict) -> Correspondence|None:
