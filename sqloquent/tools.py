@@ -116,13 +116,13 @@ def make_migration_from_model(model_name: str, model_path: str,
 def make_model(name: str, base: str = 'SqliteModel', fields: list[str] = None,
                connection_string: str = 'temp.db') -> str:
     """Generate a model scaffold with the given name."""
-    vert(base in ('SqliteModel', 'SqlModel', 'HashedModel'),
-         "base must be one of ('SqliteModel', 'SqlModel', 'HashedModel')")
+    vert(base in ('SqliteModel', 'SqlModel', 'HashedModel', 'HashedSqliteModel'),
+         "base must be one of (SqliteModel, SqlModel, HashedModel, HashedSqliteModel)")
     table_name = _pascalcase_to_snake_case(name)
     table_name = f'{table_name}s' if table_name[-1:] != 'y' else f'{table_name[:-1]}ies'
     src = f"from sqloquent import {base}\n\n\n"
     src += f"class {name}({base}):\n"
-    if base in ("SqliteModel", "HashedModel"):
+    if base in ("SqliteModel", "HashedSqliteModel"):
         src += f"    file_path: str = '{connection_string}'\n"
     src += f"    table: str = '{table_name}'\n"
     src += f"    id_field: str = 'id'\n"
@@ -269,7 +269,7 @@ def help_cli(name: str) -> str:
     {name} make migration --alter name
     {name} make migration --drop name
     {name} make migration --model name path/to/model/file
-    {name} make model name [--sqlite|--sql|--hashed] (inherits SqliteModel by default)
+    {name} make model name [--sqlite|--sql|--hashedlite|--hashed] (inherits SqliteModel by default)
     {name} migrate path/to/migration/file
     {name} rollback path/to/migration/file
     {name} refresh path/to/migration/file
@@ -339,6 +339,8 @@ def run_cli() -> None:
                 elif argv[4] == "--hashed":
                     return print(make_model(name, 'HashedModel',
                                             connection_string=connstring_for_make))
+                elif argv[4] == "--hashedlite":
+                    return print(make_model(name, 'HashedSqliteModel'))
             return print(make_model(name, connection_string=connstring_for_make))
         else:
             print(f"unrecognized make kind: {kind}")

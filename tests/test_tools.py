@@ -7,7 +7,7 @@ import unittest
 
 
 DB_FILEPATH = 'test.db'
-MIGRATIONS_PATH = 'tests/migrations'
+MIGRATIONS_PATH = 'tests/temp/migrations'
 
 
 class TestIntegration(unittest.TestCase):
@@ -98,7 +98,7 @@ class TestIntegration(unittest.TestCase):
     def test_make_model_returns_str_with_correct_content(self):
         name = f"M{token_hex(4)}"
         fields = ('id', 'thing1', 'thing2')
-        bases = ('SqliteModel', 'SqlModel', 'HashedModel')
+        bases = ('SqliteModel', 'SqlModel', 'HashedModel', 'HashedSqliteModel')
         for base in bases:
             result = tools.make_model(
                 name,
@@ -109,7 +109,7 @@ class TestIntegration(unittest.TestCase):
             assert type(result) is str
             assert f"class {name}({base}):" in result
             assert f"fields: tuple[str] = {fields}" in result
-            if base in ('SqliteModel', 'HashedModel'):
+            if base in ('SqliteModel', 'HashedSqliteModel'):
                 assert f"file_path: str = '{DB_FILEPATH}'" in result
 
     def test_migrate_rollback_refresh_e2e(self):

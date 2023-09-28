@@ -81,7 +81,7 @@ class SqlModel:
             'NoneType': lambda v: v,
         }
 
-        tert(type(val).__name__ in encodings, 'unrecognized type')
+        tert(type(val).__name__ in encodings, f'unrecognized type: {type(val).__name__}')
         return encodings[type(val).__name__](val)
 
     def __hash__(self) -> int:
@@ -99,7 +99,8 @@ class SqlModel:
         return hash(self) == hash(other)
 
     def __repr__(self) -> str:
-        return f"SqlModel(table='{self.table}', id_field='{self.id_field}', " + \
+        return f"{self.__class__.__name__}(table='{self.table}', " + \
+            f"id_field='{self.id_field}', " + \
             f"fields={self.fields}, data={self.data})"
 
     @classmethod
@@ -205,7 +206,8 @@ class SqliteModel(SqlModel):
         super().__init__(data)
 
     def __repr__(self) -> str:
-        return f"SqliteModel(file_path='{self.file_path}', table='{self.table}', " +\
+        return f"{self.__class__.__name__}(file_path='{self.file_path}', " + \
+            f"table='{self.table}', " +\
             f"id_field='{self.id_field}', fields={self.fields}, data={self.data})"
 
 
@@ -220,8 +222,8 @@ class JoinedModel:
         self.data = self.parse_data(models, data)
 
     def __repr__(self) -> str:
-        return f"JoinedModel(models={[m.__name__ for m in self.models]}, " + \
-            f"data={self.data})"
+        return f"{self.__class__.__name__}" + \
+            f"(models={[m.__name__ for m in self.models]}, data={self.data})"
 
     @staticmethod
     def parse_data(models: list[Type[SqlModel]], data: dict) -> dict:
@@ -797,8 +799,12 @@ class DeletedModel(SqlModel):
         return model
 
 
+class DeletedSqliteModel(SqliteModel):
+    """Model for preserving and restoring deleted HashedSqliteModel records."""
+
+
 class HashedModel(SqlModel):
-    """Model for interacting with sqlite database using hash for id."""
+    """Model for interacting with sql database using hash for id."""
     table: str = 'hashed_records'
     fields: tuple = ('id', 'data')
 
@@ -818,7 +824,7 @@ class HashedModel(SqlModel):
         tert(isinstance(data, dict), 'data must be dict')
         data[cls.id_field] = cls.generate_id(data)
 
-        return SqliteQueryBuilder(model=cls).insert(data)
+        return cls.query().insert(data)
 
     @classmethod
     def insert_many(cls, items: list[dict]) -> int:
@@ -828,7 +834,7 @@ class HashedModel(SqlModel):
             tert(isinstance(item, dict), 'items must be type list[dict]')
             item[cls.id_field] = cls.generate_id(item)
 
-        return SqliteQueryBuilder(model=cls).insert_many(items)
+        return cls.query().insert_many(items)
 
     def update(self, updates: dict) -> HashedModel:
         """Persist the specified changes to the datastore, creating a new
@@ -866,6 +872,10 @@ class HashedModel(SqlModel):
         })
         super().delete()
         return deleted
+
+
+class HashedSqliteModel(HashedModel, SqliteModel):
+    """Model for interacting with sqlite database using hash for id."""
 
 
 class Attachment(HashedModel):
@@ -913,3 +923,7 @@ class Attachment(HashedModel):
     def insert(cls, data: dict) -> Optional[Attachment]:
         """Redefined for better LSP support."""
         return super().insert(data)
+
+
+class AttachmentSqlite(Attachment, SqliteModel):
+    ...
