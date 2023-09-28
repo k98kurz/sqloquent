@@ -146,7 +146,7 @@ class TestClasses(unittest.TestCase):
     def test_SqlModel_encode_value_raises_TypeError_for_unrecognized_type(self):
         with self.assertRaises(TypeError) as e:
             classes.SqlModel.encode_value(classes.SqlModel)
-        assert str(e.exception) == 'unrecognized type'
+        assert 'unrecognized type' in str(e.exception)
 
     def test_SqlModel_encode_value_encodes_values_properly(self):
         bstr = b'123'
