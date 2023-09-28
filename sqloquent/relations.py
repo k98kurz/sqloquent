@@ -1,5 +1,5 @@
 from __future__ import annotations
-from .errors import tert, vert, tressa
+from .errors import tert, tressa
 from .interfaces import ModelProtocol, QueryBuilderProtocol
 from .tools import _pascalcase_to_snake_case
 from abc import abstractmethod
