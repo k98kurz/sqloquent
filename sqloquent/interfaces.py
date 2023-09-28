@@ -444,6 +444,16 @@ class TableProtocol(Protocol):
 @runtime_checkable
 class MigrationProtocol(Protocol):
     """Interface for a migration class."""
+    @property
+    def connection_info(self) -> str:
+        """The connection info used for interacting with the database.
+            For sqlite migrations, this is passed to the model_factory
+            which is in turn passed to the DBContextManager. For other
+            database bindings, the connection information should be read
+            from env and injected into the relevant DBContextManager.
+        """
+        ...
+
     def up(self, callback: Callable[[], list[TableProtocol]]) -> None:
         """Specify the forward migration. May be called multiple times
             for multi-step migrations.

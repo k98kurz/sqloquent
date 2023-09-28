@@ -1,4 +1,4 @@
-from .classes import SqliteModel
+from .classes import SqliteModel, DeletedModel, Attachment
 from .errors import tert, vert, tressa
 from .interfaces import MigrationProtocol, ModelProtocol
 from .migration import Migration, Table
@@ -94,7 +94,10 @@ def make_migration_from_model(model_name: str, model_path: str,
     model: ModelProtocol = getattr(module, model_name)
     tert(isinstance(model(), ModelProtocol),
             "specified model is invalid; must implement ModelProtocol")
+    return _make_migration_from_model(model, model_name, connection_string)
 
+def _make_migration_from_model(model: ModelProtocol, model_name: str,
+                               connection_string: str = 'temp.db') -> str:
     table_name = model.table or _pascalcase_to_snake_case(model_name)
     src = _make_migration_src_start()
     src += f"def create_table_{table_name}() -> list[Table]:\n"
@@ -112,6 +115,25 @@ def make_migration_from_model(model_name: str, model_path: str,
     src += f"    migration.down(drop_table_{table_name})\n"
     src += f"    return migration"
     return src
+
+def publish_migrations(path: str, connection_string: str = 'temp.db'):
+    tert(type(path) is str, 'path must be str')
+    tressa(isdir(path), 'path must be valid path to an existing directory')
+
+    deleted_model_src = _make_migration_from_model(
+        DeletedModel, 'DeletedModel', connection_string)
+    deleted_model_src = deleted_model_src.replace("t.text('record').index()", "t.blob('record')")
+    deleted_model_src = deleted_model_src.replace('    ...\n', '')
+
+    attachment_src = _make_migration_from_model(
+        Attachment, 'Attachment', connection_string)
+    attachment_src = attachment_src.replace("t.text('details').index()", "t.blob('details')")
+    attachment_src = attachment_src.replace('    ...\n', '')
+
+    with open(f"{path}/deleted_model_migration.py", 'w') as f:
+        f.write(deleted_model_src)
+    with open(f"{path}/attachment_migration.py", 'w') as f:
+        f.write(attachment_src)
 
 
 def make_model(name: str, base: str = 'SqliteModel', fields: list[str] = None,
@@ -276,11 +298,14 @@ def help_cli(name: str) -> str:
     {name} refresh path/to/migration/file
     {name} automigrate path/to/migrations/folder
     {name} autorollback path/to/migrations/folder
-    {name} autorefresh path/to/migrations/folder\n\n""" + \
+    {name} autorefresh path/to/migrations/folder
+    {name} publish path/to/migrations/folder\n\n""" + \
     "The `make` commands print the string source to std out for piping as\n" + \
     "desired. The `automigrate` command reads the files in the specified\n" + \
     "directory, then runs the managed migration tool which tracks migrations\n" + \
     "using a migrations table.\n\n" + \
+    "The `publish` command publishes migrations for the included DeletedModel\n" +\
+    "and Attachment classes. Use of these is optional.\n\n" + \
     "Include CONNECTION_STRING in a .env file or as an environment variable\n" + \
     "to set the connection string used by migration commands. Include\n" + \
     "MAKE_WITH_CONNSTRING in a .env file or as an environment variable to\n" + \
@@ -364,6 +389,11 @@ def run_cli() -> None:
     elif mode == "autorefresh":
         path = argv[2]
         autorefresh(path, connection_string)
+    elif mode == "publish":
+        if len(argv) < 3:
+            print("missing path")
+            exit(1)
+        return publish_migrations(argv[2], connstring_for_make)
     else:
         print(f"unrecognized mode: {mode}")
         exit(1)

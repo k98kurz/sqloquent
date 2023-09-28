@@ -112,6 +112,14 @@ class TestIntegration(unittest.TestCase):
             if base in ('SqliteModel', 'HashedSqliteModel'):
                 assert f"file_path: str = '{DB_FILEPATH}'" in result
 
+    def test_publish_migrations_creates_attachments_and_deleted_model_migrations(self):
+        list_files = lambda: [f for f in os.listdir(MIGRATIONS_PATH) if f[-3:] == '.py']
+        assert len(list_files()) == 0
+        tools.publish_migrations(MIGRATIONS_PATH)
+        assert len(list_files()) == 2
+        assert 'attachment_migration.py' in list_files()
+        assert 'deleted_model_migration.py' in list_files()
+
     def test_migrate_rollback_refresh_e2e(self):
         path = f"{MIGRATIONS_PATH}/create_test_table_migration.py"
         src = tools.make_migration_create('test', DB_FILEPATH)
