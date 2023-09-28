@@ -52,10 +52,10 @@ class TestMigration(unittest.TestCase):
         valid = "hello_world5"
         migration.Column(valid, "integer", t).validate()
         for char in disallowed:
-            with self.assertRaises(errors.UsageError) as e:
+            with self.assertRaises(ValueError) as e:
                 migration.Column(valid + char, "integer", t).validate()
             assert str(e.exception) == "Column name can contain only letters, numbers, and underscores"
-        with self.assertRaises(errors.UsageError) as e:
+        with self.assertRaises(ValueError) as e:
             migration.Column("8" + valid, "integer", t).validate()
         assert str(e.exception) == "Column name must start with a letter"
 
@@ -163,7 +163,7 @@ class TestMigration(unittest.TestCase):
         assert len(sql) == 1
         assert sql[0] == "drop table if exists things"
 
-        with self.assertRaises(errors.UsageError):
+        with self.assertRaises(ValueError):
             t.integer("some column")
             t.sql()
 
