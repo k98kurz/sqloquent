@@ -890,7 +890,7 @@ class DeletedModel(SqlModel):
         return model
 
 
-class DeletedSqliteModel(SqliteModel):
+class DeletedSqliteModel(DeletedModel, SqliteModel):
     """Model for preserving and restoring deleted HashedSqliteModel records."""
 
 
