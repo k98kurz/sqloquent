@@ -233,6 +233,11 @@ def refresh(path: str, connection_string: str = 'temp.db') -> None:
     rollback(path, connection_string)
     migrate(path, connection_string)
 
+def examine(path: str) -> list[str]:
+    """Examine the generated SQL from a migration."""
+    migration = _import_migration(path)
+    return [migration.get_apply_sql(), migration.get_undo_sql()]
+
 def _get_migration_model(connection_string: str = 'temp.db') -> Type[SqliteModel]:
     """Generate a MigrationModel with the given connection_string."""
     class MigrationModel(SqliteModel):
@@ -347,6 +352,7 @@ def help_cli(name: str) -> str:
     {name} migrate path/to/migration/file
     {name} rollback path/to/migration/file
     {name} refresh path/to/migration/file
+    {name} examine path/to/migration/file
     {name} automigrate path/to/migrations/folder
     {name} autorollback path/to/migrations/folder
     {name} autorefresh path/to/migrations/folder
@@ -431,6 +437,11 @@ def run_cli() -> None:
     elif mode == "refresh":
         path = argv[2]
         refresh(path, connection_string)
+    elif mode == "examine":
+        path = argv[2]
+        apply, undo = examine(path)
+        print("/**** generated up/apply sql ****/\n" + apply)
+        print("\n/*** generated down/undo sql ****/\n" + undo)
     elif mode == "automigrate":
         path = argv[2]
         automigrate(path, connection_string)
