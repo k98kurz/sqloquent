@@ -152,6 +152,25 @@ class TestIntegration(unittest.TestCase):
         assert self.table_exists("migrations")
         assert self.tables_do_not_exist(names)
 
+    def test_automigrate_does_not_replicate_batches(self):
+        batch1 = ['test1', 'test2']
+        batch2 = ['test3', 'test4']
+        def create_batch_files(names: list[str]):
+            for name in names:
+                path = f"{MIGRATIONS_PATH}/create_{name}_table_migration.py"
+                src = tools.make_migration_create(name, DB_FILEPATH)
+                with open(path, 'w') as f:
+                    f.write(src)
+        create_batch_files(batch1)
+        tools.automigrate(MIGRATIONS_PATH, DB_FILEPATH)
+        assert self.table_exists('test2')
+        self.cursor.execute('drop table test2')
+        assert not self.table_exists('test2')
+        create_batch_files(batch2)
+        tools.automigrate(MIGRATIONS_PATH, DB_FILEPATH)
+        assert not self.table_exists('test2')
+        assert self.table_exists('test3')
+
     def test_help_cli_returns_str_help_text(self):
         result = tools.help_cli('sqloquent')
         assert type(result) is str
