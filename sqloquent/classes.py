@@ -19,16 +19,20 @@ class SqliteContext:
     connection: sqlite3.Connection
     cursor: sqlite3.Cursor
 
-    def __init__(self, model: Type[SqliteModel]) -> None:
+    def __init__(self, model: Type[SqlModel], connection_info: str = '') -> None:
         """Initialize the instance. Raises TypeError for invalid model
-            (must be subclass of SqliteModel with str|bytes file_path).
+            (must be subclass of SqlModel with str|bytes file_path).
         """
-        tert(type(model) is type, 'model must be child class of SqliteModel')
-        tert(issubclass(model, SqliteModel),
-            'model must be child class of SqliteModel')
-        tert(type(model.file_path) in (str, bytes),
-            'model.file_path must be str or bytes')
-        self.connection = sqlite3.connect(model.file_path)
+        tert(type(model) is type, 'model must be child class of SqlModel')
+        tert(issubclass(model, SqlModel),
+            'model must be child class of SqlModel')
+        if not connection_info and hasattr(self, 'connection_info'):
+            connection_info = self.connection_info
+        if not connection_info and hasattr(model, 'file_path'):
+            connection_info = model.file_path
+        tert(type(connection_info) in (str, bytes),
+            'connection_info or model.file_path must be str or bytes')
+        self.connection = sqlite3.connect(connection_info or model.file_path)
         self.cursor = self.connection.cursor()
 
     def __enter__(self) -> CursorProtocol:
@@ -216,12 +220,14 @@ class SqlModel:
         return self
 
     @classmethod
-    def query(cls, conditions: dict = None) -> QueryBuilderProtocol:
+    def query(cls, conditions: dict = None, connection_info: str = None) -> QueryBuilderProtocol:
         """Returns a query builder with any conditions provided.
             Conditions are parsed as key=value and cannot handle other
             comparison types.
         """
-        sqb = cls().query_builder_class(model=cls)
+        if not connection_info and hasattr(cls, 'connection_info'):
+            connection_info = cls.connection_info
+        sqb = cls().query_builder_class(model=cls, connection_info=connection_info)
 
         if conditions is not None:
             for key in conditions:
@@ -335,6 +341,7 @@ class SqlQueryBuilder:
     """
     model: Type[SqlModel]
     context_manager: Type[DBContextProtocol] = field(default=None)
+    connection_info: str = field(default='')
     clauses: list = field(default_factory=list)
     params: list = field(default_factory=list)
     order_column: str = field(default=None)
@@ -524,7 +531,7 @@ class SqlQueryBuilder:
         sql = f'insert into {self.model.table} ({",".join(columns)})' + \
             f' values ({",".join(["?" for p in params])})'
 
-        with self.context_manager(self.model) as cursor:
+        with self.context_manager(self.model, self.connection_info) as cursor:
             cursor.execute(sql, params)
             return self.model(data=data)
 
@@ -544,12 +551,12 @@ class SqlQueryBuilder:
         sql = f"insert into {self.model.table} values "\
             f"({','.join(['?' for f in self.model.columns])})"
 
-        with self.context_manager(self.model) as cursor:
+        with self.context_manager(self.model, self.connection_info) as cursor:
             return cursor.executemany(sql, rows).rowcount
 
     def find(self, id: Any) -> Optional[SqlModel]:
         """Find a record by its id and return it."""
-        with self.context_manager(self.model) as cursor:
+        with self.context_manager(self.model, self.connection_info) as cursor:
             cursor.execute(
                 f'select {",".join(self.model.columns)} from {self.model.table}' +
                 f' where {self.model.id_column} = ?',
@@ -633,7 +640,8 @@ class SqlQueryBuilder:
 
     def _get_joined(self) -> list[JoinedModel]:
         """Run the query on the datastore and return a list of joined
-            results.
+            results. Used by the `get` method when appropriate. Do not
+            call this method manually.
         """
         classes: list[SqlModel] = [self.model]
         columns: list[str] = []
@@ -672,7 +680,7 @@ class SqlQueryBuilder:
             if type(self.offset) is int and self.offset > 0:
                 sql += f' offset {self.offset}'
 
-        with self.context_manager(self.model) as cursor:
+        with self.context_manager(self.model, self.connection_info) as cursor:
             cursor.execute(sql, self.params)
             rows = cursor.fetchall()
             models = [
@@ -686,7 +694,8 @@ class SqlQueryBuilder:
 
     def _get_normal(self) -> list[SqlModel|Row]:
         """Run the query on the datastore and return a list of results
-            without joins.
+            without joins. Used by the `get` method when appropriate. Do
+            not call this method manually.
         """
         columns: list[str] = self.columns or self.model.columns
         sql = f'select {",".join(columns)} from {self.model.table}'
@@ -706,7 +715,7 @@ class SqlQueryBuilder:
             if type(self.offset) is int and self.offset > 0:
                 sql += f' offset {self.offset}'
 
-        with self.context_manager(self.model) as cursor:
+        with self.context_manager(self.model, self.connection_info) as cursor:
             cursor.execute(sql, self.params)
             rows = cursor.fetchall()
             if self.grouping:
@@ -734,7 +743,7 @@ class SqlQueryBuilder:
         if len(self.clauses) > 0:
             sql += ' where ' + ' and '.join(self.clauses)
 
-        with self.context_manager(self.model) as cursor:
+        with self.context_manager(self.model, self.connection_info) as cursor:
             cursor.execute(sql, self.params)
             return cursor.fetchone()[0]
 
@@ -778,7 +787,7 @@ class SqlQueryBuilder:
         if self.order_column is not None:
             sql += f' order by {self.order_column} {self.order_dir}'
 
-        with self.context_manager(self.model) as cursor:
+        with self.context_manager(self.model, self.connection_info) as cursor:
             cursor.execute(sql, self.params)
             row = cursor.fetchone()
 
@@ -821,7 +830,7 @@ class SqlQueryBuilder:
             sql += f' where {" and ".join(condition_columns)}'
 
         # update database
-        with self.context_manager(self.model) as cursor:
+        with self.context_manager(self.model, self.connection_info) as cursor:
             return cursor.execute(sql, [*params, *condition_params]).rowcount
 
     def delete(self) -> int:
@@ -833,7 +842,7 @@ class SqlQueryBuilder:
         if len(self.clauses) > 0:
             sql += ' where ' + ' and '.join(self.clauses)
 
-        with self.context_manager(self.model) as cursor:
+        with self.context_manager(self.model, self.connection_info) as cursor:
             return cursor.execute(sql, self.params).rowcount
 
     def to_sql(self) -> str:
@@ -864,7 +873,7 @@ class SqlQueryBuilder:
             results.
         """
         tert(type(sql) is str, 'sql must be str')
-        with self.context_manager(self.model) as cursor:
+        with self.context_manager(self.model, self.connection_info) as cursor:
             cursor.execute(sql)
             return (cursor.rowcount, cursor.fetchall())
 
@@ -995,12 +1004,28 @@ class HashedModel(SqlModel):
         return deleted
 
 
-class HashedSqliteModel(HashedModel, SqliteModel):
+class HashedSqliteModel(SqliteModel):
     """Model for interacting with sqlite database using hash for id."""
+
+    def delete(self) -> DeletedSqliteModel:
+        """Delete the model, putting it in the deleted_records table,
+            then return the DeletedSqliteModel. Raises packify.UsageError for
+            unserializable data.
+        """
+        model_class = self.__class__.__name__
+        record_id = self.data[self.id_column]
+        record = packify.pack(self.data)
+        deleted = DeletedSqliteModel.insert({
+            'model_class': model_class,
+            'record_id': record_id,
+            'record': record
+        })
+        super().delete()
+        return deleted
 
 
 class Attachment(HashedModel):
-    """Class for attaching immutable json data to a record."""
+    """Class for attaching immutable details to a record."""
     table: str = 'attachments'
     columns: tuple = ('id', 'related_model', 'related_id', 'details')
     id: str
@@ -1052,4 +1077,5 @@ class Attachment(HashedModel):
 
 
 class AttachmentSqlite(Attachment, SqliteModel):
+    """Class for attaching immutable details to a sqlite record."""
     ...

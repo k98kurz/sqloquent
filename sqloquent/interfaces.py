@@ -45,15 +45,27 @@ class DBContextProtocol(Protocol):
     """Interface showing how a context manager for connecting
         to a database should behave.
     """
-    def __init__(self, model: ModelProtocol) -> None:
+    def __init__(self, model: ModelProtocol, connection_info: str = '') -> None:
+        """Using the connection_info parameter is optional but should be
+            supported. I recommend setting a class attribute with the
+            default value taken from an environment variable, then use
+            that class attribute within this method, overriding with the
+            parameter only if it is not empty.
+        """
         ...
 
     def __enter__(self) -> CursorProtocol:
+        """Enter the `with` block. Should return a cursor useful for
+            making db calls.
+        """
         ...
 
     def __exit__(self, __exc_type: Optional[Type[BaseException]],
                 __exc_value: Optional[BaseException],
                 __traceback: Optional[TracebackType]) -> None:
+        """Exit the `with` block. Should commit any pending transactions
+            and close the cursor and connection upon exiting the context.
+        """
         ...
 
 
@@ -133,6 +145,7 @@ class ModelProtocol(Protocol):
 class JoinedModelProtocol(Protocol):
     """Interface for representations of JOIN query results."""
     def __init__(self, models: list[Type[ModelProtocol]], data: dict) -> None:
+        """Initialize the instance."""
         ...
 
     @property
@@ -162,7 +175,9 @@ class RowProtocol(Protocol):
 @runtime_checkable
 class QueryBuilderProtocol(Protocol):
     """Interface showing how a query builder should function."""
-    def __init__(self, model: ModelProtocol, *args, **kwargs) -> None:
+    def __init__(self, model: ModelProtocol, connection_info: str = '',
+                 *args, **kwargs) -> None:
+        """Initialize the instance."""
         ...
 
     @property

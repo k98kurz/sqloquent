@@ -34,23 +34,16 @@ class TestClasses(unittest.TestCase):
 
     def setUpClass() -> None:
         """Couple these models to sqlite for testing purposes."""
-        class SqliteModel(classes.SqliteModel):
-            file_path = TestClasses.db_filepath
-        classes.SqliteModel = SqliteModel
+        classes.SqliteModel.file_path = TestClasses.db_filepath
 
-        class DeletedModel(classes.DeletedModel, classes.SqliteModel):
-            file_path = TestClasses.db_filepath
-        classes.DeletedModel = DeletedModel
+        classes.DeletedModel.file_path = TestClasses.db_filepath
+        classes.DeletedModel.query_builder_class = classes.SqliteQueryBuilder
 
-        # save uncoupled original for subclass checking
-        class HashedModel(classes.HashedModel, classes.SqliteModel):
-            file_path = TestClasses.db_filepath
-        classes.HashedModel_original = classes.HashedModel
-        classes.HashedModel = HashedModel
+        classes.HashedModel.file_path = TestClasses.db_filepath
+        classes.HashedModel.query_builder_class = classes.SqliteQueryBuilder
 
-        class Attachment(classes.Attachment, classes.SqliteModel):
-            file_path = TestClasses.db_filepath
-        classes.Attachment = Attachment
+        classes.Attachment.file_path = TestClasses.db_filepath
+        classes.Attachment.query_builder_class = classes.SqliteQueryBuilder
 
     def tearDown(self) -> None:
         """Close cursor and delete test database."""
@@ -95,19 +88,20 @@ class TestClasses(unittest.TestCase):
         with self.assertRaises(TypeError) as e:
             with classes.SqliteContext('not a SqliteModel'):
                 ...
-        assert str(e.exception) == 'model must be child class of SqliteModel'
+        assert str(e.exception) == 'model must be child class of SqlModel'
 
         with self.assertRaises(TypeError) as e:
             with classes.SqliteContext(str):
                 ...
-        assert str(e.exception) == 'model must be child class of SqliteModel'
+        assert str(e.exception) == 'model must be child class of SqlModel'
 
         with self.assertRaises(TypeError) as e:
             class InvalidModel(classes.SqliteModel):
                 file_path = []
             with classes.SqliteContext(InvalidModel):
                 ...
-        assert str(e.exception) == 'model.file_path must be str or bytes'
+        assert 'model.file_path' in str(e.exception)
+        assert 'must be str or bytes' in str(e.exception)
 
 
     # SqlModel tests
@@ -1056,7 +1050,7 @@ class TestClasses(unittest.TestCase):
 
     # Attachment tests
     def test_Attachment_issubclass_of_HashedModel(self):
-        assert issubclass(classes.Attachment, classes.HashedModel_original)
+        assert issubclass(classes.Attachment, classes.HashedModel)
 
     def test_Attachment_attach_to_raises_TypeError_for_invalid_input(self):
         class NotValidClass:
@@ -1124,6 +1118,25 @@ class TestClasses(unittest.TestCase):
 
         related = attachment.related(True)
         assert isinstance(related, classes.SqlModel)
+
+
+    # tests for HashedSqliteModel, DeletedSqliteModel, and AttachmentSqlite
+    def test_HashedSqliteModel_etc(self):
+        assert issubclass(classes.HashedSqliteModel, classes.SqliteModel)
+        hm = classes.HashedSqliteModel.insert({'details': '123'})
+        assert classes.AttachmentSqlite.query().count() == 0
+        am = classes.AttachmentSqlite({'details': '321'})
+        am.attach_to(hm).save()
+        assert classes.AttachmentSqlite.query().count() == 1
+        assert classes.DeletedSqliteModel.query().count() == 0
+        dm = hm.delete()
+        assert classes.DeletedSqliteModel.query().count() == 1
+        assert classes.HashedSqliteModel.query().count() == 0
+        restored: classes.HashedSqliteModel = dm.restore()
+        assert classes.HashedSqliteModel.query().count() == 1
+        assert type(restored) is type(hm)
+        assert restored.id == hm.id
+        assert type(am.id) is str
 
 
 if __name__ == '__main__':
