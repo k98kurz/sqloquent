@@ -301,10 +301,9 @@ class TestClasses(unittest.TestCase):
 
     # Row test
     def test_Row_initializes_correctly(self):
-        row = classes.Row("some_table", {})
+        row = classes.Row({'a': b'c'})
         assert isinstance(row, interfaces.RowProtocol)
-        assert row.table == "some_table"
-        assert row.data == {}
+        assert row.data == {'a': b'c'}
 
 
     # dynamic_sqlite_model test

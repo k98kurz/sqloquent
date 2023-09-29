@@ -258,8 +258,12 @@ class QueryBuilderProtocol(Protocol):
         """Adds a group by constraint."""
         ...
 
-    def get(self) -> list[ModelProtocol|JoinedModelProtocol|RowProtocol]:
-        """Run the query on the datastore and return a list of results."""
+    def get(self) -> list[ModelProtocol]|list[JoinedModelProtocol]|list[RowProtocol]:
+        """Run the query on the datastore and return a list of results.
+            Return SqlModels when running a simple query. Return
+            JoinedModels when running a JOIN query. Return Rows when
+            running a non-joined GROUP BY query.
+        """
         ...
 
     def count(self) -> int:

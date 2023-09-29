@@ -315,9 +315,8 @@ class JoinSpec:
 
 
 @dataclass
-class Row(SqlModel):
+class Row:
     """Class for representing a row from a query when no better model exists."""
-    table: str = field()
     data: dict = field()
 
 
@@ -632,8 +631,12 @@ class SqlQueryBuilder:
         self.grouping = by
         return self
 
-    def get(self) -> list[SqlModel|JoinedModel|Row]:
-        """Run the query on the datastore and return a list of results."""
+    def get(self) -> list[SqlModel]|list[JoinedModel]|list[Row]:
+        """Run the query on the datastore and return a list of results.
+            Return SqlModels when running a simple query. Return
+            JoinedModels when running a JOIN query. Return Rows when
+            running a non-joined GROUP BY query.
+        """
         if len(self.joins) > 0:
             return self._get_joined()
         return self._get_normal()
@@ -720,7 +723,7 @@ class SqlQueryBuilder:
             rows = cursor.fetchall()
             if self.grouping:
                 models = [
-                    Row(self.model.table, data={
+                    Row(data={
                         key: value
                         for key, value in zip(columns, row)
                     })
