@@ -9,7 +9,7 @@ import unittest
 
 DB_FILEPATH = 'test.db'
 MIGRATIONS_PATH = 'tests/integration_vectors/migrations'
-MODELS_PATH = 'tests/integration_vectors'
+MODELS_PATH = 'tests/integration_vectors/models'
 
 
 class TestIntegration(unittest.TestCase):
