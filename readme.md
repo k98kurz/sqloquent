@@ -22,6 +22,9 @@ cryptographic audit trail. `DeletedModel` corresponds to any deleted model from
 a class that extends `HashedModel` and includes a `restore` method that can
 restore the deleted record.
 
+There is an included CLI tool that generates code scaffolding for models and
+migrations, as well as track, apply, rollback, and refresh migrations.
+
 ## Status
 
 - [x] Base interfaces
@@ -33,6 +36,10 @@ restore the deleted record.
 - [x] Code scaffold tools + CLI
 - [x] Schema migration system
 - [x] Decent documentation
+- [ ] Add support for all SQL types in migration system.
+
+Currently, only the basic sqlite3 types (affinities) of text, blob, integer,
+real, and numeric are supported by the migration system.
 
 ## Setup and Usage
 
@@ -49,6 +56,19 @@ pip install sqloquent
 There are two primary ways to use this package: either with the bundled sqlite3
 coupling or with a custom coupling to an arbitrary SQL database client. The
 cryptographic audit trail features can be used with any SQL database coupling.
+
+#### Example
+
+The most thorough example is the integration test. The model files can be found
+[here](https://github.com/k98kurz/sqloquent/tree/master/tests/integration_vectors/models),
+and the test itself is
+[here](https://github.com/k98kurz/sqloquent/blob/master/tests/test_integration.py#L56).
+
+The models were scaffolded using the CLI tool, then the details filled out in
+each. The relations were set up in the `__init__.py` file. The integration test
+generates migrations from these classes using the CLI tool, automigrates using
+the CLI tool, then does inserts/updates/deletes and checks the db for
+correctness. (These files provide a basic schema for correspondent banking.)
 
 #### CLI Tool
 
