@@ -83,6 +83,7 @@ class SqlModel:
 
     @staticmethod
     def create_property(name) -> property:
+        """Create a dynamic property for the column with the given name."""
         @property
         def prop(self):
             return self.data.get(name)
@@ -1007,7 +1008,7 @@ class Attachment(HashedModel):
     related_id: str
     details: bytes|None
     _related: SqlModel = None
-    _details: Any = None
+    _details: packify.SerializableType = None
 
     def related(self, reload: bool = False) -> SqlModel:
         """Return the related record."""
@@ -1027,13 +1028,13 @@ class Attachment(HashedModel):
         self.data['related_id'] = related.data[related.id_column]
         return self
 
-    def get_details(self, reload: bool = False) -> dict:
+    def get_details(self, reload: bool = False) -> packify.SerializableType:
         """Decode packed bytes to dict."""
         if self._details is None or reload:
             self._details = packify.unpack(self.data['details'])
         return self._details
 
-    def set_details(self, details: Any = {}) -> Attachment:
+    def set_details(self, details: packify.SerializableType = {}) -> Attachment:
         """Set the details column using either supplied data or by
             packifying self._details. Return self in monad pattern.
             Raises packify.UsageError or TypeError if details contains

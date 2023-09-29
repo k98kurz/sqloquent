@@ -16,6 +16,10 @@ General model for mapping a SQL row to an in-memory object.
 
 #### Methods
 
+##### `@staticmethod create_property() -> property:`
+
+Create a dynamic property for the column with the given name.
+
 ##### `@staticmethod encode_value(val: Any) -> str:`
 
 Encode a value for hashing. Uses the pack function from packify.
@@ -249,6 +253,10 @@ Model for preserving and restoring deleted HashedModel records.
 
 - table: str
 - columns: tuple
+- id: str
+- model_class: str
+- record_id: str
+- record: bytes
 
 #### Methods
 
@@ -271,6 +279,8 @@ Model for interacting with sql database using hash for id.
 
 - table: str
 - columns: tuple
+- id: str
+- details: bytes
 
 #### Methods
 
@@ -314,8 +324,12 @@ Class for attaching immutable json data to a record.
 
 - table: str
 - columns: tuple
+- id: str
+- related_model: str
+- related_id: str
+- details: bytes | None
 - _related: SqlModel
-- _details: Any
+- _details: packify.SerializableType
 
 #### Methods
 
@@ -327,11 +341,11 @@ Return the related record.
 
 Attach to related model then return self.
 
-##### `details(reload: bool = False) -> dict:`
+##### `get_details(reload: bool = False) -> packify.SerializableType:`
 
 Decode packed bytes to dict.
 
-##### `set_details(details: Any = {}) -> Attachment:`
+##### `set_details(details: packify.SerializableType = {}) -> Attachment:`
 
 Set the details column using either supplied data or by packifying
 self._details. Return self in monad pattern. Raises packify.UsageError or
