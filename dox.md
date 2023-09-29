@@ -62,10 +62,12 @@ Delete the record.
 Reload values from datastore. Return self in monad pattern. Raises UsageError if
 id is not set in self.data.
 
-##### `@classmethod query(conditions: dict = None) -> QueryBuilderProtocol:`
+##### `@classmethod query(conditions: dict = None, connection_info: str = None) -> QueryBuilderProtocol:`
 
 Returns a query builder with any conditions provided. Conditions are parsed as
-key=value and cannot handle other comparison types.
+key=value and cannot handle other comparison types. If connection_info is not
+injected and was added as a class attribute, that class attribute will be passed
+to the query_builder_class instead.
 
 ### `SqlQueryBuilder`
 
@@ -76,6 +78,7 @@ database, c.f. SqliteQueryBuilder.
 
 - model: Type[SqlModel]
 - context_manager: Type[DBContextProtocol]
+- connection_info: str
 - clauses: list
 - params: list
 - order_column: str
@@ -184,9 +187,11 @@ Sets the columns to select. Raises TypeError for invalid columns.
 
 Adds a GROUP BY constraint. Raises TypeError for invalid by.
 
-##### `get() -> list[SqlModel | JoinedModel | Row]:`
+##### `get() -> list[SqlModel] | list[JoinedModel] | list[Row]:`
 
-Run the query on the datastore and return a list of results.
+Run the query on the datastore and return a list of results. Return SqlModels
+when running a simple query. Return JoinedModels when running a JOIN query.
+Return Rows when running a non-joined GROUP BY query.
 
 ##### `count() -> int:`
 
@@ -223,6 +228,20 @@ Return the sql where clause from the clauses and params.
 ##### `execute_raw(sql: str) -> tuple[int, Any]:`
 
 Execute raw SQL against the database. Return rowcount and fetchall results.
+
+##### `_get_joined() -> list[JoinedModel]:`
+
+Run the query on the datastore and return a list of joined results. Used by the
+`get` method when appropriate. Do not call this method manually.
+
+##### `_get_normal() -> list[SqlModel | Row]:`
+
+Run the query on the datastore and return a list of results without joins. Used
+by the `get` method when appropriate. Do not call this method manually.
+
+##### `_chunk(number: int) -> Generator[list[SqlModel], None, None]:`
+
+Create the generator for chunking.
 
 ### `SqliteContext`
 
@@ -312,13 +331,20 @@ invalid updates.
 Delete the model, putting it in the deleted_records table, then return the
 DeletedModel. Raises packify.UsageError for unserializable data.
 
-### `HashedSqliteModel(HashedModel)`
+### `HashedSqliteModel(SqliteModel)`
 
 Model for interacting with sqlite database using hash for id.
 
+#### Methods
+
+##### `delete() -> DeletedSqliteModel:`
+
+Delete the model, putting it in the deleted_records table, then return the
+DeletedSqliteModel. Raises packify.UsageError for unserializable data.
+
 ### `Attachment(HashedModel)`
 
-Class for attaching immutable json data to a record.
+Class for attaching immutable details to a record.
 
 #### Annotations
 
@@ -357,13 +383,14 @@ Redefined for better LSP support.
 
 ### `AttachmentSqlite(Attachment)`
 
-### `Row(SqlModel)`
+Class for attaching immutable details to a sqlite record.
+
+### `Row`
 
 Class for representing a row from a query when no better model exists.
 
 #### Annotations
 
-- table: str
 - data: dict
 
 ### `JoinedModel`
@@ -557,9 +584,11 @@ Sets the columns to select.
 
 Adds a group by constraint.
 
-##### `get() -> list[ModelProtocol | JoinedModelProtocol | RowProtocol]:`
+##### `get() -> list[ModelProtocol] | list[JoinedModelProtocol] | list[RowProtocol]:`
 
-Run the query on the datastore and return a list of results.
+Run the query on the datastore and return a list of results. Return SqlModels
+when running a simple query. Return JoinedModels when running a JOIN query.
+Return Rows when running a non-joined GROUP BY query.
 
 ##### `count() -> int:`
 
@@ -930,8 +959,11 @@ Table class for creating migrations.
 - uniques_to_drop: list[list[Column | str]]
 - is_create: bool
 - is_drop: bool
+- callback: Callable[[list[str]], list[str]]
 
 #### Methods
+
+##### `<lambda>():`
 
 ##### `@classmethod create(name: str) -> Table:`
 
@@ -993,6 +1025,12 @@ Creates a text column.
 
 Creates a blob column.
 
+##### `custom(callback: Callable[[list[str]], list[str]]) -> Table:`
+
+Add a custom callback that parses the SQL clauses before they are returnedf from
+the `sql` method. Must accept and return list[str]. This is a way to add custom
+SQL while still using the migration system. Return self in monad pattern.
+
 ##### `sql() -> list[str]:`
 
 Return the SQL for the table structure changes. Raises UsageError if the Table
@@ -1030,8 +1068,8 @@ migrations.
 
 ##### `get_apply_sql() -> str:`
 
-Get the SQL for the forward migration. Note that this may call all registered
-callbacks and result in unexpected behavior.
+Get the SQL for the forward migration. Note that this will call all registered
+callbacks and may result in unexpected behavior.
 
 ##### `apply() -> None:`
 
@@ -1039,8 +1077,8 @@ Apply the forward migration.
 
 ##### `get_undo_sql() -> str:`
 
-Get the SQL for the backward migration. Note that this may call all registered
-callbacks and result in unexpected behavior.
+Get the SQL for the backward migration. Note that this will call all registered
+callbacks and may result in unexpected behavior.
 
 ##### `undo() -> None:`
 

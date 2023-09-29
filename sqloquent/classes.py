@@ -223,7 +223,9 @@ class SqlModel:
     def query(cls, conditions: dict = None, connection_info: str = None) -> QueryBuilderProtocol:
         """Returns a query builder with any conditions provided.
             Conditions are parsed as key=value and cannot handle other
-            comparison types.
+            comparison types. If connection_info is not injected and was
+            added as a class attribute, that class attribute will be
+            passed to the query_builder_class instead.
         """
         if not connection_info and hasattr(cls, 'connection_info'):
             connection_info = cls.connection_info

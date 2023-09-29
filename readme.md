@@ -33,12 +33,10 @@ restore the deleted record.
 - [x] Code scaffold tools + CLI
 - [x] Schema migration system
 - [x] Decent documentation
-- [ ] Refactor: replace monkeypatching with injection
-- [ ] Publish to pypi
 
 ## Setup and Usage
 
-Requires Python 3.10+. Have not tested with older Python versions.
+Requires Python 3.10+. Has not been tested with older Python versions.
 
 ### Setup
 
@@ -62,13 +60,18 @@ The CLI tool can generate models and migrations, including the ability to
 generate migrations from completed models. Migrations can be handled manually or
 using an automatic method that tracks migrations via a `migrations` table. To
 use the migration tools, the environment variable `CONNECTION_STRING` must be
-set either in the CLI environment or in an .env file, e.g.
+set either in the CLI environment or in a .env file, e.g.
 `CONNECTION_STRING=path/to/file.db`. To insert this connection string into
 generated scaffold code, also define a `MAKE_WITH_CONNSTRING` environment
 variable and set it to anythong other than "false" or "0"; this is a convenience
 feature for working with sqlite3, since that is the only bundled coupling, but
 overwriting the `file_path` attribute on models at the app execution entry point
-is probably a better strategy.
+is probably a better strategy -- if using another SQL binding, the connection info
+should be injected into the context manager (see section about binding to other
+SQL databases/engines below).
+
+Additionally, the functionality of the CLI tool can be accessed programmatically
+through `sqloquent.tools`.
 
 #### Note About Table Construction
 
@@ -78,8 +81,8 @@ sha256 of the deterministically encoded record content as a GUID. This can be
 changed for use with autoincrementing int id columns by extending `SqlModel` or
 `SqliteModel` and overriding the `insert` and `insert_many` methods to prevent
 setting the id via `cls.generate_id()`. However, this is not recommended unless
-the autoincrement id can be discerned from the db cursor in some way, which did
-not work with sqlite3 when I tried it.
+the autoincrement id can be reliably discerned from the db cursor and there are
+no concerns about, say, synchronizing between instances using a CRDT.
 
 Use one of the variants of the `sqloquent make migration` command to create a
 migration scaffold, then edit the result as necessary. If you specify the
@@ -106,9 +109,9 @@ from sqloquent import Migration, Table
 
 def create_table_things() -> list[Table]:
     t = Table.create('things')
-    t.text.unique()
-    t.text.index()
-    t.integer.nullable().index()
+    t.text('id').unique()
+    t.text('name').index()
+    t.integer('amount').nullable().index()
     ...
     return [t]
 
@@ -123,7 +126,26 @@ def migration(connection_string: str = 'temp.db') -> Migration:
 ```
 
 This should provide a decent scaffold for migrations, allowing the user of this
-package to model their data first as classes if desired.
+package to model their data first as classes if desired. If some custom SQL is
+necessary, it can be added using a callback:
+
+```python
+def add_custom_sql(clauses: list[str]) -> list[str]:
+    clauses.append("do something sql-y")
+    return clauses
+
+def create_table_things() -> list[Table]:
+    t = Table.create('things')
+    t.text('id').unique()
+    t.text('name').index()
+    t.integer('amount').nullable().index()
+    t.custom(add_custom_sql)
+    ...
+    return [t]
+```
+
+Examine the generated SQL of any migration using the
+`sqloquent examine path/to/migration/file` command.
 
 
 #### Using the sqlite3 coupling
@@ -428,7 +450,9 @@ a single model.
 
 Below is a list of interfaces, classes, errors, and functions. See the
 [dox.md](https://github.com/k98kurz/sqloquent/blob/master/dox.md) file generated
-by [autodox](https://pypi.org/project/autodox) for full documentation.
+by [autodox](https://pypi.org/project/autodox) for full documentation, or read
+[interfaces.md](https://github.com/k98kurz/sqloquent/blob/master/interfaces.md)
+for documentation on just the interfaces.
 
 ### Interfaces
 
@@ -447,13 +471,10 @@ by [autodox](https://pypi.org/project/autodox) for full documentation.
 
 Classes implement the protocols or extend the classes indicated.
 
-- SqliteContext(DBContextProtocol)
 - SqlModel(ModelProtocol)
-- SqliteModel(SqlModel)
-- JoinedModel(JoinedModelProtocol)
-- JoinSpec
-- Row(RowProtocol)
 - SqlQueryBuilder(QueryBuilderProtocol)
+- SqliteContext(DBContextProtocol)
+- SqliteModel(SqlModel)
 - SqliteQueryBuilder(SqlQueryBuilder)
 - DeletedModel(SqlModel)
 - DeletedSqliteModel(DeletedModel, SqliteModel)
@@ -461,22 +482,28 @@ Classes implement the protocols or extend the classes indicated.
 - HashedSqliteModel(HashedModel, SqliteModel)
 - Attachment(HashedModel)
 - AttachmentSqlite(HashedSqliteModel)
+- Row(RowProtocol)
+- JoinedModel(JoinedModelProtocol)
+- JoinSpec
 - Relation(RelationProtocol)
 - HasOne(Relation)
 - HasMany(HasOne)
 - BelongsTo(HasOne)
 - BelongsToMany(Relation)
+- Column(ColumnProtocol)
+- Table(TableProtocol)
+- Migration(MigrationProtocol)
 
 ### Functions
 
 The package includes some ORM helper functions for setting up relations and some
 other useful functions.
 
+- dynamic_sqlite_model
 - has_one
 - has_many
 - belongs_to
 - belongs_to_many
-- dynamic_sqlite_model
 - get_index_name
 
 ## Tests
@@ -494,7 +521,7 @@ python tests/test_integration.py
 The tests demonstrate the intended (and actual) behavior of the classes, as
 well as some contrived examples of how they are used. Perusing the tests will be
 informative to anyone seeking to use/break this package, especially the
-integration test which demonstrates the full package. There are currently 188
+integration test which demonstrates the full package. There are currently 194
 unit tests + 1 e2e integration test.
 
 ## ISC License
