@@ -161,6 +161,7 @@ def _make_migration_from_model(model: ModelProtocol, model_name: str,
     return src
 
 def publish_migrations(path: str, connection_string: str = 'temp.db'):
+    """Publish the migrations for the DeletedModel and Attachment."""
     tert(type(path) is str, 'path must be str')
     tressa(isdir(path), 'path must be valid path to an existing directory')
 
@@ -335,6 +336,7 @@ def autorefresh(path: str, connection_string: str = 'temp.db') -> None:
 
 
 def help_cli(name: str) -> str:
+    """Return the help string for the CLI tool."""
     name = name.split("/")[-1]
     """Produce and return the help text."""
     return f"""usage: {name} make migration --create name
@@ -363,6 +365,7 @@ def help_cli(name: str) -> str:
 
 
 def run_cli() -> None:
+    """Run the CLI tool."""
     if len(argv) < 3:
         print(help_cli(argv[0]))
         return
