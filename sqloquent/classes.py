@@ -63,9 +63,10 @@ class SqlModel:
         """
         self.data = {}
 
-        if not hasattr(self, 'disable_column_property_mapping'):
+        if not hasattr(self.__class__, 'disable_column_property_mapping'):
+            names = dir(self)
             for column in self.columns:
-                if not hasattr(self.__class__, column):
+                if column not in names:
                     setattr(self.__class__, column, self.create_property(column))
 
         for key in data:

@@ -128,6 +128,14 @@ class TestClasses(unittest.TestCase):
         assert not hasattr(model, 'id') and model.data['id'] == '123'
         assert not hasattr(model, 'name') and model.data['name'] == 'Bob'
 
+    def test_SqlModel_column_property_mapping_disabled_for_colliding_names(self):
+        class Derived(classes.SqlModel):
+            columns: tuple[str] = ('id', 'name', 'save', 'data')
+        model = Derived({'id': '123', 'name': 'Bob', 'save': 'to-do', 'data': '321'})
+        assert hasattr(model, 'save') and callable(model.save)
+        assert 'save' in model.data and model.data['save'] == 'to-do'
+        assert 'data' in model.data and model.data['data'] == '321'
+
     def test_SqlModel_post_init_hooks_are_called(self):
         class TestModel(classes.SqlModel):
             ...
