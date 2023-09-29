@@ -6,3 +6,6 @@ class Identity(HashedSqliteModel):
     table: str = 'identities'
     id_column: str = 'id'
     columns: tuple[str] = ('id', 'name', 'seed')
+    id: str
+    name: str
+    seed: bytes|None

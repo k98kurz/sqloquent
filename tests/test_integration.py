@@ -81,7 +81,7 @@ class TestIntegration(unittest.TestCase):
         correspondence = models.Correspondence.insert({
             'first': bob.data['id'],
             'second': alice.data['id'],
-            'data': 'the bidirectional limit is $9001',
+            'details': 'the bidirectional limit is $9001',
         })
         alice.correspondences().reload()
         assert len(alice.correspondences) == 1

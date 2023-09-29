@@ -63,6 +63,11 @@ class SqlModel:
         """
         self.data = {}
 
+        if not hasattr(self, 'disable_column_property_mapping'):
+            for column in self.columns:
+                if not hasattr(self.__class__, column):
+                    setattr(self.__class__, column, self.create_property(column))
+
         for key in data:
             if key in self.columns and type(key) is str:
                 self.data[key] = data[key]
@@ -74,6 +79,16 @@ class SqlModel:
                 vert(callable(call),
                     '_post_init_hooks must be a dict mapping names to Callables')
                 call(self)
+
+    @staticmethod
+    def create_property(name) -> property:
+        @property
+        def prop(self):
+            return self.data.get(name)
+        @prop.setter
+        def prop(self, value):
+            self.data[name] = value
+        return prop
 
     @staticmethod
     def encode_value(val: Any) -> str:
@@ -863,6 +878,10 @@ class DeletedModel(SqlModel):
     """Model for preserving and restoring deleted HashedModel records."""
     table: str = 'deleted_records'
     columns: tuple = ('id', 'model_class', 'record_id', 'record')
+    id: str
+    model_class: str
+    record_id: str
+    record: bytes
 
     def restore(self, inject: dict = {}) -> SqlModel:
         """Restore a deleted record, remove from deleted_records, and
@@ -897,7 +916,9 @@ class DeletedSqliteModel(DeletedModel, SqliteModel):
 class HashedModel(SqlModel):
     """Model for interacting with sql database using hash for id."""
     table: str = 'hashed_records'
-    columns: tuple = ('id', 'data')
+    columns: tuple = ('id', 'details')
+    id: str
+    details: bytes
 
     @classmethod
     def generate_id(cls, data: dict) -> str:
@@ -980,6 +1001,10 @@ class Attachment(HashedModel):
     """Class for attaching immutable json data to a record."""
     table: str = 'attachments'
     columns: tuple = ('id', 'related_model', 'related_id', 'details')
+    id: str
+    related_model: str
+    related_id: str
+    details: bytes|None
     _related: SqlModel = None
     _details: Any = None
 
@@ -1001,7 +1026,7 @@ class Attachment(HashedModel):
         self.data['related_id'] = related.data[related.id_column]
         return self
 
-    def details(self, reload: bool = False) -> dict:
+    def get_details(self, reload: bool = False) -> dict:
         """Decode packed bytes to dict."""
         if self._details is None or reload:
             self._details = packify.unpack(self.data['details'])

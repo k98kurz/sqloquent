@@ -3,11 +3,12 @@ from .errors import tert, vert, tressa
 from .interfaces import MigrationProtocol, ModelProtocol
 from .migration import Migration, Table
 from datetime import datetime
+from decimal import Decimal
 from genericpath import isdir, isfile
 from os import listdir, environ
 from sys import argv
-from types import ModuleType
-from typing import Type
+from types import ModuleType, NoneType, UnionType
+from typing import Any, Type, get_args
 import importlib.util
 import re
 
@@ -96,14 +97,64 @@ def make_migration_from_model(model_name: str, model_path: str,
             "specified model is invalid; must implement ModelProtocol")
     return _make_migration_from_model(model, model_name, connection_string)
 
+def _get_column_type_from_annotation(annotation: Any) -> tuple[str, bool]:
+    nullable = False
+    if type(annotation) is UnionType:
+        annotation = get_args(annotation)
+        if NoneType in annotation:
+            nullable = True
+        if bytes in annotation:
+            return ('blob', nullable)
+        if int in annotation:
+            return ('integer', nullable)
+        if float in annotation:
+            return ('real', nullable)
+        if Decimal in annotation:
+            return ('numeric', nullable)
+        return ('text', nullable)
+    elif type(annotation) is type:
+        if annotation is NoneType:
+            nullable = True
+        if annotation is bytes:
+            return ('blob', nullable)
+        if annotation is int:
+            return ('integer', nullable)
+        if annotation is float:
+            return ('real', nullable)
+        if annotation is Decimal:
+            return ('numeric', nullable)
+        return ('text', nullable)
+    else:
+        if 'None' in annotation:
+            nullable = True
+        if 'bytes' in annotation:
+            return ('blob', nullable)
+        if 'int' in annotation:
+            return ('integer', nullable)
+        if 'float' in annotation:
+            return ('real', nullable)
+        if 'Decimal' in annotation:
+            return ('numeric', nullable)
+        return ('text', nullable)
+
 def _make_migration_from_model(model: ModelProtocol, model_name: str,
                                connection_string: str = 'temp.db') -> str:
     table_name = model.table or _pascalcase_to_snake_case(model_name)
+    types: dict[str, tuple[Type, bool]] = {}
+    if model.__annotations__:
+        for column in model.columns:
+            if column in model.__annotations__:
+                annotation = model.__annotations__[column]
+                types[column] = _get_column_type_from_annotation(annotation)
     src = _make_migration_src_start()
     src += f"def create_table_{table_name}() -> list[Table]:\n"
     src += f"    t = Table.create('{table_name}')\n"
     for column in model.columns:
-        src += f"    t.text('{column}')"
+        if column in types:
+            src += f"    t.{types[column][0]}('{column}')"
+            src += ".nullable()" if types[column][1] else ""
+        else:
+            src += f"    t.text('{column}')"
         src += ".unique()\n" if column == model.id_column else ".index()\n"
     src += "    ...\n"
     src += "    return [t]\n\n"

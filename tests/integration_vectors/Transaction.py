@@ -6,3 +6,6 @@ class Transaction(HashedSqliteModel):
     table: str = 'transactions'
     id_column: str = 'id'
     columns: tuple[str] = ('id', 'entry_ids', 'ledger_ids')
+    id: str
+    entry_ids: str
+    ledger_ids: str

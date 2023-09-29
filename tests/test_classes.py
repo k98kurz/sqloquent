@@ -26,7 +26,7 @@ class TestClasses(unittest.TestCase):
         self.cursor.execute('create table deleted_records (id text not null, ' +
             'model_class text not null, record_id text not null, record blob not null)')
         self.cursor.execute('create table example (id text, name text)')
-        self.cursor.execute('create table hashed_records (id text, data text)')
+        self.cursor.execute('create table hashed_records (id text, details text)')
         self.cursor.execute('create table attachments (id text, ' +
             'related_model text, related_id text, details blob)')
 
@@ -113,6 +113,20 @@ class TestClasses(unittest.TestCase):
     # SqlModel tests
     def test_SqlModel_implements_ModelProtocol(self):
         assert isinstance(classes.SqlModel(), interfaces.ModelProtocol)
+
+    def test_SqlModel_columns_are_set_as_properties(self):
+        model = classes.SqlModel({'id': '123', 'name': 'Bob'})
+        assert hasattr(model, 'id') and model.id == '123'
+        assert hasattr(model, 'name') and model.name == 'Bob'
+        model.name = 'Alice'
+        assert model.data['name'] == 'Alice'
+
+    def test_SqlModel_column_property_mapping_can_be_disabled(self):
+        class Disabled(classes.SqlModel):
+            disable_column_property_mapping: bool = True
+        model = Disabled({'id': '123', 'name': 'Bob'})
+        assert not hasattr(model, 'id') and model.data['id'] == '123'
+        assert not hasattr(model, 'name') and model.data['name'] == 'Bob'
 
     def test_SqlModel_post_init_hooks_are_called(self):
         class TestModel(classes.SqlModel):
@@ -900,7 +914,7 @@ class TestClasses(unittest.TestCase):
         assert issubclass(classes.HashedModel, classes.SqlModel)
 
     def test_HashedModel_generated_id_is_sha256_of_packified_data(self):
-        data = { 'data': token_bytes(8).hex() }
+        data = { 'details': token_bytes(8).hex() }
         observed = classes.HashedModel.generate_id(data)
         preimage = packify.pack(data)
         expected = sha256(preimage).digest().hex()
@@ -912,11 +926,11 @@ class TestClasses(unittest.TestCase):
         assert str(e.exception) == 'data must be dict'
 
     def test_HashedModel_insert_generates_id_and_makes_record(self):
-        data = { 'data': token_bytes(8).hex() }
+        data = { 'details': token_bytes(8).hex() }
         inserted = classes.HashedModel.insert(data)
         assert isinstance(inserted, classes.HashedModel)
-        assert 'data' in inserted.data
-        assert inserted.data['data'] == data['data']
+        assert 'details' in inserted.data
+        assert inserted.data['details'] == data['details']
         assert classes.HashedModel.id_column in inserted.data
         assert type(inserted.data[classes.HashedModel.id_column]) == str
         assert len(inserted.data[classes.HashedModel.id_column]) == 64
@@ -936,8 +950,8 @@ class TestClasses(unittest.TestCase):
         assert str(e.exception) == 'items must be type list[dict]'
 
     def test_HashedModel_insert_many_generates_ids_and_makes_records(self):
-        data1 = { 'data': token_bytes(8).hex() }
-        data2 = { 'data': token_bytes(8).hex() }
+        data1 = { 'details': token_bytes(8).hex() }
+        data2 = { 'details': token_bytes(8).hex() }
         inserted = classes.HashedModel.insert_many([data1, data2])
         assert type(inserted) == int
         assert inserted == 2
@@ -946,7 +960,7 @@ class TestClasses(unittest.TestCase):
         assert type(items) is list
         assert len(items) == 2
         for item in items:
-            assert item.data['data'] in (data1['data'], data2['data'])
+            assert item.data['details'] in (data1['details'], data2['details'])
             assert classes.HashedModel.id_column in item.data
             assert type(item.data[classes.HashedModel.id_column]) == str
             assert len(item.data[classes.HashedModel.id_column]) == 64
@@ -962,9 +976,9 @@ class TestClasses(unittest.TestCase):
         assert str(e.exception) == 'unrecognized column: badcolumn'
 
     def test_HashedModel_save_and_update_delete_original_and_makes_new_record(self):
-        data1 = { 'data': token_bytes(8).hex() }
-        data2 = { 'data': token_bytes(8).hex() }
-        data3 = { 'data': token_bytes(8).hex() }
+        data1 = { 'details': token_bytes(8).hex() }
+        data2 = { 'details': token_bytes(8).hex() }
+        data3 = { 'details': token_bytes(8).hex() }
 
         inserted = classes.HashedModel.insert(data1)
         id1 = inserted.data['id']
@@ -974,7 +988,7 @@ class TestClasses(unittest.TestCase):
         assert classes.DeletedModel.query().count() == 1
         assert updated.data['id'] != id1
 
-        updated.data['data'] = data3['data']
+        updated.data['details'] = data3['details']
         saved = updated.save()
         assert classes.DeletedModel.query().count() == 2
         assert saved.data['id'] not in (id1, updated.data['id'])
@@ -1065,8 +1079,8 @@ class TestClasses(unittest.TestCase):
         assert 'details' in attachment.data
         assert type(attachment.data['details']) is bytes
 
-        assert type(attachment.details()) is dict
-        assert attachment.details(True) == details
+        assert type(attachment.get_details()) is dict
+        assert attachment.get_details(True) == details
 
     def test_Attachment_related_raises_TypeError_for_invalid_related_model(self):
         class NotValidClass:

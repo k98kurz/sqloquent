@@ -29,19 +29,19 @@ class TestRelations(unittest.TestCase):
         self.db = sqlite3.connect(self.db_filepath)
         self.cursor = self.db.cursor()
         self.cursor.execute('create table pivot (id text, first_id text, second_id text)')
-        self.cursor.execute('create table owners (id text, data text)')
-        self.cursor.execute('create table owned (id text, owner_id text, data text)')
+        self.cursor.execute('create table owners (id text, details text)')
+        self.cursor.execute('create table owned (id text, owner_id text, details text)')
 
         # rebuild test classes because properties will be changed in tests
         class OwnedModel(classes.SqliteModel):
             file_path: str = DB_FILEPATH
             table: str = 'owned'
-            columns: tuple = ('id', 'owner_id', 'data')
+            columns: tuple = ('id', 'owner_id', 'details')
 
         class OwnerModel(classes.SqliteModel):
             file_path: str = DB_FILEPATH
             table: str = 'owners'
-            columns: tuple = ('id', 'data')
+            columns: tuple = ('id', 'details')
 
         self.OwnedModel = OwnedModel
         self.OwnerModel = OwnerModel
@@ -60,8 +60,8 @@ class TestRelations(unittest.TestCase):
         assert isinstance(relations.Relation, interfaces.RelationProtocol)
 
     def test_Relation_initializes_properly(self):
-        primary = self.OwnerModel.insert({'data': '1234'})
-        secondary = self.OwnedModel.insert({'data': '321'})
+        primary = self.OwnerModel.insert({'details': '1234'})
+        secondary = self.OwnedModel.insert({'details': '321'})
         relation = relations.Relation(
             primary_class=self.OwnerModel,
             secondary_class=self.OwnedModel,
@@ -142,8 +142,8 @@ class TestRelations(unittest.TestCase):
             primary_class=self.OwnerModel,
             secondary_class=self.OwnedModel
         )
-        primary = self.OwnerModel.insert({'data': '321ads'})
-        secondary = self.OwnedModel.insert({'data':'321'})
+        primary = self.OwnerModel.insert({'details': '321ads'})
+        secondary = self.OwnedModel.insert({'details':'321'})
 
         assert hasone.primary is None
         hasone.primary = primary
@@ -154,7 +154,7 @@ class TestRelations(unittest.TestCase):
         assert str(e.exception) == 'model must implement ModelProtocol'
 
         with self.assertRaises(TypeError) as e:
-            hasone.secondary = self.OwnerModel({'data': '1234f'})
+            hasone.secondary = self.OwnerModel({'details': '1234f'})
         assert str(e.exception) == 'secondary must be instance of OwnedModel'
 
         assert hasone.secondary is None
@@ -187,8 +187,8 @@ class TestRelations(unittest.TestCase):
             primary_class=self.OwnerModel,
             secondary_class=self.OwnedModel
         )
-        primary = self.OwnerModel.insert({'data': '321ads'})
-        secondary = self.OwnedModel.insert({'data':'321'})
+        primary = self.OwnerModel.insert({'details': '321ads'})
+        secondary = self.OwnedModel.insert({'details':'321'})
 
         hasone.primary = primary
         hasone.secondary = secondary
@@ -206,10 +206,10 @@ class TestRelations(unittest.TestCase):
             primary_class=self.OwnerModel,
             secondary_class=self.OwnedModel
         )
-        primary = self.OwnerModel.insert({'data': '321ads'})
-        primary2 = self.OwnerModel.insert({'data': 'sdsdsd'})
-        secondary = self.OwnedModel.insert({'data':'321'})
-        secondary2 = self.OwnedModel.insert({'data':'321asds'})
+        primary = self.OwnerModel.insert({'details': '321ads'})
+        primary2 = self.OwnerModel.insert({'details': 'sdsdsd'})
+        secondary = self.OwnedModel.insert({'details':'321'})
+        secondary2 = self.OwnedModel.insert({'details':'321asds'})
 
         hasone.primary = primary
         hasone.secondary = secondary
@@ -235,10 +235,10 @@ class TestRelations(unittest.TestCase):
             primary_class=self.OwnerModel,
             secondary_class=self.OwnedModel
         )
-        primary1 = self.OwnerModel.insert({'data': '321ads'})
-        primary2 = self.OwnerModel.insert({'data': '12332'})
-        secondary1 = self.OwnedModel.insert({'data':'321'})
-        secondary2 = self.OwnedModel.insert({'data':'afgbfb'})
+        primary1 = self.OwnerModel.insert({'details': '321ads'})
+        primary2 = self.OwnerModel.insert({'details': '12332'})
+        secondary1 = self.OwnedModel.insert({'details':'321'})
+        secondary2 = self.OwnedModel.insert({'details':'afgbfb'})
 
         hasone.primary = primary1
         hasone.secondary = secondary1
@@ -272,8 +272,8 @@ class TestRelations(unittest.TestCase):
         )
         self.OwnerModel.owned = hasone.create_property()
 
-        owner = self.OwnerModel({'data': '123'})
-        owned = self.OwnedModel({'data': '321'})
+        owner = self.OwnerModel({'details': '123'})
+        owned = self.OwnedModel({'details': '321'})
 
         assert not owner.owned
         owner.owned = owned
@@ -292,14 +292,14 @@ class TestRelations(unittest.TestCase):
         )
         self.OwnerModel.owned = hasone.create_property()
 
-        owner = self.OwnerModel.insert({'data': '123'})
-        owned = self.OwnedModel.insert({'data': '321'})
+        owner = self.OwnerModel.insert({'details': '123'})
+        owned = self.OwnedModel.insert({'details': '321'})
         owner.owned = owned
-        owner.owned.data['data'] = 'abc'
+        owner.owned.data['details'] = 'abc'
         owner.owned().save()
 
         owned.reload()
-        assert owned.data['data'] == '321'
+        assert owned.data['details'] == '321'
         assert owned.data['owner_id'] == owner.data['id']
 
     def test_has_one_function_sets_property_from_HasOne(self):
@@ -311,8 +311,8 @@ class TestRelations(unittest.TestCase):
 
         assert type(self.OwnerModel.owned) is property
 
-        owner = self.OwnerModel.insert({'data': '321'})
-        owned = self.OwnedModel.insert({'data': '321'})
+        owner = self.OwnerModel.insert({'details': '321'})
+        owned = self.OwnedModel.insert({'details': '321'})
         owner.owned = owned
 
         assert callable(owner.owned)
@@ -327,10 +327,10 @@ class TestRelations(unittest.TestCase):
             'owner_id'
         )
 
-        owner1 = self.OwnerModel.insert({'data': 'owner1'})
-        owner2 = self.OwnerModel.insert({'data': 'owner2'})
-        owned1 = self.OwnedModel.insert({'data': 'owned1'})
-        owned2 = self.OwnedModel.insert({'data': 'owned2'})
+        owner1 = self.OwnerModel.insert({'details': 'owner1'})
+        owner2 = self.OwnerModel.insert({'details': 'owner2'})
+        owned1 = self.OwnedModel.insert({'details': 'owned1'})
+        owned2 = self.OwnedModel.insert({'details': 'owned2'})
 
         owner1.owned = owned1
         owner1.owned().save()
@@ -350,8 +350,8 @@ class TestRelations(unittest.TestCase):
             'owner_id'
         )
 
-        owner = self.OwnerModel.insert({'data': '321'})
-        owned = self.OwnedModel.insert({'data': '321'})
+        owner = self.OwnerModel.insert({'details': '321'})
+        owned = self.OwnedModel.insert({'details': '321'})
         owner.owned = owned
 
         assert hasattr(owner.owned(), 'inverse')
@@ -364,8 +364,8 @@ class TestRelations(unittest.TestCase):
             'owner_id'
         )
 
-        owner = self.OwnerModel.insert({'data': '321'})
-        owned = self.OwnedModel.insert({'data': '321'})
+        owner = self.OwnerModel.insert({'details': '321'})
+        owned = self.OwnedModel.insert({'details': '321'})
         owner.owned = owned
 
         assert owner.owned().inverse.primary.data == owner.owned.data
@@ -378,9 +378,9 @@ class TestRelations(unittest.TestCase):
             'owner_id'
         )
 
-        owner = self.OwnerModel.insert({'data': '321'})
-        owned = self.OwnedModel.insert({'data': '321'})
-        owned2 = self.OwnedModel.insert({'data': '123'})
+        owner = self.OwnerModel.insert({'details': '321'})
+        owned = self.OwnedModel.insert({'details': '321'})
+        owned2 = self.OwnedModel.insert({'details': '123'})
         owner.owned = owned
         assert len(owner.owned().inverse.secondary_to_add)
         owner.owned().save()
@@ -433,8 +433,8 @@ class TestRelations(unittest.TestCase):
             primary_class=self.OwnerModel,
             secondary_class=self.OwnedModel
         )
-        primary = self.OwnerModel.insert({'data': '321ads'})
-        secondary = self.OwnedModel.insert({'data':'321'})
+        primary = self.OwnerModel.insert({'details': '321ads'})
+        secondary = self.OwnedModel.insert({'details':'321'})
 
         assert hasmany.primary is None
         hasmany.primary = primary
@@ -445,7 +445,7 @@ class TestRelations(unittest.TestCase):
         assert str(e.exception) == 'must be a list of ModelProtocol'
 
         with self.assertRaises(TypeError) as e:
-            hasmany.secondary = [self.OwnerModel({'data': '1234f'})]
+            hasmany.secondary = [self.OwnerModel({'details': '1234f'})]
         assert str(e.exception) == 'secondary must be instance of OwnedModel'
 
         assert hasmany.secondary is None
@@ -478,8 +478,8 @@ class TestRelations(unittest.TestCase):
             primary_class=self.OwnerModel,
             secondary_class=self.OwnedModel
         )
-        primary = self.OwnerModel.insert({'data': '321ads'})
-        secondary = self.OwnedModel.insert({'data':'321'})
+        primary = self.OwnerModel.insert({'details': '321ads'})
+        secondary = self.OwnedModel.insert({'details':'321'})
 
         hasmany.primary = primary
         hasmany.secondary = [secondary]
@@ -497,10 +497,10 @@ class TestRelations(unittest.TestCase):
             primary_class=self.OwnerModel,
             secondary_class=self.OwnedModel
         )
-        primary = self.OwnerModel.insert({'data': '321ads'})
-        primary2 = self.OwnerModel.insert({'data': 'sdsdsd'})
-        secondary = self.OwnedModel.insert({'data':'321'})
-        secondary2 = self.OwnedModel.insert({'data':'321asds'})
+        primary = self.OwnerModel.insert({'details': '321ads'})
+        primary2 = self.OwnerModel.insert({'details': 'sdsdsd'})
+        secondary = self.OwnedModel.insert({'details':'321'})
+        secondary2 = self.OwnedModel.insert({'details':'321asds'})
 
         hasmany.primary = primary
         hasmany.secondary = [secondary]
@@ -526,10 +526,10 @@ class TestRelations(unittest.TestCase):
             primary_class=self.OwnerModel,
             secondary_class=self.OwnedModel
         )
-        primary1 = self.OwnerModel.insert({'data': '321ads'})
-        primary2 = self.OwnerModel.insert({'data': '12332'})
-        secondary1 = self.OwnedModel.insert({'data':'321'})
-        secondary2 = self.OwnedModel.insert({'data':'afgbfb'})
+        primary1 = self.OwnerModel.insert({'details': '321ads'})
+        primary2 = self.OwnerModel.insert({'details': '12332'})
+        secondary1 = self.OwnedModel.insert({'details':'321'})
+        secondary2 = self.OwnedModel.insert({'details':'afgbfb'})
 
         hasmany.primary = primary1
         hasmany.secondary = [secondary1]
@@ -563,8 +563,8 @@ class TestRelations(unittest.TestCase):
         )
         self.OwnerModel.owned = hasmany.create_property()
 
-        owner = self.OwnerModel({'data': '123'})
-        owned = self.OwnedModel({'data': '321'})
+        owner = self.OwnerModel({'details': '123'})
+        owned = self.OwnedModel({'details': '321'})
 
         assert not owner.owned
         owner.owned = [owned]
@@ -583,14 +583,14 @@ class TestRelations(unittest.TestCase):
         )
         self.OwnerModel.owned = hasmany.create_property()
 
-        owner = self.OwnerModel.insert({'data': '123'})
-        owned = self.OwnedModel.insert({'data': '321'})
+        owner = self.OwnerModel.insert({'details': '123'})
+        owned = self.OwnedModel.insert({'details': '321'})
         owner.owned = [owned]
-        owner.owned[0].data['data'] = 'abc'
+        owner.owned[0].data['details'] = 'abc'
         owner.owned().save()
 
         owned.reload()
-        assert owned.data['data'] == '321'
+        assert owned.data['details'] == '321'
         assert owned.data['owner_id'] == owner.data['id']
 
     def test_has_many_function_sets_property_from_HasMany(self):
@@ -602,8 +602,8 @@ class TestRelations(unittest.TestCase):
 
         assert type(self.OwnerModel.owned) is property
 
-        owner = self.OwnerModel.insert({'data': '321'})
-        owned = self.OwnedModel.insert({'data': '321'})
+        owner = self.OwnerModel.insert({'details': '321'})
+        owned = self.OwnedModel.insert({'details': '321'})
         owner.owned = [owned]
 
         assert callable(owner.owned)
@@ -618,10 +618,10 @@ class TestRelations(unittest.TestCase):
             'owner_id'
         )
 
-        owner1 = self.OwnerModel.insert({'data': 'owner1'})
-        owner2 = self.OwnerModel.insert({'data': 'owner2'})
-        owned1 = self.OwnedModel.insert({'data': 'owned1'})
-        owned2 = self.OwnedModel.insert({'data': 'owned2'})
+        owner1 = self.OwnerModel.insert({'details': 'owner1'})
+        owner2 = self.OwnerModel.insert({'details': 'owner2'})
+        owned1 = self.OwnedModel.insert({'details': 'owned1'})
+        owned2 = self.OwnedModel.insert({'details': 'owned2'})
 
         owner1.owned = [owned1]
         owner1.owned().save()
@@ -641,8 +641,8 @@ class TestRelations(unittest.TestCase):
             'owner_id'
         )
 
-        owner = self.OwnerModel.insert({'data': '321'})
-        owned = self.OwnedModel.insert({'data': '321'})
+        owner = self.OwnerModel.insert({'details': '321'})
+        owned = self.OwnedModel.insert({'details': '321'})
         owner.owned = [owned]
 
         assert hasattr(owner.owned(), 'inverse')
@@ -657,8 +657,8 @@ class TestRelations(unittest.TestCase):
             'owner_id'
         )
 
-        owner = self.OwnerModel.insert({'data': '321'})
-        owned = self.OwnedModel.insert({'data': '321'})
+        owner = self.OwnerModel.insert({'details': '321'})
+        owned = self.OwnedModel.insert({'details': '321'})
         owner.owned = [owned]
 
         assert owner.owned().inverse[0].primary.data == owner.owned[0].data
@@ -671,9 +671,9 @@ class TestRelations(unittest.TestCase):
             'owner_id'
         )
 
-        owner = self.OwnerModel.insert({'data': '321'})
-        owned = self.OwnedModel.insert({'data': '321'})
-        owned2 = self.OwnedModel.insert({'data': '123'})
+        owner = self.OwnerModel.insert({'details': '321'})
+        owned = self.OwnedModel.insert({'details': '321'})
+        owned2 = self.OwnedModel.insert({'details': '123'})
         owner.owned = [owned]
         assert len(owner.owned().inverse[0].secondary_to_add)
         owner.owned().save()
@@ -726,8 +726,8 @@ class TestRelations(unittest.TestCase):
             primary_class=self.OwnedModel,
             secondary_class=self.OwnerModel
         )
-        primary = self.OwnedModel.insert({'data': '321ads'})
-        secondary = self.OwnerModel.insert({'data':'321'})
+        primary = self.OwnedModel.insert({'details': '321ads'})
+        secondary = self.OwnerModel.insert({'details':'321'})
 
         assert belongsto.primary is None
         belongsto.primary = primary
@@ -767,8 +767,8 @@ class TestRelations(unittest.TestCase):
             primary_class=self.OwnedModel,
             secondary_class=self.OwnerModel
         )
-        primary = self.OwnedModel.insert({'data': '321ads'})
-        secondary = self.OwnerModel.insert({'data':'321'})
+        primary = self.OwnedModel.insert({'details': '321ads'})
+        secondary = self.OwnerModel.insert({'details':'321'})
 
         belongsto.primary = primary
         belongsto.secondary = secondary
@@ -786,10 +786,10 @@ class TestRelations(unittest.TestCase):
             primary_class=self.OwnedModel,
             secondary_class=self.OwnerModel
         )
-        primary = self.OwnedModel.insert({'data':'321'})
-        primary2 = self.OwnedModel.insert({'data':'321asds'})
-        secondary = self.OwnerModel.insert({'data': '321ads'})
-        secondary2 = self.OwnerModel.insert({'data': 'sdsdsd'})
+        primary = self.OwnedModel.insert({'details':'321'})
+        primary2 = self.OwnedModel.insert({'details':'321asds'})
+        secondary = self.OwnerModel.insert({'details': '321ads'})
+        secondary2 = self.OwnerModel.insert({'details': 'sdsdsd'})
 
         belongsto.primary = primary
         belongsto.secondary = secondary
@@ -815,10 +815,10 @@ class TestRelations(unittest.TestCase):
             primary_class=self.OwnedModel,
             secondary_class=self.OwnerModel
         )
-        primary1 = self.OwnedModel.insert({'data': '321ads'})
-        primary2 = self.OwnedModel.insert({'data': '12332'})
-        secondary1 = self.OwnerModel.insert({'data':'321'})
-        secondary2 = self.OwnerModel.insert({'data':'afgbfb'})
+        primary1 = self.OwnedModel.insert({'details': '321ads'})
+        primary2 = self.OwnedModel.insert({'details': '12332'})
+        secondary1 = self.OwnerModel.insert({'details':'321'})
+        secondary2 = self.OwnerModel.insert({'details':'afgbfb'})
 
         belongsto.primary = primary1
         belongsto.secondary = secondary1
@@ -852,8 +852,8 @@ class TestRelations(unittest.TestCase):
         )
         self.OwnedModel.owner = belongsto.create_property()
 
-        owned = self.OwnedModel({'data': '321'})
-        owner = self.OwnerModel({'data': '123'})
+        owned = self.OwnedModel({'details': '321'})
+        owner = self.OwnerModel({'details': '123'})
 
         assert not owned.owner
         owned.owner = owner
@@ -872,14 +872,14 @@ class TestRelations(unittest.TestCase):
         )
         self.OwnedModel.owner = belongsto.create_property()
 
-        owned = self.OwnedModel.insert({'data': '123'})
-        owner = self.OwnerModel.insert({'data': '321'})
+        owned = self.OwnedModel.insert({'details': '123'})
+        owner = self.OwnerModel.insert({'details': '321'})
         owned.owner = owner
-        owned.owner.data['data'] = 'abc'
+        owned.owner.data['details'] = 'abc'
         owned.owner().save()
 
         owner.reload()
-        assert owner.data['data'] == '321'
+        assert owner.data['details'] == '321'
         assert owned.data['owner_id'] == owner.data['id']
 
     def test_belongs_to_function_sets_property_from_BelongsTo(self):
@@ -891,8 +891,8 @@ class TestRelations(unittest.TestCase):
 
         assert type(self.OwnedModel.owner) is property
 
-        owned = self.OwnedModel.insert({'data': '321'})
-        owner = self.OwnerModel.insert({'data': '123'})
+        owned = self.OwnedModel.insert({'details': '321'})
+        owner = self.OwnerModel.insert({'details': '123'})
         owned.owner = owner
 
         assert callable(owned.owner)
@@ -907,10 +907,10 @@ class TestRelations(unittest.TestCase):
             'owner_id'
         )
 
-        owned1 = self.OwnedModel.insert({'data': 'owned1'})
-        owned2 = self.OwnedModel.insert({'data': 'owned2'})
-        owner1 = self.OwnerModel.insert({'data': 'owner1'})
-        owner2 = self.OwnerModel.insert({'data': 'owner2'})
+        owned1 = self.OwnedModel.insert({'details': 'owned1'})
+        owned2 = self.OwnedModel.insert({'details': 'owned2'})
+        owner1 = self.OwnerModel.insert({'details': 'owner1'})
+        owner2 = self.OwnerModel.insert({'details': 'owner2'})
 
         owned1.owner = owner1
         owned1.owner().save()
@@ -930,8 +930,8 @@ class TestRelations(unittest.TestCase):
             'owner_id'
         )
 
-        owner = self.OwnerModel.insert({'data': '321'})
-        owned = self.OwnedModel.insert({'data': '321'})
+        owner = self.OwnerModel.insert({'details': '321'})
+        owned = self.OwnedModel.insert({'details': '321'})
         owned.owner = owner
 
         assert hasattr(owned.owner(), 'inverse')
@@ -944,8 +944,8 @@ class TestRelations(unittest.TestCase):
             True
         )
 
-        owner = self.OwnerModel.insert({'data': '123'})
-        owned = self.OwnedModel.insert({'data': '123'})
+        owner = self.OwnerModel.insert({'details': '123'})
+        owned = self.OwnedModel.insert({'details': '123'})
         owned.owner = owner
 
         assert hasattr(owned.owner(), 'inverse')
@@ -958,8 +958,8 @@ class TestRelations(unittest.TestCase):
             'owner_id'
         )
 
-        owner = self.OwnerModel.insert({'data': '321'})
-        owned = self.OwnedModel.insert({'data': '321'})
+        owner = self.OwnerModel.insert({'details': '321'})
+        owned = self.OwnedModel.insert({'details': '321'})
         owned.owner = owner
 
         assert owned.owner().inverse.primary.data == owned.owner.data
@@ -972,9 +972,9 @@ class TestRelations(unittest.TestCase):
             'owner_id'
         )
 
-        owner = self.OwnerModel.insert({'data': '321'})
-        owner2 = self.OwnerModel.insert({'data': '123'})
-        owned = self.OwnedModel.insert({'data': '321'})
+        owner = self.OwnerModel.insert({'details': '321'})
+        owner2 = self.OwnerModel.insert({'details': '123'})
+        owned = self.OwnedModel.insert({'details': '321'})
         owned.owner = owner
         assert len(owned.owner().inverse.secondary_to_add)
         owned.owner().save()
@@ -999,9 +999,9 @@ class TestRelations(unittest.TestCase):
             True
         )
 
-        owner = self.OwnerModel.insert({'data': '321'})
-        owner2 = self.OwnerModel.insert({'data': '123'})
-        owned = self.OwnedModel.insert({'data': '321'})
+        owner = self.OwnerModel.insert({'details': '321'})
+        owner2 = self.OwnerModel.insert({'details': '123'})
+        owned = self.OwnedModel.insert({'details': '321'})
         owned.owner = owner
         assert len(owned.owner().inverse.secondary_to_add)
         owned.owner().save()
@@ -1060,8 +1060,8 @@ class TestRelations(unittest.TestCase):
             primary_class=self.OwnedModel,
             secondary_class=self.OwnerModel
         )
-        primary = self.OwnedModel.insert({'data': '321ads'})
-        secondary = self.OwnerModel.insert({'data':'321'})
+        primary = self.OwnedModel.insert({'details': '321ads'})
+        secondary = self.OwnerModel.insert({'details':'321'})
 
         assert belongstomany.primary is None
         belongstomany.primary = primary
@@ -1111,8 +1111,8 @@ class TestRelations(unittest.TestCase):
             primary_class=self.OwnedModel,
             secondary_class=self.OwnerModel
         )
-        primary = self.OwnedModel.insert({'data': '321ads'})
-        secondary = self.OwnerModel.insert({'data':'321'})
+        primary = self.OwnedModel.insert({'details': '321ads'})
+        secondary = self.OwnerModel.insert({'details':'321'})
 
         belongstomany.primary = primary
         belongstomany.secondary = [secondary]
@@ -1131,10 +1131,10 @@ class TestRelations(unittest.TestCase):
             primary_class=self.OwnedModel,
             secondary_class=self.OwnerModel
         )
-        primary = self.OwnedModel.insert({'data':'321'})
-        primary2 = self.OwnedModel.insert({'data':'321asds'})
-        secondary = self.OwnerModel.insert({'data': '321ads'})
-        secondary2 = self.OwnerModel.insert({'data': 'sdsdsd'})
+        primary = self.OwnedModel.insert({'details':'321'})
+        primary2 = self.OwnedModel.insert({'details':'321asds'})
+        secondary = self.OwnerModel.insert({'details': '321ads'})
+        secondary2 = self.OwnerModel.insert({'details': 'sdsdsd'})
 
         belongstomany.primary = primary
         belongstomany.secondary = [secondary]
@@ -1162,10 +1162,10 @@ class TestRelations(unittest.TestCase):
             primary_class=self.OwnedModel,
             secondary_class=self.OwnerModel
         )
-        primary1 = self.OwnedModel.insert({'data': '321ads'})
-        primary2 = self.OwnedModel.insert({'data': '12332'})
-        secondary1 = self.OwnerModel.insert({'data':'321'})
-        secondary2 = self.OwnerModel.insert({'data':'afgbfb'})
+        primary1 = self.OwnedModel.insert({'details': '321ads'})
+        primary2 = self.OwnedModel.insert({'details': '12332'})
+        secondary1 = self.OwnerModel.insert({'details':'321'})
+        secondary2 = self.OwnerModel.insert({'details':'afgbfb'})
 
         belongstomany.primary = primary1
         belongstomany.secondary = [secondary1]
@@ -1211,8 +1211,8 @@ class TestRelations(unittest.TestCase):
         )
         self.OwnedModel.owners = belongstomany.create_property()
 
-        owned = self.OwnedModel({'data': '321'})
-        owner = self.OwnerModel({'data': '123'})
+        owned = self.OwnedModel({'details': '321'})
+        owner = self.OwnerModel({'details': '123'})
 
         assert not owned.owners
         owned.owners = [owner]
@@ -1233,15 +1233,15 @@ class TestRelations(unittest.TestCase):
         )
         self.OwnedModel.owners = belongstomany.create_property()
 
-        owned = self.OwnedModel.insert({'data': '123'})
-        owner = self.OwnerModel.insert({'data': '321'})
+        owned = self.OwnedModel.insert({'details': '123'})
+        owner = self.OwnerModel.insert({'details': '321'})
         owned.owners = [owner]
-        owned.owners[0].data['data'] = 'abc'
+        owned.owners[0].data['details'] = 'abc'
         assert Pivot.query().count() == 0
         owned.owners().save()
 
         owner.reload()
-        assert owner.data['data'] == '321'
+        assert owner.data['details'] == '321'
         assert Pivot.query().count() == 1
 
     def test_belongs_to_many_function_sets_property_from_BelongsToMany(self):
@@ -1255,8 +1255,8 @@ class TestRelations(unittest.TestCase):
 
         assert type(self.OwnedModel.owners) is property
 
-        owned = self.OwnedModel.insert({'data': '321'})
-        owner = self.OwnerModel.insert({'data': '123'})
+        owned = self.OwnedModel.insert({'details': '321'})
+        owner = self.OwnerModel.insert({'details': '123'})
         owned.owners = [owner]
 
         assert callable(owned.owners)
@@ -1273,10 +1273,10 @@ class TestRelations(unittest.TestCase):
             'second_id',
         )
 
-        owned1 = self.OwnedModel.insert({'data': 'owned1'})
-        owned2 = self.OwnedModel.insert({'data': 'owned2'})
-        owner1 = self.OwnerModel.insert({'data': 'owner1'})
-        owner2 = self.OwnerModel.insert({'data': 'owner2'})
+        owned1 = self.OwnedModel.insert({'details': 'owned1'})
+        owned2 = self.OwnedModel.insert({'details': 'owned2'})
+        owner1 = self.OwnerModel.insert({'details': 'owner1'})
+        owner2 = self.OwnerModel.insert({'details': 'owner2'})
 
         owned1.owners = [owner1]
         owned1.owners().save()
@@ -1298,8 +1298,8 @@ class TestRelations(unittest.TestCase):
             'second_id'
         )
 
-        owner = self.OwnerModel.insert({'data': '321'})
-        owned = self.OwnedModel.insert({'data': '321'})
+        owner = self.OwnerModel.insert({'details': '321'})
+        owned = self.OwnedModel.insert({'details': '321'})
         owner.owned = [owned]
 
         assert hasattr(owner.owned(), 'inverse')
@@ -1316,8 +1316,8 @@ class TestRelations(unittest.TestCase):
             'second_id'
         )
 
-        owner = self.OwnerModel.insert({'data': '321'})
-        owned = self.OwnedModel.insert({'data': '321'})
+        owner = self.OwnerModel.insert({'details': '321'})
+        owned = self.OwnedModel.insert({'details': '321'})
         owner.owned = [owned]
 
         assert owner.owned().inverse[0].primary.data == owner.owned[0].data
@@ -1332,9 +1332,9 @@ class TestRelations(unittest.TestCase):
             'second_id'
         )
 
-        owner = self.OwnerModel.insert({'data': '321'})
-        owned = self.OwnedModel.insert({'data': '321'})
-        owned2 = self.OwnedModel.insert({'data': '123'})
+        owner = self.OwnerModel.insert({'details': '321'})
+        owned = self.OwnedModel.insert({'details': '321'})
+        owned2 = self.OwnedModel.insert({'details': '123'})
         owner.owned = [owned]
         assert len(owner.owned().inverse[0].secondary_to_add)
         owner.owned().save()
@@ -1376,10 +1376,10 @@ class TestRelations(unittest.TestCase):
             self.OwnerModel
         )
 
-        owner1 = self.OwnerModel.insert({'data': 'owner1'})
-        owned1 = self.OwnedModel.insert({'data': 'owned1'})
-        owner2 = self.OwnerModel({'data': 'owner2'})
-        owned2 = self.OwnedModel({'data': 'owned2'})
+        owner1 = self.OwnerModel.insert({'details': 'owner1'})
+        owned1 = self.OwnedModel.insert({'details': 'owned1'})
+        owner2 = self.OwnerModel({'details': 'owner2'})
+        owned2 = self.OwnedModel({'details': 'owned2'})
 
         assert owner1.owned().foreign_id_column == 'owner_id'
 
@@ -1425,10 +1425,10 @@ class TestRelations(unittest.TestCase):
             self.OwnerModel
         )
 
-        owner1 = self.OwnerModel.insert({'data': 'owner1'})
-        owned1 = self.OwnedModel.insert({'data': 'owned1'})
-        owner2 = self.OwnerModel({'data': 'owner2'})
-        owned2 = self.OwnedModel({'data': 'owned2'})
+        owner1 = self.OwnerModel.insert({'details': 'owner1'})
+        owned1 = self.OwnedModel.insert({'details': 'owned1'})
+        owner2 = self.OwnerModel({'details': 'owner2'})
+        owned2 = self.OwnedModel({'details': 'owned2'})
 
         assert owner1.owned().foreign_id_column == 'owner_id'
 
@@ -1481,9 +1481,9 @@ class TestRelations(unittest.TestCase):
             'first_id',
         )
 
-        owned1 = self.OwnedModel.insert({'data': '1'})
-        owned2 = self.OwnedModel.insert({'data': '2'})
-        owned3 = self.OwnedModel.insert({'data': '3'})
+        owned1 = self.OwnedModel.insert({'details': '1'})
+        owned2 = self.OwnedModel.insert({'details': '2'})
+        owned3 = self.OwnedModel.insert({'details': '3'})
 
         owned1.owned = [owned2, owned3]
         assert owned1.owned

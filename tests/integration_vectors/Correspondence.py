@@ -6,7 +6,11 @@ class Correspondence(HashedSqliteModel):
     file_path: str = 'temp.db'
     table: str = 'correspondences'
     id_column: str = 'id'
-    columns: tuple[str] = ('id', 'first', 'second', 'data')
+    columns: tuple[str] = ('id', 'first', 'second', 'details')
+    id: str
+    first: str
+    second: str
+    details: str
 
     @classmethod
     def insert(cls, data: dict) -> Correspondence|None:

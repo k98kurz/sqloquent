@@ -1,4 +1,5 @@
 from __future__ import annotations
+from decimal import Decimal
 from sqloquent import HashedSqliteModel
 from sqloquent.interfaces import QueryBuilderProtocol
 from .EntryType import EntryType
@@ -9,6 +10,11 @@ class Entry(HashedSqliteModel):
     table: str = 'entries'
     id_column: str = 'id'
     columns: tuple[str] = ('id', 'account_id', 'nonce', 'type', 'amount')
+    id: str
+    account_id: str
+    nonce: str
+    type: EntryType
+    amount: Decimal
 
     @staticmethod
     def _encode(data: dict|None) -> dict|None:
@@ -33,7 +39,10 @@ class Entry(HashedSqliteModel):
 
     @classmethod
     def insert(cls, data: dict) -> Entry | None:
-        return super().insert(cls._encode(data))
+        result = super().insert(cls._encode(data))
+        if result is not None:
+            result.data = cls._parse(result.data)
+        return result
 
     @classmethod
     def insert_many(cls, items: list[dict]) -> int:

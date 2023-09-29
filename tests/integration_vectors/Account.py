@@ -9,6 +9,10 @@ class Account(HashedSqliteModel):
     table: str = 'accounts'
     id_column: str = 'id'
     columns: tuple[str] = ('id', 'name', 'ledger_id', 'type')
+    id: str
+    name: str
+    ledger_id: str
+    type: str
 
     @staticmethod
     def _encode(data: dict|None) -> dict|None:
@@ -33,7 +37,10 @@ class Account(HashedSqliteModel):
 
     @classmethod
     def insert(cls, data: dict) -> Account | None:
-        return super().insert(cls._encode(data))
+        result = super().insert(cls._encode(data))
+        if result is not None:
+            result.data = cls._parse(result.data)
+        return result
 
     @classmethod
     def query(cls, conditions: dict = None) -> QueryBuilderProtocol:

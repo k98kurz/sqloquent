@@ -84,7 +84,47 @@ not work with sqlite3 when I tried it.
 Use one of the variants of the `sqloquent make migration` command to create a
 migration scaffold, then edit the result as necessary. If you specify the
 `--model name path/to/model/file` variant, the resultant source will include a
-unique index on the id column and simple indices on all other columns.
+unique index on the id column and simple indices on all other columns. This will
+also parse any class annotations that map to names of columns. For example,
+given the following class,
+
+```python
+from sqloquent import SqlModel
+class Thing(SqlModel):
+    table = 'things'
+    columns = ('id', 'name', 'amount')
+    id: str
+    name: str
+    amount: int|None
+```
+
+the `make migration --model` command will produce the following migration:
+
+```python
+from sqloquent import Migration, Table
+
+
+def create_table_things() -> list[Table]:
+    t = Table.create('things')
+    t.text.unique()
+    t.text.index()
+    t.integer.nullable().index()
+    ...
+    return [t]
+
+def drop_table_things() -> list[Table]:
+    return [Table.drop('things')]
+
+def migration(connection_string: str = 'temp.db') -> Migration:
+    migration = Migration(connection_string)
+    migration.up(create_table_things)
+    migration.down(drop_table_things)
+    return migration
+```
+
+This should provide a decent scaffold for migrations, allowing the user of this
+package to model their data first as classes if desired.
+
 
 #### Using the sqlite3 coupling
 
@@ -293,30 +333,20 @@ generator that yields subsets with length equal to the specified number.
 
 If a cryptographic audit trail is desirable, use the following multiple
 inheritance + injection pattern to couple the supplied classes to the desired
-`ModelProtocol` implementation. (The below example uses the sqlite3 coupling,
-but it should work with others.)
+`ModelProtocol` implementation, or use the sqlite versions and change the
+file_path attribute.
 
 ```python
+from sqloquent import HashedSqliteModel, DeletedSqliteModel, AttachmentSqlite
 import sqloquent
 
 env_db_file_path = 'some_file.db'
-HashedModel_original = sqloquent.HashedModel
-DeletedModel_original = sqloquent.DeletedModel
-Attachment_original = sqloquent.Attachment
-
-
-class HashedModel(sqloquent.HashedModel, sqloquent.SqliteModel):
-    file_path: str = env_db_file_path
-sqloquent.HashedModel = HashedModel
-
-class DeletedModel(sqloquent.DeletedModel, sqloquent.SqliteModel):
-    file_path: str = env_db_file_path
-sqloquent.DeletedModel = DeletedModel
-
-class Attachment(sqloquent.Attachment, sqloquent.SqliteModel):
-    file_path: str = env_db_file_path
-sqloquent.Attachment = Attachment
+HashedModel.file_path = env_db_file_path
+DeletedModel.file_path = env_db_file_path
+Attachment.file_path = env_db_file_path
 ```
+
+To use them with some other SQL binding, change the context_manager_class
 
 This must be done exactly once. The value supplied for `file_path` (or relevant
 configuration value for other database couplings) should be set with some

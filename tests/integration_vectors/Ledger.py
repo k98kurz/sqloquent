@@ -6,3 +6,6 @@ class Ledger(HashedSqliteModel):
     table: str = 'ledgers'
     id_column: str = 'id'
     columns: tuple[str] = ('id', 'name', 'identity_id')
+    id: str
+    name: str
+    identity_id: str
