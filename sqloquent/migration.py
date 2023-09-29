@@ -1,6 +1,6 @@
 from __future__ import annotations
 from .classes import SqliteContext, dynamic_sqlite_model
-from .errors import tressa, vert
+from .errors import tressa, vert, tert
 from .interfaces import DBContextProtocol, TableProtocol, ModelProtocol
 from dataclasses import dataclass, field
 from typing import Any, Callable, Type
@@ -85,6 +85,7 @@ class Table:
     uniques_to_drop: list[list[Column|str]] = field(default_factory=list)
     is_create: bool = field(default=False)
     is_drop: bool = field(default=False)
+    callback: Callable[[list[str]], list[str]] = field(default=lambda l: l)
 
     @classmethod
     def create(cls, name: str) -> Table:
@@ -171,6 +172,16 @@ class Table:
         self.columns_to_add.append(column)
         return column
 
+    def custom(self, callback: Callable[[list[str]], list[str]]) -> Table:
+        """Add a custom callback that parses the SQL clauses before they
+            are returnedf from the `sql` method. Must accept and return
+            list[str]. This is a way to add custom SQL while still using
+            the migration system. Return self in monad pattern.
+        """
+        tert(callable(callback), 'callback must be Callable[[list[str]], list[str]]')
+        self.callback = callback
+        return self
+
     def sql(self) -> list[str]:
         """Return the SQL for the table structure changes. Raises
             UsageError if the Table was used incorrectly. Raises
@@ -189,7 +200,7 @@ class Table:
             tressa(len(self.indices_to_drop) == 0, errmsg)
             tressa(len(self.uniques_to_add) == 0, errmsg)
             tressa(len(self.uniques_to_drop) == 0, errmsg)
-            return [f"drop table if exists {self.name}"]
+            return self.callback([f"drop table if exists {self.name}"])
 
         if self.new_name:
             errmsg = "cannot combine rename table with other operations"
@@ -201,7 +212,7 @@ class Table:
             tressa(len(self.indices_to_drop) == 0, errmsg)
             tressa(len(self.uniques_to_add) == 0, errmsg)
             tressa(len(self.uniques_to_drop) == 0, errmsg)
-            return [f"alter table {self.name} rename to {self.new_name}"]
+            return self.callback([f"alter table {self.name} rename to {self.new_name}"])
 
         for idx in self.uniques_to_drop:
             clauses.append(f"drop index if exists {get_index_name(self, idx, True)}")
@@ -254,7 +265,7 @@ class Table:
             clause += f"on {self.name} (" + ", ".join(colnames) + ")"
             clauses.append(clause)
 
-        return clauses
+        return self.callback(clauses)
 
 
 @dataclass
@@ -279,8 +290,8 @@ class Migration:
         self.down_callbacks.append(callback)
 
     def get_apply_sql(self) -> str:
-        """Get the SQL for the forward migration. Note that this may
-            call all registered callbacks and result in unexpected
+        """Get the SQL for the forward migration. Note that this will
+            call all registered callbacks and may result in unexpected
             behavior.
         """
         clauses: list[str] = []
@@ -302,8 +313,8 @@ class Migration:
                 cursor.executescript(sql)
 
     def get_undo_sql(self) -> str:
-        """Get the SQL for the backward migration. Note that this may
-            call all registered callbacks and result in unexpected
+        """Get the SQL for the backward migration. Note that this will
+            call all registered callbacks and may result in unexpected
             behavior.
         """
         clauses: list[str] = []

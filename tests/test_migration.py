@@ -83,6 +83,19 @@ class TestMigration(unittest.TestCase):
         assert type(sql) is list
         assert all([type(s) is str for s in sql])
 
+    def test_Table_custom_sets_callback_that_runs_before_returning_sql(self):
+        t = migration.Table('test')
+        logs = []
+        def thing(l: list[str]) -> list[str]:
+            logs.append('hello world')
+            return l
+        s1 = t.sql()
+        t.custom(thing)
+        assert len(logs) == 0
+        s2 = t.sql()
+        assert s1 == s2
+        assert len(logs) == 1
+
     def test_Table_create_returns_instance(self):
         t = migration.Table.create('test')
         assert isinstance(t, migration.Table)

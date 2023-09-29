@@ -451,6 +451,14 @@ class TableProtocol(Protocol):
         """Rename the specified column."""
         ...
 
+    def custom(self, callback: Callable[[list[str]], list[str]]) -> TableProtocol:
+        """Add a custom callback that parses the SQL clauses before they
+            are returnedf from the `sql` method. Must accept and return
+            list[str]. This is a way to add custom SQL while still using
+            the migration system. Return self in monad pattern.
+        """
+        ...
+
     def sql(self) -> list[str]:
         """Return the SQL for the table structure changes."""
         ...
