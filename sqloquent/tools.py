@@ -3,7 +3,6 @@ from .errors import tert, vert, tressa
 from .interfaces import MigrationProtocol, ModelProtocol
 from .migration import Migration, Table
 from datetime import datetime
-from decimal import Decimal
 from genericpath import isdir, isfile
 from os import listdir, environ
 from sys import argv
@@ -109,8 +108,6 @@ def _get_column_type_from_annotation(annotation: Any) -> tuple[str, bool]:
             return ('integer', nullable)
         if float in annotation:
             return ('real', nullable)
-        if Decimal in annotation:
-            return ('numeric', nullable)
         return ('text', nullable)
     elif type(annotation) is type:
         if annotation is NoneType:
@@ -121,8 +118,6 @@ def _get_column_type_from_annotation(annotation: Any) -> tuple[str, bool]:
             return ('integer', nullable)
         if annotation is float:
             return ('real', nullable)
-        if annotation is Decimal:
-            return ('numeric', nullable)
         return ('text', nullable)
     else:
         if 'None' in annotation:
@@ -133,8 +128,6 @@ def _get_column_type_from_annotation(annotation: Any) -> tuple[str, bool]:
             return ('integer', nullable)
         if 'float' in annotation:
             return ('real', nullable)
-        if 'Decimal' in annotation:
-            return ('numeric', nullable)
         return ('text', nullable)
 
 def _make_migration_from_model(model: ModelProtocol, model_name: str,

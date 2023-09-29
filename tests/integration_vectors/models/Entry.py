@@ -20,12 +20,16 @@ class Entry(HashedSqliteModel):
     def _encode(data: dict|None) -> dict|None:
         if type(data) is dict and type(data['type']) is EntryType:
             data['type'] = data['type'].value
+        if type(data) is dict and type(data['amount']) is Decimal:
+            data['amount'] = str(data['amount'])
         return data
 
     @staticmethod
     def _parse(data: dict|None) -> dict|None:
         if type(data) is dict and type(data['type']) is str:
             data['type'] = EntryType(data['type'])
+        if type(data) is dict and type(data['amount']) is str:
+            data['amount'] = Decimal(data['amount'])
         return data
 
     @staticmethod

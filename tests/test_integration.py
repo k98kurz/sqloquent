@@ -1,4 +1,5 @@
 from context import tools
+from decimal import Decimal
 from genericpath import isdir, isfile
 from integration_vectors import models
 from secrets import token_hex
@@ -184,13 +185,13 @@ class TestIntegration(unittest.TestCase):
                 'account_id': astartingcapital.data['id'],
                 'nonce': nonce,
                 'type': models.EntryType.DEBIT,
-                'amount': '420000',
+                'amount': Decimal('420.69'),
             }),
             models.Entry.insert({
                 'account_id': aequity.data['id'],
                 'nonce': nonce,
                 'type': models.EntryType.CREDIT,
-                'amount': '420000',
+                'amount': Decimal('420.69'),
             }),
         ]
         assert len(aledger.transactions()) == 0
@@ -209,13 +210,13 @@ class TestIntegration(unittest.TestCase):
                 'account_id': bstartingcapital.data['id'],
                 'nonce': nonce,
                 'type': models.EntryType.DEBIT,
-                'amount': '420000',
+                'amount': Decimal('420.69'),
             }),
             models.Entry.insert({
                 'account_id': bequity.data['id'],
                 'nonce': nonce,
                 'type': models.EntryType.CREDIT,
-                'amount': '420000',
+                'amount': Decimal('420.69'),
             }),
         ]
         assert len(bledger.transactions()) == 0
@@ -232,25 +233,25 @@ class TestIntegration(unittest.TestCase):
                 'account_id': avostro.data['id'],
                 'nonce': nonce,
                 'type': models.EntryType.CREDIT,
-                'amount': 69,
+                'amount': Decimal(69),
             }),
             models.Entry.insert({
                 'account_id': aequity.data['id'],
                 'nonce': nonce,
                 'type': models.EntryType.DEBIT,
-                'amount': 69,
+                'amount': Decimal(69),
             }),
             models.Entry.insert({
                 'account_id': bnostro.data['id'],
                 'nonce': nonce,
                 'type': models.EntryType.DEBIT,
-                'amount': 69,
+                'amount': Decimal(69),
             }),
             models.Entry.insert({
                 'account_id': bequity.data['id'],
                 'nonce': nonce,
                 'type': models.EntryType.CREDIT,
-                'amount': 69,
+                'amount': Decimal(69),
             }),
         ]
         assert len(aledger.transactions(True)) == 1
