@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sqloquent"
-version = "0.0.1"
+version = "0.1.0"
 authors = [
   { name="k98kurz", email="k98kurz@gmail.com" },
 ]
@@ -12,11 +12,11 @@ description = ""
 readme = "readme.md"
 requires-python = ">=3.10"
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 4 - Beta",
   "Programming Language :: Python :: 3",
   "License :: OSI Approved :: ISC License (ISCL)",
   "Operating System :: OS Independent",
-  "Topic :: Software Development :: Libraries",
+  "Topic :: Database :: Front-Ends",
 ]
 dependencies = [
   "packify >= 0.2.2",
