@@ -23,6 +23,8 @@ from sqloquent.interfaces import (
     JoinedModelProtocol,
     RowProtocol,
     RelationProtocol,
+    RelatedModel,
+    RelatedCollection,
 )
 from sqloquent.relations import (
     Relation,

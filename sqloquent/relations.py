@@ -1,6 +1,6 @@
 from __future__ import annotations
 from .errors import tert, tressa
-from .interfaces import ModelProtocol, QueryBuilderProtocol
+from .interfaces import ModelProtocol, QueryBuilderProtocol, RelatedCollection, RelatedModel
 from .tools import _pascalcase_to_snake_case
 from abc import abstractmethod
 from copy import deepcopy
@@ -151,6 +151,11 @@ class Relation:
     @abstractmethod
     def reload(self) -> Relation:
         """Reload the relation from the database. Return self in monad pattern."""
+        pass
+
+    @abstractmethod
+    def query(self) -> QueryBuilderProtocol|None:
+        """Creates the base query for the underlying relation."""
         pass
 
     def get_cache_key(self) -> str:
@@ -317,6 +322,19 @@ class HasOne(Relation):
 
         raise ValueError('cannot reload an empty relation')
 
+    def query(self) -> QueryBuilderProtocol|None:
+        """Creates the base query for the underlying relation."""
+        if self.primary and self.primary_class.id_column in self.primary.data:
+            primary_id = self.primary.data[self.primary.id_column]
+            return self.secondary_class.query({
+                self.foreign_id_column: primary_id
+            })
+        if self.secondary:
+            primary_id = self.secondary[0].data[self.foreign_id_column]
+            return self.secondary_class.query({
+                self.foreign_id_column: primary_id
+            })
+
     def get_cache_key(self) -> str:
         """Returns the cache key for this relation."""
         return f'{super().get_cache_key()}_{self.foreign_id_column}'
@@ -353,7 +371,7 @@ class HasOne(Relation):
 
 
         @property
-        def secondary(self: ModelProtocol) -> ModelProtocol:
+        def secondary(self: ModelProtocol) -> RelatedModel:
             """The secondary model instance. Setting raises TypeError if
                 the precondition check fails.
             """
@@ -598,7 +616,7 @@ class HasMany(HasOne):
 
 
         @property
-        def secondary(self: ModelProtocol) -> HasManyTuple[ModelProtocol]:
+        def secondary(self: ModelProtocol) -> RelatedCollection:
             """The secondary model instance. Setting raises TypeError if
                 the precondition check fails.
             """
@@ -699,6 +717,19 @@ class BelongsTo(HasOne):
 
         raise ValueError('cannot reload an empty relation')
 
+    def query(self) -> QueryBuilderProtocol|None:
+        """Creates the base query for the underlying relation."""
+        if self.primary and self.foreign_id_column in self.primary.data:
+            secondary_id = self.primary.data[self.foreign_id_column]
+            return self.secondary_class.query({
+                self.primary_class.id_column: secondary_id
+            })
+        if self.secondary:
+            secondary_id = self.secondary[0].data[self.foreign_id_column]
+            return self.secondary_class.query({
+                self.secondary_class.id_column: secondary_id
+            })
+
     def create_property(self) -> property:
         """Creates a property that can be used to set relation properties
             on models. Sets the relevant post-init hook to set up the
@@ -731,7 +762,7 @@ class BelongsTo(HasOne):
 
 
         @property
-        def secondary(self: ModelProtocol) -> ModelProtocol:
+        def secondary(self: ModelProtocol) -> RelatedModel:
             """The secondary model instance. Setting raises TypeError if
                 the precondition check fails.
             """
@@ -995,6 +1026,20 @@ class BelongsToMany(Relation):
 
         raise ValueError('cannot reload an empty relation')
 
+    def query(self) -> QueryBuilderProtocol|None:
+        """Creates the base query for the underlying relation. This will
+            return the query for a join between the pivot and the
+            related model.
+        """
+        if self.primary:
+            primary_id = self.primary.data[self.primary_class.id_column]
+            return self.pivot.query({
+                self.primary_id_column: primary_id
+            }).join(
+                self.secondary_class,
+                [self.secondary_id_column, self.secondary_class.id_column],
+            )
+
     def get_cache_key(self) -> str:
         """Returns the cache key for this relation."""
         return f'{super().get_cache_key()}_{self.pivot.__name__}_' \
@@ -1030,7 +1075,7 @@ class BelongsToMany(Relation):
 
 
         @property
-        def secondary(self: ModelProtocol) -> BelongsToManyTuple[ModelProtocol]:
+        def secondary(self: ModelProtocol) -> RelatedCollection:
             """The secondary model instances. Setting raises TypeError
                 if a precondition check fails.
             """

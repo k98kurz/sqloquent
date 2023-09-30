@@ -351,6 +351,10 @@ class RelationProtocol(Protocol):
         """Reload the secondary models from the database."""
         ...
 
+    def query(self) -> QueryBuilderProtocol|None:
+        """Creates the base query for the underlying relation."""
+        ...
+
     def get_cache_key(self) -> str:
         """Get the cache key for the relation."""
         ...
@@ -359,6 +363,45 @@ class RelationProtocol(Protocol):
         """Produces a property to be set on a model, allowing it to access
             the related model through the relation.
         """
+
+
+@runtime_checkable
+class RelatedModel(ModelProtocol, Protocol):
+    """Interface showing what a related model returned from an ORM
+        helper function or RelationProtocol.create_property will behave.
+        This is used for relations where the primary model is associated
+        with a single secondary model.
+    """
+    def __call__(self) -> RelationProtocol:
+        """Return the underlying relation when the property is called as
+            a method, e.g. `phone.owner()` will return the relation
+            while `phone.owner` will access the related model.
+        """
+        ...
+
+
+@runtime_checkable
+class RelatedCollection(Protocol):
+    """Interface showing what a related model returned from an ORM
+        helper function or RelationProtocol.create_property will behave.
+        This is used for relations where the primary model is associated
+        with multiple secondary models.
+    """
+    def __call__(self) -> RelationProtocol:
+        """Return the underlying relation when the property is called as
+            a method, e.g. `fish.scales()` will return the relation
+            while `fish.scales` will access the related models.
+        """
+        ...
+
+    def __iter__(self) -> ModelProtocol:
+        """Allow the collection to be iterated over, returning a model
+            on each iteration.
+        """
+
+    def __getitem__(self, key) -> ModelProtocol:
+        """Return the related model at the given index."""
+        ...
 
 
 @runtime_checkable
