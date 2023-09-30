@@ -240,7 +240,7 @@ class SqlModel:
 
 class SqliteModel(SqlModel):
     """Model for interacting with sqlite database."""
-    file_path: str = 'database.db'
+    file_path: str = 'temp.db'
 
     def __init__(self, data: dict = {}) -> None:
         """Initialize the instance."""
