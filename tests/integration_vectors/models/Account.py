@@ -1,6 +1,5 @@
 from __future__ import annotations
-from sqloquent import HashedSqliteModel
-from sqloquent.interfaces import QueryBuilderProtocol
+from sqloquent import HashedSqliteModel, QueryBuilderProtocol, RelatedModel, RelatedCollection
 from .AccountType import AccountType
 
 
@@ -13,6 +12,8 @@ class Account(HashedSqliteModel):
     name: str
     ledger_id: str
     type: str
+    ledger: RelatedModel
+    entries: RelatedCollection
 
     @staticmethod
     def _encode(data: dict|None) -> dict|None:
@@ -45,3 +46,8 @@ class Account(HashedSqliteModel):
     @classmethod
     def query(cls, conditions: dict = None) -> QueryBuilderProtocol:
         return super().query(cls._encode(conditions))
+
+    @classmethod
+    def find(cls, id: str) -> Account | None:
+        """For better type hinting."""
+        return super().find(id)

@@ -1,4 +1,6 @@
-from sqloquent import HashedSqliteModel
+from __future__ import annotations
+from sqloquent import HashedSqliteModel, ModelProtocol
+from typing import Callable
 
 
 class Transaction(HashedSqliteModel):
@@ -9,3 +11,9 @@ class Transaction(HashedSqliteModel):
     id: str
     entry_ids: str
     ledger_ids: str
+    entries: Callable[[Transaction, bool], list[ModelProtocol]]
+    ledgers: Callable[[Transaction, bool], list[ModelProtocol]]
+
+    @classmethod
+    def insert(cls, data: dict) -> Transaction | None:
+        return super().insert(data)

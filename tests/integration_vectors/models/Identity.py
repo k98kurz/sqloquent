@@ -1,4 +1,5 @@
-from sqloquent import HashedSqliteModel
+from __future__ import annotations
+from sqloquent import HashedSqliteModel, RelatedCollection, RelatedModel
 
 
 class Identity(HashedSqliteModel):
@@ -9,3 +10,10 @@ class Identity(HashedSqliteModel):
     id: str
     name: str
     seed: bytes|None
+    correspondences: RelatedCollection
+    correspondents: RelatedCollection
+    ledger: RelatedModel
+
+    @classmethod
+    def insert(cls, data: dict = {}) -> Identity:
+        return super().insert(data)

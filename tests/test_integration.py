@@ -61,6 +61,8 @@ class TestIntegration(unittest.TestCase):
             src = tools.make_migration_from_model(name, f"{MODELS_PATH}/{name}.py")
             with open(f"{MIGRATIONS_PATH}/{name}_migration.py", 'w') as f:
                 f.write(src)
+                # if name == 'Account':
+                #     print(f'/***Account migration**/\n{src}\n')
 
         # run migrations
         tables = ['accounts', 'correspondences', 'identities', 'ledgers', 'entries', 'transactions']
@@ -71,7 +73,8 @@ class TestIntegration(unittest.TestCase):
         assert self.tables_exist(tables)
 
         # create Alice
-        alice = models.Identity.insert({'name':'Alice', 'seed': token_hex(32)})
+        alice = models.Identity({'name':'Alice', 'seed': token_hex(32)})
+        alice.save()
         assert models.Identity.query({'id': alice.data['id']}).count() == 1
 
         # create Bob
@@ -80,8 +83,8 @@ class TestIntegration(unittest.TestCase):
 
         # create Alice and Bob Correspondence
         correspondence = models.Correspondence.insert({
-            'first': bob.data['id'],
-            'second': alice.data['id'],
+            'first_id': bob.data['id'],
+            'second_id': alice.data['id'],
             'details': 'the bidirectional limit is $9001',
         })
         alice.correspondences().reload()
@@ -89,11 +92,13 @@ class TestIntegration(unittest.TestCase):
         alice.correspondents().reload()
         assert len(alice.correspondents) == 1
         assert alice.correspondents[0].data['id'] == bob.data['id']
+        assert alice.correspondents[0].id == bob.id
         bob.correspondences().reload()
         assert len(bob.correspondences) == 1
         bob.correspondents().reload()
         assert len(bob.correspondents) == 1
         assert bob.correspondents[0].data['id'] == alice.data['id']
+        assert alice.correspondences().query().count() == 1
 
         assert correspondence.data['id'] in (
             alice.correspondences[0].data['id'],
@@ -101,17 +106,21 @@ class TestIntegration(unittest.TestCase):
         )
 
         # create Alice ledger
-        aledger = models.Ledger.insert({'name': 'Alice main'})
+        aledger = models.Ledger({'name': 'Alice main'})
+        aledger.save()
         alice.ledger().secondary = aledger
         alice.ledger().save()
         assert aledger.data['identity_id'] == alice.data['id']
         aledger.owner().reload()
-        aledger.owner.data['id'] == alice.data['id']
+        assert aledger.owner.data['id'] == alice.data['id']
+        assert aledger.owner.id == alice.id
+        assert alice.ledger.data['id'] == aledger.data['id']
+        assert alice.ledger.id == aledger.id
         # reload from db
         aledger = models.Ledger.find(aledger.data['id'])
         assert aledger.data['identity_id'] == alice.data['id']
         aledger.owner().reload()
-        aledger.owner.data['id'] == alice.data['id']
+        aledger.owner.data['id'] == alice.id
 
         # create Bob ledger
         bledger = models.Ledger.insert({
@@ -152,6 +161,14 @@ class TestIntegration(unittest.TestCase):
         assert len(aledger.accounts) == 0
         aledger.accounts().reload()
         assert len(aledger.accounts) == 4
+        assert hasattr(aledger.accounts[0], 'data') and type(aledger.accounts[0].data) is dict
+        assert hasattr(aledger.accounts[0], 'id') and type(aledger.accounts[0].id) is str
+        assert len(aledger.accounts().query().get()) == 4
+        assert anostro.ledger_id == aledger.id
+        anostro.ledger().reload()
+        assert anostro.ledger.id == aledger.id
+        assert len(models.Account.find(anostro.id).ledger().query().get()) == 1
+        assert models.Account.find(anostro.id).ledger().query().first().id == aledger.id
 
         # create Bob accounts
         bnostro = models.Account.insert({
@@ -256,12 +273,14 @@ class TestIntegration(unittest.TestCase):
         ]
         assert len(aledger.transactions(True)) == 1
         assert len(bledger.transactions(True)) == 1
-        models.Transaction.insert({
+        txn = models.Transaction.insert({
             'ledger_ids': f"{aledger.data['id']},{bledger.data['id']}",
             'entry_ids': ','.join([e.data['id'] for e in entries]),
         })
         assert len(aledger.transactions(True)) == 2
         assert len(bledger.transactions(True)) == 2
+        assert len(txn.ledgers(True)) == 2
+        assert len(txn.entries(True)) == 4
 
     def table_exists(self, name: str) -> bool:
         q = f"select name from sqlite_master where type='table' and name='{name}'"

@@ -1,8 +1,13 @@
 from __future__ import annotations
-from decimal import Decimal
-from sqloquent import HashedSqliteModel
-from sqloquent.interfaces import QueryBuilderProtocol
 from .EntryType import EntryType
+from decimal import Decimal
+from sqloquent import (
+    HashedSqliteModel,
+    QueryBuilderProtocol,
+    RelatedModel,
+    ModelProtocol,
+)
+from typing import Callable
 
 
 class Entry(HashedSqliteModel):
@@ -15,6 +20,8 @@ class Entry(HashedSqliteModel):
     nonce: str
     type: EntryType
     amount: Decimal
+    account: RelatedModel
+    transaction: Callable[[Entry, bool], ModelProtocol]
 
     @staticmethod
     def _encode(data: dict|None) -> dict|None:

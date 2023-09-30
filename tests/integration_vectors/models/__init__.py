@@ -14,14 +14,17 @@ from sqloquent import belongs_to, has_many, has_one, belongs_to_many
 Identity.ledger = has_one(Identity, Ledger)
 Ledger.owner = belongs_to(Ledger, Identity)
 
-Identity.correspondences = has_many(Identity, Correspondence, 'first')
+Identity.correspondences = has_many(Identity, Correspondence, 'first_id')
 Identity.correspondents = belongs_to_many(
     Identity,
     Identity,
     Correspondence,
-    'first',
-    'second',
+    'first_id',
+    'second_id',
 )
+
+Correspondence.first = belongs_to(Correspondence, Identity, 'first_id')
+Correspondence.second = belongs_to(Correspondence, Identity, 'second_id')
 
 Ledger.accounts = has_many(Ledger, Account)
 Account.ledger = belongs_to(Account, Ledger)
