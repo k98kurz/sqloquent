@@ -1,4 +1,4 @@
-from .classes import SqliteModel, DeletedModel, Attachment
+from .classes import SqliteModel, DeletedModel, Attachment, HashedModel
 from .errors import tert, vert, tressa
 from .interfaces import MigrationProtocol, ModelProtocol
 from .migration import Migration, Table
@@ -175,10 +175,17 @@ def publish_migrations(path: str, connection_string: str = 'temp.db'):
     attachment_src = attachment_src.replace("t.text('details').index()", "t.blob('details')")
     attachment_src = attachment_src.replace('    ...\n', '')
 
+    hashed_model_src = _make_migration_from_model(
+        HashedModel, 'HashedModel', connection_string)
+    hashed_model_src = hashed_model_src.replace("t.text('details').index()", "t.blob('details')")
+    hashed_model_src = hashed_model_src.replace('    ...\n', '')
+
     with open(f"{path}/deleted_model_migration.py", 'w') as f:
         f.write(deleted_model_src)
     with open(f"{path}/attachment_migration.py", 'w') as f:
         f.write(attachment_src)
+    with open(f"{path}/hashed_model_migration.py", 'w') as f:
+        f.write(hashed_model_src)
 
 
 def make_model(name: str, base: str = 'SqliteModel', columns: list[str] = None,

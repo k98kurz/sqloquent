@@ -116,9 +116,10 @@ class TestIntegration(unittest.TestCase):
         list_files = lambda: [f for f in os.listdir(MIGRATIONS_PATH) if f[-3:] == '.py']
         assert len(list_files()) == 0
         tools.publish_migrations(MIGRATIONS_PATH)
-        assert len(list_files()) == 2
+        assert len(list_files()) == 3
         assert 'attachment_migration.py' in list_files()
         assert 'deleted_model_migration.py' in list_files()
+        assert 'hashed_model_migration.py' in list_files()
 
     def test_migrate_rollback_refresh_e2e(self):
         path = f"{MIGRATIONS_PATH}/create_test_table_migration.py"
