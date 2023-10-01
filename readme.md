@@ -32,9 +32,9 @@ for chunk in sqb.chunk(1000):
 results = sqb.get()
 ```
 
-These base classes have been coupled to sqlite3 via the `SqliteQueryBuilder` and
-`SqliteModel` classes, but they can be coupled to any SQL database client. See
-the "Usage" section below for detailed instructions for the latter.
+These base classes have a default binding to sqlite3 via the `SqliteContext`
+class, but they can be coupled to any SQL database client. See the "Usage"
+section below for detailed instructions for the latter.
 
 Additionally, three classes, `DeletedModel`, `HashedModel`, and `Attachment`
 have been supplied to allow easy implementation of a system that includes a
@@ -101,13 +101,13 @@ first can be found
 and the test itself is
 [here](https://github.com/k98kurz/sqloquent/blob/master/tests/test_integration.py#L61).
 
-The second one is outlined in the "Using the ORM" section below.
-
 The models were scaffolded using the CLI tool, then the details filled out in
 each. The relations were set up in the `__init__.py` file. The integration test
 generates migrations from these classes using the CLI tool, automigrates using
 the CLI tool, then does inserts/updates/deletes and checks the db for
 correctness. (These files provide a basic schema for correspondent banking.)
+
+The second integration test is outlined in the "Using the ORM" section below.
 
 #### CLI Tool
 
@@ -122,12 +122,12 @@ use the migration tools, the environment variable `CONNECTION_STRING` must be
 set either in the CLI environment or in a .env file, e.g.
 `CONNECTION_STRING=path/to/file.db`. To insert this connection string into
 generated scaffold code, also define a `MAKE_WITH_CONNSTRING` environment
-variable and set it to anythong other than "false" or "0"; this is a convenience
+variable and set it to anything other than "false" or "0"; this is a convenience
 feature for working with sqlite3, since that is the only bundled coupling, but
-overwriting the `connection_info` attribute on models at the app execution entry point
-is probably a better strategy -- if using another SQL binding, the connection info
-should be injected into the context manager (see section about binding to other
-SQL databases/engines below).
+overwriting the `connection_info` attribute on models at the app execution entry
+point is probably a better strategy -- if using another SQL binding, the
+connection info should be injected into the context manager (see section about
+binding to other SQL databases/engines below).
 
 Additionally, the functionality of the CLI tool can be accessed programmatically
 through `sqloquent.tools`.
@@ -137,11 +137,11 @@ through `sqloquent.tools`.
 The package as it stands relies upon text or varchar type `id` columns. The
 `SqlModel` uses a hexadecimal uuid4 as a GUID, while the `HashedModel` uses the
 sha256 of the deterministically encoded record content as a GUID. This can be
-changed for use with autoincrementing int id columns by extending `SqlModel` or
-`SqliteModel` and overriding the `insert` and `insert_many` methods to prevent
-setting the id via `cls.generate_id()`. However, this is not recommended unless
-the autoincrement id can be reliably discerned from the db cursor and there are
-no concerns about, say, synchronizing between instances using a CRDT.
+changed for use with autoincrementing int id columns by extending `SqlModel` and
+overriding the `insert` and `insert_many` methods to prevent setting the id via
+`cls.generate_id()`. However, this is not recommended unless the autoincrement
+id can be reliably discerned from the db cursor and there are no concerns about,
+say, synchronizing between instances using a CRDT.
 
 Use one of the variants of the `sqloquent make migration` command to create a
 migration scaffold, then edit the result as necessary. If you specify the
@@ -156,7 +156,7 @@ class Thing(SqlModel):
     table = 'things'
     columns = ('id', 'name', 'amount')
     id: str
-    name: str
+    name: bytes
     amount: int|None
 ```
 
@@ -169,7 +169,7 @@ from sqloquent import Migration, Table
 def create_table_things() -> list[Table]:
     t = Table.create('things')
     t.text('id').unique()
-    t.text('name').index()
+    t.blob('name').index()
     t.integer('amount').nullable().index()
     ...
     return [t]
@@ -177,7 +177,7 @@ def create_table_things() -> list[Table]:
 def drop_table_things() -> list[Table]:
     return [Table.drop('things')]
 
-def migration(connection_string: str = 'temp.db') -> Migration:
+def migration(connection_string: str = '') -> Migration:
     migration = Migration(connection_string)
     migration.up(create_table_things)
     migration.down(drop_table_things)
@@ -196,7 +196,7 @@ def add_custom_sql(clauses: list[str]) -> list[str]:
 def create_table_things() -> list[Table]:
     t = Table.create('things')
     t.text('id').unique()
-    t.text('name').index()
+    t.blob('name').index()
     t.integer('amount').nullable().index()
     t.custom(add_custom_sql)
     ...
@@ -204,33 +204,57 @@ def create_table_things() -> list[Table]:
 ```
 
 Examine the generated SQL of any migration using the
-`sqloquent examine path/to/migration/file` command.
+`sqloquent examine path/to/migration/file` command. The above example will
+generate the following:
+
+```sql
+/**** generated up/apply sql ****/
+begin;
+create table if not exists things (id text, name blob, amount integer);
+create unique index if not exists udx_things_id on things (id);
+create index if not exists idx_things_name on things (name);
+create index if not exists idx_things_amount on things (amount);
+commit;
+
+/**** generated down/undo sql ****/
+begin;
+drop table if exists things;
+commit;
+```
 
 #### Models
 
-Models should extend `SqliteModel` or a model that extends `SqlModel` and
-couples to another database client. To use the supplied sqlite3 coupling without
-the cryptographic features, extend the `SqliteModel`, filling these attributes
-as shown below:
+Models should extend `SqlModel` or a model that extends `SqlModel` and couples
+to another database client. To use the supplied sqlite3 coupling without the
+cryptographic features, extend the `SqlModel`, filling these attributes as shown
+below:
 
 - `table: str`: the name of the table
-- `columns: tuple`: the ordered tuple of column names
-- annotations for columns as necessary
+- `columns: tuple[str]`: the ordered tuple of column names
+- annotations for columns as desired
 
 Additionally, set up any relevant relations using the ORM helper methods.
 
 ```python
 from __future__ import annotations
-from sqloquent import SqliteModel, has_many, belongs_to
+from sqloquent import SqlModel, has_many, belongs_to, RelatedModel, RelatedCollection
 
+connection_string = ''
 
-class ModelA(SqliteModel):
-    connection_info = 'temp.db'
+with open('.env', 'r') as f:
+    lines = f.readlines()
+    for l in lines:
+        if l[:18] == 'CONNECTION_STRING=':
+            connection_string = l[18:-1]
+
+class ModelA(SqlModel):
+    connection_info = connection_string
     table: str = 'model_a'
     columns: tuple = ('id', 'name', 'details')
     id: str
     name: str
     _details: dict = None
+    model_b: RelatedCollection
 
     def details(self, reload: bool = False) -> dict:
         """Decode json str to dict."""
@@ -245,18 +269,19 @@ class ModelA(SqliteModel):
         self.data['details'] = json.dumps(self._details)
         return self
 
-class ModelB(SqliteModel):
-    connection_info = 'temp.db'
+class ModelB(SqlModel):
+    connection_info = connection_string
     table: str = 'model_b'
     columns: tuple = ('id', 'name', 'model_a_id', 'number')
     id: str
     name: str
     model_a_id: str
     number: int
+    model_a: RelatedModel
 
 
 ModelA.model_b = has_many(ModelA, ModelB, 'model_a_id')
-ModelB.model_a = belongs_to(ModelB, ModelA, 'model_a_id', True)
+ModelB.model_a = belongs_to(ModelB, ModelA, 'model_a_id')
 
 
 if __name__ == "__main__":
@@ -279,8 +304,10 @@ To use this, save the code snippet as "example.py" and run the following to set
 up the database and then run the script:
 
 ```bash
-sqloquent make migration --model Thing example.py > create_things_table.py
-sqloquent migrate create_things_table.py
+sqloquent make migration --model ModelA example.py > model_a_migration.py
+sqloquent make migration --model ModelB example.py > model_b_migration.py
+sqloquent migrate model_a_migration.py
+sqloquent migrate model_b_migration.py
 python example.py
 ```
 
@@ -301,10 +328,10 @@ the expense of performance by using the packify package, e.g. to encode sets or
 classes that implement the `packify.Packable` interface.
 
 ```python
-from sqloquent import SqliteModel
+from sqloquent import SqlModel
 
 
-class ModelA(SqliteModel):
+class ModelA(SqlModel):
     table: str = 'model_a'
     columns: tuple = ('id', 'name', 'details')
     id: str
@@ -339,7 +366,7 @@ class ModelA(SqliteModel):
         self.data['details'] = json.dumps(self._details)
         return self
 
-class ModelB(SqliteModel):
+class ModelB(SqlModel):
     table: str = 'model_b'
     columns: tuple = ('id', 'name', 'model_a_id', 'number')
     id: str
@@ -362,7 +389,6 @@ class ModelB(SqliteModel):
         return self.save()
 ```
 
-
 #### Coupling to a SQL Database Client
 
 To couple to a SQL database client, complete the following steps.
@@ -384,9 +410,8 @@ base `SqlQueryBuilder` will need to be overridden in step 2:
 ##### 1. Implement the `DBContextProtocol`
 
 See the `SqliteContext` class for an example of how to implement this interface.
-This is a standard context manager that accepts a class that implements
-`ModelProtocol` and returns an instance of the class made in step 0 when used
-with the following syntax:
+This is a standard context manager that accepts connection_info string and
+returns a cursor to be used within the context block:
 
 ```python
 with SomeDBContextImplementation('some optional connection string') as cursor:
@@ -396,8 +421,8 @@ with SomeDBContextImplementation('some optional connection string') as cursor:
 Note that the connection information should be bound or injected here in the
 context manager. Connection strings can be put on the models themselves or by
 setting the `connection_info` attribute on the context manager class (e.g.
-`SqliteContext.connection_info = 'temp.db'`) or the `SqlQueryBuilder` class (
-e.g. `SqlQueryBuilder.connection_info = 'temp.db'`).
+`SqliteContext.connection_info = 'temp.db'`) or the `SqlQueryBuilder` class
+(e.g. `SqlQueryBuilder.connection_info = 'temp.db'`).
 
 ##### 2. Extend `SqlQueryBuilder`
 
