@@ -110,6 +110,7 @@ Interface showing how a query builder should function.
 
 #### Properties
 
+- table: The name of the table.
 - model: The class of the relevant model.
 
 #### Methods
@@ -264,6 +265,10 @@ Save the relation by setting/unsetting relevant database values.
 
 Reload the secondary models from the database.
 
+##### `query() -> QueryBuilderProtocol | None:`
+
+Creates the base query for the underlying relation.
+
 ##### `get_cache_key() -> str:`
 
 Get the cache key for the relation.
@@ -272,6 +277,18 @@ Get the cache key for the relation.
 
 Produces a property to be set on a model, allowing it to access the related
 model through the relation.
+
+### `RelatedModel(ModelProtocol)`
+
+Interface showing what a related model returned from an ORM helper function or
+RelationProtocol.create_property will behave. This is used for relations where
+the primary model is associated with a single secondary model.
+
+### `RelatedCollection(Protocol)`
+
+Interface showing what a related model returned from an ORM helper function or
+RelationProtocol.create_property will behave. This is used for relations where
+the primary model is associated with multiple secondary models.
 
 ### `ColumnProtocol(Protocol)`
 
@@ -379,10 +396,9 @@ Interface for a migration class.
 #### Properties
 
 - connection_info: The connection info used for interacting with the database.
-For sqlite migrations, this is passed to the model_factory which is in turn
-passed to the DBContextManager. For other database bindings, the connection
-information should be read from env and injected into the relevant
-DBContextManager.
+For sqlite migrations, this is passed to the DBContextManager. For other
+database bindings, the connection information should be read from env and
+injected into the relevant DBContextManager.
 
 #### Methods
 

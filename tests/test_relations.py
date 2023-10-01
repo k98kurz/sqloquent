@@ -8,8 +8,8 @@ import unittest
 DB_FILEPATH = 'test.db'
 
 
-class Pivot(classes.SqliteModel):
-    file_path: str = DB_FILEPATH
+class Pivot(classes.SqlModel):
+    connection_info: str = DB_FILEPATH
     table: str = 'pivot'
     columns: tuple = ('id', 'first_id', 'second_id')
 
@@ -33,13 +33,13 @@ class TestRelations(unittest.TestCase):
         self.cursor.execute('create table owned (id text, owner_id text, details text)')
 
         # rebuild test classes because properties will be changed in tests
-        class OwnedModel(classes.SqliteModel):
-            file_path: str = DB_FILEPATH
+        class OwnedModel(classes.SqlModel):
+            connection_info: str = DB_FILEPATH
             table: str = 'owned'
             columns: tuple = ('id', 'owner_id', 'details')
 
-        class OwnerModel(classes.SqliteModel):
-            file_path: str = DB_FILEPATH
+        class OwnerModel(classes.SqlModel):
+            connection_info: str = DB_FILEPATH
             table: str = 'owners'
             columns: tuple = ('id', 'details')
 

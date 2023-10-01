@@ -11,7 +11,10 @@ General model for mapping a SQL row to an in-memory object.
 - table: str
 - id_column: str
 - columns: tuple
+- id: str
+- name: str
 - query_builder_class: Type[QueryBuilderProtocol]
+- connection_info: str
 - data: dict
 
 #### Methods
@@ -71,12 +74,13 @@ to the query_builder_class instead.
 
 ### `SqlQueryBuilder`
 
-Main query builder class. Extend with child class to bind to a specific
-database, c.f. SqliteQueryBuilder.
+Main query builder class. Extend with child class to bind to a specific database
+by supplying the context_manager param to a call to super().__init__(). Default
+binding is to sqlite3.
 
 #### Annotations
 
-- model: Type[SqlModel]
+- model: Type[ModelProtocol]
 - context_manager: Type[DBContextProtocol]
 - connection_info: str
 - clauses: list
@@ -93,6 +97,8 @@ database, c.f. SqliteQueryBuilder.
 
 - model: The model type that non-joined query results will be. Setting raises
 TypeError if supplied something other than a subclass of SqlModel.
+- table: The table name for the base query. Setting raises TypeError if supplied
+something other than a str.
 
 #### Methods
 
@@ -160,7 +166,7 @@ offset.
 
 Returns a fresh instance using the configured model.
 
-##### `insert(data: dict) -> Optional[SqlModel]:`
+##### `insert(data: dict) -> Optional[SqlModel | Row]:`
 
 Insert a record and return a model instance. Raises TypeError for invalid data
 or ValueError if a record with the same id already exists.
@@ -170,11 +176,11 @@ or ValueError if a record with the same id already exists.
 Insert a batch of records and return the number inserted. Raises TypeError for
 invalid items.
 
-##### `find(id: Any) -> Optional[SqlModel]:`
+##### `find(id: Any) -> Optional[SqlModel | Row]:`
 
 Find a record by its id and return it.
 
-##### `join(model: Type[SqlModel] | list[Type[SqlModel]], on: list[str], kind: str = 'inner') -> SqlQueryBuilder:`
+##### `join(model_or_table: Type[SqlModel] | str, on: list[str], kind: str = 'inner', joined_table_columns: tuple[str] = ()) -> SqlQueryBuilder:`
 
 Prepares the query for a join over multiple tables/models. Raises TypeError or
 ValueError for invalid model, on, or kind.
@@ -207,7 +213,7 @@ limit.
 Chunk all matching rows the specified number of rows at a time. Raises TypeError
 or ValueError for invalid number.
 
-##### `first() -> Optional[SqlModel]:`
+##### `first() -> Optional[SqlModel | Row]:`
 
 Run the query on the datastore and return the first result.
 
@@ -251,18 +257,7 @@ Context manager for sqlite.
 
 - connection: sqlite3.Connection
 - cursor: sqlite3.Cursor
-
-### `SqliteModel(SqlModel)`
-
-Model for interacting with sqlite database.
-
-#### Annotations
-
-- file_path: str
-
-### `SqliteQueryBuilder(SqlQueryBuilder)`
-
-SqlQueryBuilder using a SqliteContext.
+- connection_info: str
 
 ### `DeletedModel(SqlModel)`
 
@@ -285,10 +280,6 @@ Restore a deleted record, remove from deleted_records, and return the restored
 model. Raises ValueError if model_class cannot be found. Raises TypeError if
 model_class is not a subclass of SqlModel. Uses packify.unpack to unpack the
 record. Raises TypeError if packed record is not a dict.
-
-### `DeletedSqliteModel(DeletedModel)`
-
-Model for preserving and restoring deleted HashedSqliteModel records.
 
 ### `HashedModel(SqlModel)`
 
@@ -331,17 +322,6 @@ invalid updates.
 Delete the model, putting it in the deleted_records table, then return the
 DeletedModel. Raises packify.UsageError for unserializable data.
 
-### `HashedSqliteModel(SqliteModel)`
-
-Model for interacting with sqlite database using hash for id.
-
-#### Methods
-
-##### `delete() -> DeletedSqliteModel:`
-
-Delete the model, putting it in the deleted_records table, then return the
-DeletedSqliteModel. Raises packify.UsageError for unserializable data.
-
 ### `Attachment(HashedModel)`
 
 Class for attaching immutable details to a record.
@@ -381,10 +361,6 @@ TypeError if details contains unseriazliable type.
 
 Redefined for better LSP support.
 
-### `AttachmentSqlite(Attachment)`
-
-Class for attaching immutable details to a sqlite record.
-
 ### `Row`
 
 Class for representing a row from a query when no better model exists.
@@ -420,10 +396,12 @@ Class for representing joins to be executed by a query builder.
 #### Annotations
 
 - kind: str
-- model_1: SqlModel
+- table_1: str
+- table_1_columns: list[str]
 - column_1: str
 - comparison: str
-- model_2: SqlModel
+- table_2: str
+- table_2_columns: list[str]
 - column_2: str
 
 ### `CursorProtocol(Protocol)`
@@ -508,6 +486,7 @@ Interface showing how a query builder should function.
 
 #### Properties
 
+- table: The name of the table.
 - model: The class of the relevant model.
 
 #### Methods
@@ -688,6 +667,10 @@ Save the relation by setting/unsetting relevant database values.
 
 Reload the secondary models from the database.
 
+##### `query() -> QueryBuilderProtocol | None:`
+
+Creates the base query for the underlying relation.
+
 ##### `get_cache_key() -> str:`
 
 Get the cache key for the relation.
@@ -696,6 +679,18 @@ Get the cache key for the relation.
 
 Produces a property to be set on a model, allowing it to access the related
 model through the relation.
+
+### `RelatedModel(ModelProtocol)`
+
+Interface showing what a related model returned from an ORM helper function or
+RelationProtocol.create_property will behave. This is used for relations where
+the primary model is associated with a single secondary model.
+
+### `RelatedCollection(Protocol)`
+
+Interface showing what a related model returned from an ORM helper function or
+RelationProtocol.create_property will behave. This is used for relations where
+the primary model is associated with multiple secondary models.
 
 ### `Relation`
 
@@ -755,6 +750,10 @@ and secondary_to_remove.
 
 Reload the relation from the database. Return self in monad pattern.
 
+##### `query() -> QueryBuilderProtocol | None:`
+
+Creates the base query for the underlying relation.
+
 ##### `get_cache_key() -> str:`
 
 Returns the cache key for the Relation.
@@ -789,6 +788,10 @@ and secondary_to_remove. Raises UsageError if the relation is missing data.
 ##### `reload() -> HasOne:`
 
 Reload the relation from the database. Return self in monad pattern.
+
+##### `query() -> QueryBuilderProtocol | None:`
+
+Creates the base query for the underlying relation.
 
 ##### `get_cache_key() -> str:`
 
@@ -852,6 +855,10 @@ incomplete.
 
 Reload the relation from the database. Return self in monad pattern.
 
+##### `query() -> QueryBuilderProtocol | None:`
+
+Creates the base query for the underlying relation.
+
 ##### `create_property() -> property:`
 
 Creates a property that can be used to set relation properties on models. Sets
@@ -887,6 +894,11 @@ UsageError if the relation is incomplete.
 ##### `reload() -> BelongsToMany:`
 
 Reload the relation from the database. Return self in monad pattern.
+
+##### `query() -> QueryBuilderProtocol | None:`
+
+Creates the base query for the underlying relation. This will return the query
+for a join between the pivot and the related model.
 
 ##### `get_cache_key() -> str:`
 
@@ -1044,17 +1056,11 @@ Migration class for updating a database schema.
 #### Annotations
 
 - connection_info: str
-- model_factory: Callable[[Any], ModelProtocol]
 - context_manager: Type[DBContextProtocol]
 - up_callbacks: list[Callable[[], list[TableProtocol]]]
 - down_callbacks: list[Callable[[], list[TableProtocol]]]
 
 #### Methods
-
-##### `dynamic_sqlite_model(db_file_path: str | bytes, table_name: str = '') -> Type[SqlModel]:`
-
-Generates a dynamic sqlite model for instantiating context managers. Raises
-TypeError for invalid db_file_path or table_name.
 
 ##### `up(callback: Callable[[], list[TableProtocol]]) -> None:`
 
@@ -1086,10 +1092,10 @@ Apply the backward migration.
 
 ## Functions
 
-### `dynamic_sqlite_model(db_file_path: str | bytes, table_name: str = '') -> Type[SqlModel]:`
+### `dynamic_sqlmodel(connection_string: str | bytes, table_name: str = '', column_names: tuple[str] = ()) -> Type[SqlModel]:`
 
 Generates a dynamic sqlite model for instantiating context managers. Raises
-TypeError for invalid db_file_path or table_name.
+TypeError for invalid connection_string or table_name.
 
 ### `has_one(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol], foreign_id_column: str = None) -> property:`
 

@@ -1,8 +1,8 @@
 from __future__ import annotations
-from sqloquent import HashedSqliteModel, RelatedCollection, RelatedModel
+from sqloquent import HashedModel, RelatedCollection, RelatedModel
 
 
-class Ledger(HashedSqliteModel):
+class Ledger(HashedModel):
     file_path: str = 'temp.db'
     table: str = 'ledgers'
     id_column: str = 'id'

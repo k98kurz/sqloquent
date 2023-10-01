@@ -98,7 +98,7 @@ class TestIntegration(unittest.TestCase):
     def test_make_model_returns_str_with_correct_content(self):
         name = f"M{token_hex(4)}"
         columns = ('id', 'thing1', 'thing2')
-        bases = ('SqliteModel', 'SqlModel', 'HashedModel', 'HashedSqliteModel')
+        bases = ('SqlModel', 'HashedModel')
         for base in bases:
             result = tools.make_model(
                 name,
@@ -109,8 +109,7 @@ class TestIntegration(unittest.TestCase):
             assert type(result) is str
             assert f"class {name}({base}):" in result
             assert f"columns: tuple[str] = {columns}" in result
-            if base in ('SqliteModel', 'HashedSqliteModel'):
-                assert f"file_path: str = '{DB_FILEPATH}'" in result
+            assert f"connection_info: str = '{DB_FILEPATH}'" in result
 
     def test_publish_migrations_creates_attachments_and_deleted_model_migrations(self):
         list_files = lambda: [f for f in os.listdir(MIGRATIONS_PATH) if f[-3:] == '.py']

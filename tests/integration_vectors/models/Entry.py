@@ -2,7 +2,7 @@ from __future__ import annotations
 from .EntryType import EntryType
 from decimal import Decimal
 from sqloquent import (
-    HashedSqliteModel,
+    HashedModel,
     QueryBuilderProtocol,
     RelatedModel,
     ModelProtocol,
@@ -10,7 +10,7 @@ from sqloquent import (
 from typing import Callable
 
 
-class Entry(HashedSqliteModel):
+class Entry(HashedModel):
     file_path: str = 'temp.db'
     table: str = 'entries'
     id_column: str = 'id'

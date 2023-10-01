@@ -1,8 +1,8 @@
 from __future__ import annotations
-from sqloquent import HashedSqliteModel, RelatedModel
+from sqloquent import HashedModel, RelatedModel
 
 
-class Correspondence(HashedSqliteModel):
+class Correspondence(HashedModel):
     file_path: str = 'temp.db'
     table: str = 'correspondences'
     id_column: str = 'id'

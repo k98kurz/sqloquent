@@ -1,5 +1,5 @@
 from __future__ import annotations
-from .classes import SqliteContext, dynamic_sqlite_model
+from .classes import SqliteContext, dynamic_sqlmodel
 from .errors import tressa, vert, tert
 from .interfaces import DBContextProtocol, TableProtocol, ModelProtocol
 from dataclasses import dataclass, field
@@ -272,7 +272,6 @@ class Table:
 class Migration:
     """Migration class for updating a database schema."""
     connection_info: str = field(default="")
-    model_factory: Callable[[Any], ModelProtocol] = field(default=dynamic_sqlite_model)
     context_manager: Type[DBContextProtocol] = field(default=SqliteContext)
     up_callbacks: list[Callable[[], list[TableProtocol]]] = field(default_factory=list)
     down_callbacks: list[Callable[[], list[TableProtocol]]] = field(default_factory=list)
@@ -309,7 +308,7 @@ class Migration:
             for table in tables:
                 clauses.extend(table.sql())
             sql = "begin;\n" + ";\n".join(clauses) + ";\ncommit;"
-            with self.context_manager(self.model_factory(self.connection_info)) as cursor:
+            with self.context_manager(self.connection_info) as cursor:
                 cursor.executescript(sql)
 
     def get_undo_sql(self) -> str:
@@ -332,5 +331,5 @@ class Migration:
             for table in tables:
                 clauses.extend(table.sql())
             sql = "begin;\n" + ";\n".join(clauses) + ";\ncommit;"
-            with self.context_manager(self.model_factory(self.connection_info)) as cursor:
+            with self.context_manager(self.connection_info) as cursor:
                 cursor.executescript(sql)

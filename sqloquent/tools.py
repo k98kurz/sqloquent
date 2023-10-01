@@ -1,4 +1,4 @@
-from .classes import SqliteModel, DeletedModel, Attachment, HashedModel
+from .classes import SqlModel, DeletedModel, Attachment, HashedModel
 from .errors import tert, vert, tressa
 from .interfaces import MigrationProtocol, ModelProtocol
 from .migration import Migration, Table
@@ -30,7 +30,7 @@ def _pascalcase_to_snake_case(name: str) -> str:
 def _make_migration_src_start() -> str:
     return "from sqloquent import Migration, Table\n\n\n"
 
-def make_migration_create(name: str, connection_string: str = 'temp.db') -> str:
+def make_migration_create(name: str, connection_string: str = '') -> str:
     """Generate a migration scaffold from a table name to create a table."""
     src = _make_migration_src_start()
     table_name = _pascalcase_to_snake_case(name)
@@ -48,7 +48,7 @@ def make_migration_create(name: str, connection_string: str = 'temp.db') -> str:
     src += f"    return migration"
     return src
 
-def make_migration_alter(name: str, connection_string: str = 'temp.db') -> str:
+def make_migration_alter(name: str, connection_string: str = '') -> str:
     """Generate a migration scaffold from a table name to alter a table."""
     src = _make_migration_src_start()
     table_name = _pascalcase_to_snake_case(name)
@@ -67,7 +67,7 @@ def make_migration_alter(name: str, connection_string: str = 'temp.db') -> str:
     src += f"    return migration"
     return src
 
-def make_migration_drop(name: str, connection_string: str = 'temp.db') -> str:
+def make_migration_drop(name: str, connection_string: str = '') -> str:
     """Generate a migration scaffold from a table name to drop a table."""
     src = _make_migration_src_start()
     table_name = _pascalcase_to_snake_case(name)
@@ -86,7 +86,7 @@ def make_migration_drop(name: str, connection_string: str = 'temp.db') -> str:
     return src
 
 def make_migration_from_model(model_name: str, model_path: str,
-                              connection_string: str = 'temp.db') -> str:
+                              connection_string: str = '') -> str:
     """Generate a migration scaffold from a model."""
     module = _import(model_path)
     tressa(hasattr(module, model_name),
@@ -131,7 +131,7 @@ def _get_column_type_from_annotation(annotation: Any) -> tuple[str, bool]:
         return ('text', nullable)
 
 def _make_migration_from_model(model: ModelProtocol, model_name: str,
-                               connection_string: str = 'temp.db') -> str:
+                               connection_string: str = '') -> str:
     table_name = model.table or _pascalcase_to_snake_case(model_name)
     types: dict[str, tuple[Type, bool]] = {}
     if model.__annotations__:
@@ -160,7 +160,7 @@ def _make_migration_from_model(model: ModelProtocol, model_name: str,
     src += f"    return migration"
     return src
 
-def publish_migrations(path: str, connection_string: str = 'temp.db'):
+def publish_migrations(path: str, connection_string: str = ''):
     """Publish the migrations for the DeletedModel and Attachment."""
     tert(type(path) is str, 'path must be str')
     tressa(isdir(path), 'path must be valid path to an existing directory')
@@ -188,17 +188,16 @@ def publish_migrations(path: str, connection_string: str = 'temp.db'):
         f.write(hashed_model_src)
 
 
-def make_model(name: str, base: str = 'SqliteModel', columns: list[str] = None,
-               connection_string: str = 'temp.db') -> str:
+def make_model(name: str, base: str = 'SqlModel', columns: list[str] = None,
+               connection_string: str = '') -> str:
     """Generate a model scaffold with the given name."""
-    vert(base in ('SqliteModel', 'SqlModel', 'HashedModel', 'HashedSqliteModel'),
-         "base must be one of (SqliteModel, SqlModel, HashedModel, HashedSqliteModel)")
+    vert(base in ('SqlModel', 'HashedModel'),
+         f"base must be one of (SqlModel, HashedModel); {base} encountered")
     table_name = _pascalcase_to_snake_case(name)
     table_name = f'{table_name}s' if table_name[-1:] != 'y' else f'{table_name[:-1]}ies'
     src = f"from sqloquent import {base}\n\n\n"
     src += f"class {name}({base}):\n"
-    if base in ("SqliteModel", "HashedSqliteModel"):
-        src += f"    file_path: str = '{connection_string}'\n"
+    src += f"    connection_info: str = '{connection_string}'\n"
     src += f"    table: str = '{table_name}'\n"
     src += f"    id_column: str = 'id'\n"
     if columns:
@@ -208,7 +207,7 @@ def make_model(name: str, base: str = 'SqliteModel', columns: list[str] = None,
     return src
 
 
-def _import_migration(path: str, connection_string: str = 'temp.db') -> Migration:
+def _import_migration(path: str, connection_string: str = '') -> Migration:
     module = _import(path)
     tressa(hasattr(module, 'migration') and callable(module.migration),
            f"{path} is missing the `migration` function")
@@ -217,19 +216,19 @@ def _import_migration(path: str, connection_string: str = 'temp.db') -> Migratio
          f"{path} invalid; migration() must return instance implementing MigrationProtocol")
     return migration
 
-def migrate(path: str, connection_string: str = 'temp.db') -> None:
+def migrate(path: str, connection_string: str = '') -> None:
     """Load and apply the specified migration."""
     migration = _import_migration(path, connection_string)
     migration.apply()
     print("Migrated.")
 
-def rollback(path: str, connection_string: str = 'temp.db') -> None:
+def rollback(path: str, connection_string: str = '') -> None:
     """Load and rollback the specified migration."""
     migration = _import_migration(path, connection_string)
     migration.undo()
     print("Rolled back.")
 
-def refresh(path: str, connection_string: str = 'temp.db') -> None:
+def refresh(path: str, connection_string: str = '') -> None:
     """Rollback and apply the specified migration."""
     rollback(path, connection_string)
     migrate(path, connection_string)
@@ -239,15 +238,15 @@ def examine(path: str) -> list[str]:
     migration = _import_migration(path)
     return [migration.get_apply_sql(), migration.get_undo_sql()]
 
-def _get_migration_model(connection_string: str = 'temp.db') -> Type[SqliteModel]:
+def _get_migration_model(connection_string: str = '') -> Type[SqlModel]:
     """Generate a MigrationModel with the given connection_string."""
-    class MigrationModel(SqliteModel):
-        file_path: str = connection_string
+    class MigrationModel(SqlModel):
+        connection_info: str = connection_string
         table: str = 'migrations'
         columns: tuple[str] = ('id', 'batch', 'date')
     return MigrationModel
 
-def _make_migrations_table_migration(connection_string: str = 'temp.db') -> Migration:
+def _make_migrations_table_migration(connection_string: str = '') -> Migration:
     """Creates and returns a migration for the migrations table."""
     def create_migrations_table() -> list[Table]:
         t = Table.create('migrations')
@@ -264,7 +263,7 @@ def _make_migrations_table_migration(connection_string: str = 'temp.db') -> Migr
     migration.down(drop_migrations_table)
     return migration
 
-def automigrate(path: str, connection_string: str = 'temp.db') -> None:
+def automigrate(path: str, connection_string: str = '') -> None:
     """Enumerate the python files at the path, then connect to the db to
         read out the migrations table (creating it if it does not exist),
         then apply the migrations that have not been applied and add a
@@ -276,7 +275,7 @@ def automigrate(path: str, connection_string: str = 'temp.db') -> None:
     m = _import_migration(f"{path}/{files[0]}", connection_string)
     MigrationModel = _get_migration_model(connection_string)
     done: list[MigrationModel] = []
-    with m.context_manager(m.model_factory(connection_string)) as cursor:
+    with m.context_manager(connection_string) as cursor:
         q = "select name from sqlite_master where type='table' and name='migrations'"
         if len(cursor.execute(q).fetchall()) == 0:
             _make_migrations_table_migration(connection_string).apply()
@@ -294,7 +293,7 @@ def automigrate(path: str, connection_string: str = 'temp.db') -> None:
         MigrationModel.insert({"id": f, "batch": batch_id, "date": timestamp})
         print(f"Applied migration {f}")
 
-def autorollback(path: str, connection_string: str = 'temp.db', all: bool = False) -> None:
+def autorollback(path: str, connection_string: str = '', all: bool = False) -> None:
     """Enumerate the python files at the path, then connect to the db to
         read out the migrations table (creating it if it does not exist),
         then rollback the previous batch of migrations that were applied
@@ -306,7 +305,7 @@ def autorollback(path: str, connection_string: str = 'temp.db', all: bool = Fals
     m = _import_migration(f"{path}/{files[0]}", connection_string)
     MigrationModel = _get_migration_model(connection_string)
     done: list[MigrationModel] = []
-    with m.context_manager(m.model_factory(connection_string)) as cursor:
+    with m.context_manager(connection_string) as cursor:
         q = "select name from sqlite_master where type='table' and name='migrations'"
         if len(cursor.execute(q).fetchall()) == 0:
             _make_migrations_table_migration(m.connection_info).apply()
@@ -334,7 +333,7 @@ def autorollback(path: str, connection_string: str = 'temp.db', all: bool = Fals
         mm.delete()
         print(f"Rolled back {f}.")
 
-def autorefresh(path: str, connection_string: str = 'temp.db') -> None:
+def autorefresh(path: str, connection_string: str = '') -> None:
     """Rollback all migrations then apply all migrations in the folder
         at path.
     """
@@ -350,7 +349,7 @@ def help_cli(name: str) -> str:
     {name} make migration --alter name
     {name} make migration --drop name
     {name} make migration --model name path/to/model/file
-    {name} make model name [--sqlite|--sql|--hashedlite|--hashed] (inherits SqliteModel by default)
+    {name} make model name [--sqlite|--sql|--hashedlite|--hashed] (inherits SqlModel by default)
     {name} migrate path/to/migration/file
     {name} rollback path/to/migration/file
     {name} refresh path/to/migration/file
@@ -388,7 +387,7 @@ def run_cli() -> None:
                 elif l[:20] == 'MAKE_WITH_CONNSTRING':
                     use_connstring_for_make = l[20:-1].lower() not in ('false', '0')
     connection_string = connection_string or 'temp.db'
-    connstring_for_make = connection_string if use_connstring_for_make else 'temp.db'
+    connstring_for_make = connection_string if use_connstring_for_make else ''
 
     mode = argv[1]
     if mode == "make":
@@ -426,7 +425,7 @@ def run_cli() -> None:
                     return print(make_model(name, 'HashedModel',
                                             connection_string=connstring_for_make))
                 elif argv[4] == "--hashedlite":
-                    return print(make_model(name, 'HashedSqliteModel'))
+                    return print(make_model(name, 'HashedModel'))
             return print(make_model(name, connection_string=connstring_for_make))
         else:
             print(f"unrecognized make kind: {kind}")

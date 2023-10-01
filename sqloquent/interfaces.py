@@ -45,7 +45,7 @@ class DBContextProtocol(Protocol):
     """Interface showing how a context manager for connecting
         to a database should behave.
     """
-    def __init__(self, model: ModelProtocol, connection_info: str = '') -> None:
+    def __init__(self, connection_info: str = '') -> None:
         """Using the connection_info parameter is optional but should be
             supported. I recommend setting a class attribute with the
             default value taken from an environment variable, then use
@@ -175,13 +175,22 @@ class RowProtocol(Protocol):
 @runtime_checkable
 class QueryBuilderProtocol(Protocol):
     """Interface showing how a query builder should function."""
-    def __init__(self, model: ModelProtocol, connection_info: str = '',
-                 *args, **kwargs) -> None:
-        """Initialize the instance."""
+    def __init__(self, model_or_table: Type[ModelProtocol]|str,
+                 context_manager: Type[DBContextProtocol],
+                 connection_info: str = '', model: Type[ModelProtocol] = None,
+                 table: str = None) -> None:
+        """Initialize the instance. A class implementing ModelProtocol
+            or the str name of a table must be provided.
+        """
         ...
 
     @property
-    def model(self) -> type:
+    def table(self) -> str:
+        """The name of the table."""
+        ...
+
+    @property
+    def model(self) -> Type[ModelProtocol]:
         """The class of the relevant model."""
         ...
 
@@ -517,10 +526,10 @@ class MigrationProtocol(Protocol):
     @property
     def connection_info(self) -> str:
         """The connection info used for interacting with the database.
-            For sqlite migrations, this is passed to the model_factory
-            which is in turn passed to the DBContextManager. For other
-            database bindings, the connection information should be read
-            from env and injected into the relevant DBContextManager.
+            For sqlite migrations, this is passed to the
+            DBContextManager. For other database bindings, the
+            connection information should be read from env and injected
+            into the relevant DBContextManager.
         """
         ...
 

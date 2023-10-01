@@ -1,9 +1,9 @@
 from __future__ import annotations
-from sqloquent import HashedSqliteModel, QueryBuilderProtocol, RelatedModel, RelatedCollection
+from sqloquent import HashedModel, QueryBuilderProtocol, RelatedModel, RelatedCollection
 from .AccountType import AccountType
 
 
-class Account(HashedSqliteModel):
+class Account(HashedModel):
     file_path: str = 'temp.db'
     table: str = 'accounts'
     id_column: str = 'id'

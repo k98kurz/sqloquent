@@ -20,12 +20,12 @@ class TestIntegration(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         """Monkey-patch the file path."""
-        models.Account.file_path = DB_FILEPATH
-        models.Correspondence.file_path = DB_FILEPATH
-        models.Entry.file_path = DB_FILEPATH
-        models.Identity.file_path = DB_FILEPATH
-        models.Ledger.file_path = DB_FILEPATH
-        models.Transaction.file_path = DB_FILEPATH
+        models.Account.connection_info = DB_FILEPATH
+        models.Correspondence.connection_info = DB_FILEPATH
+        models.Entry.connection_info = DB_FILEPATH
+        models.Identity.connection_info = DB_FILEPATH
+        models.Ledger.connection_info = DB_FILEPATH
+        models.Transaction.connection_info = DB_FILEPATH
         return super().setUpClass()
 
     def setUp(self):

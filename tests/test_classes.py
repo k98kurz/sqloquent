@@ -1,5 +1,5 @@
 from secrets import token_bytes
-from context import classes, interfaces
+from context import classes, errors, interfaces
 from genericpath import isfile
 from hashlib import sha256
 from types import GeneratorType
@@ -9,19 +9,21 @@ import sqlite3
 import unittest
 
 
+DB_FILEPATH = 'test.db'
+
+
 class TestClasses(unittest.TestCase):
-    db_filepath: str = 'test.db'
     db: sqlite3.Connection = None
     cursor: sqlite3.Cursor = None
 
     def setUp(self) -> None:
         """Set up the test database."""
         try:
-            if isfile(self.db_filepath):
-                os.remove(self.db_filepath)
+            if isfile(DB_FILEPATH):
+                os.remove(DB_FILEPATH)
         except:
             ...
-        self.db = sqlite3.connect(self.db_filepath)
+        self.db = sqlite3.connect(DB_FILEPATH)
         self.cursor = self.db.cursor()
         self.cursor.execute('create table deleted_records (id text not null, ' +
             'model_class text not null, record_id text not null, record blob not null)')
@@ -33,23 +35,17 @@ class TestClasses(unittest.TestCase):
         return super().setUp()
 
     def setUpClass() -> None:
-        """Couple these models to sqlite for testing purposes."""
-        classes.SqliteModel.file_path = TestClasses.db_filepath
-
-        classes.DeletedModel.file_path = TestClasses.db_filepath
-        classes.DeletedModel.query_builder_class = classes.SqliteQueryBuilder
-
-        classes.HashedModel.file_path = TestClasses.db_filepath
-        classes.HashedModel.query_builder_class = classes.SqliteQueryBuilder
-
-        classes.Attachment.file_path = TestClasses.db_filepath
-        classes.Attachment.query_builder_class = classes.SqliteQueryBuilder
+        """Couple these models to db_filepath for testing purposes."""
+        classes.SqlModel.connection_info = DB_FILEPATH
+        classes.DeletedModel.connection_info = DB_FILEPATH
+        classes.HashedModel.connection_info = DB_FILEPATH
+        classes.Attachment.connection_info = DB_FILEPATH
 
     def tearDown(self) -> None:
         """Close cursor and delete test database."""
         self.cursor.close()
         self.db.close()
-        os.remove(self.db_filepath)
+        os.remove(DB_FILEPATH)
         return super().tearDown()
 
     # general tests
@@ -58,20 +54,16 @@ class TestClasses(unittest.TestCase):
         assert type(classes.SqliteContext) is type
         assert hasattr(classes, 'SqlModel')
         assert type(classes.SqlModel) is type
-        assert hasattr(classes, 'SqliteModel')
-        assert type(classes.SqliteModel) is type
         assert hasattr(classes, 'JoinedModel')
         assert type(classes.JoinedModel) is type
         assert hasattr(classes, 'JoinSpec')
         assert type(classes.JoinSpec) is type
         assert hasattr(classes, 'Row')
         assert type(classes.Row) is type
-        assert hasattr(classes, 'dynamic_sqlite_model')
-        assert callable(classes.dynamic_sqlite_model)
+        assert hasattr(classes, 'dynamic_sqlmodel')
+        assert callable(classes.dynamic_sqlmodel)
         assert hasattr(classes, 'SqlQueryBuilder')
         assert type(classes.SqlQueryBuilder) is type
-        assert hasattr(classes, 'SqliteQueryBuilder')
-        assert type(classes.SqliteQueryBuilder) is type
         assert hasattr(classes, 'DeletedModel')
         assert type(classes.DeletedModel) is type
         assert hasattr(classes, 'HashedModel')
@@ -86,22 +78,18 @@ class TestClasses(unittest.TestCase):
 
     def test_SqliteContext_raises_errors_for_invalid_use(self):
         with self.assertRaises(TypeError) as e:
-            with classes.SqliteContext('not a SqliteModel'):
+            with classes.SqliteContext({}):
                 ...
-        assert str(e.exception) == 'model must be child class of SqlModel'
 
         with self.assertRaises(TypeError) as e:
             with classes.SqliteContext(str):
                 ...
-        assert str(e.exception) == 'model must be child class of SqlModel'
 
         with self.assertRaises(TypeError) as e:
-            class InvalidModel(classes.SqliteModel):
-                file_path = []
-            with classes.SqliteContext(InvalidModel):
+            with classes.SqliteContext([]):
                 ...
-        assert 'model.file_path' in str(e.exception)
-        assert 'must be str or bytes' in str(e.exception)
+        assert 'connection_info' in str(e.exception), str(e.exception)
+        assert 'must be str' in str(e.exception)
 
 
     # SqlModel tests
@@ -114,13 +102,6 @@ class TestClasses(unittest.TestCase):
         assert hasattr(model, 'name') and model.name == 'Bob'
         model.name = 'Alice'
         assert model.data['name'] == 'Alice'
-
-    def test_SqlModel_column_property_mapping_can_be_disabled(self):
-        class Disabled(classes.SqlModel):
-            disable_column_property_mapping: bool = True
-        model = Disabled({'id': '123', 'name': 'Bob'})
-        assert not hasattr(model, 'id') and model.data['id'] == '123'
-        assert not hasattr(model, 'name') and model.data['name'] == 'Bob'
 
     def test_SqlModel_column_property_mapping_disabled_for_colliding_names(self):
         class Derived(classes.SqlModel):
@@ -206,66 +187,58 @@ class TestClasses(unittest.TestCase):
             classes.SqlModel().update({})
         assert str(e.exception) == f'instance must have id or conditions defined'
 
-
-    # SqliteModel tests
-    def test_SqliteModel_implements_ModelProtocol(self):
-        assert isinstance(classes.SqliteModel(), interfaces.ModelProtocol)
-
-    def test_SqliteModel_extends_SqlModel(self):
-        assert issubclass(classes.SqliteModel, classes.SqlModel)
-
-    def test_SqliteModel_insert_and_find(self):
+    def test_SqlModel_insert_and_find(self):
         # e2e test
-        inserted = classes.SqliteModel.insert({'name': 'test1'})
-        assert isinstance(inserted, classes.SqliteModel), \
-            'insert() must return SqliteModel instance'
-        assert classes.SqliteModel.id_column in inserted.data, \
+        inserted = classes.SqlModel.insert({'name': 'test1'})
+        assert isinstance(inserted, classes.SqlModel), \
+            'insert() must return SqlModel instance'
+        assert classes.SqlModel.id_column in inserted.data, \
             'insert() return value must have id'
 
-        found = classes.SqliteModel.find(inserted.data[classes.SqliteModel.id_column])
-        assert isinstance(found, classes.SqliteModel), \
-            'find() must return SqliteModel instance'
+        found = classes.SqlModel.find(inserted.data[classes.SqlModel.id_column])
+        assert isinstance(found, classes.SqlModel), \
+            'find() must return SqlModel instance'
 
         assert inserted == found, \
             'inserted must equal found'
 
-    def test_SqliteModel_update_save_and_delete(self):
+    def test_SqlModel_update_save_and_delete(self):
         # e2e test
-        inserted = classes.SqliteModel.insert({'name': 'test1'})
+        inserted = classes.SqlModel.insert({'name': 'test1'})
         updated = inserted.update({'name': 'test2'})
-        assert isinstance(updated, classes.SqliteModel), \
-            'update() must return SqliteModel instance'
+        assert isinstance(updated, classes.SqlModel), \
+            'update() must return SqlModel instance'
         assert updated.data['name'] == 'test2', 'value must be updated'
         assert updated == inserted, 'must be equal'
-        found = classes.SqliteModel.find(inserted.data[inserted.id_column])
+        found = classes.SqlModel.find(inserted.data[inserted.id_column])
         assert updated == found, 'must be equal'
 
         updated.data['name'] = 'test3'
         saved = updated.save()
-        assert isinstance(saved, classes.SqliteModel), \
-            'save() must return SqliteModel instance'
+        assert isinstance(saved, classes.SqlModel), \
+            'save() must return SqlModel instance'
         assert saved == updated, 'must be equal'
-        found = classes.SqliteModel.find(inserted.data[inserted.id_column])
+        found = classes.SqlModel.find(inserted.data[inserted.id_column])
         assert saved == found, 'must be equal'
 
         updated.delete()
-        found = classes.SqliteModel.find(inserted.data[inserted.id_column])
+        found = classes.SqlModel.find(inserted.data[inserted.id_column])
         assert found is None, 'found must be None'
 
-    def test_SqliteModel_insert_many_and_count(self):
+    def test_SqlModel_insert_many_and_count(self):
         # e2e test
-        inserted = classes.SqliteModel.insert_many([
+        inserted = classes.SqlModel.insert_many([
             {'name': 'test1'},
             {'name': 'test2'},
         ])
         assert type(inserted) is int, 'insert_many() must return int'
         assert inserted == 2, 'insert_many() should return 2'
 
-        found = classes.SqliteModel.query().count()
+        found = classes.SqlModel.query().count()
         assert found == 2
 
-    def test_SqliteModel_reload_reads_values_from_db(self):
-        model = classes.SqliteModel.insert({'name': 'Tarzan'})
+    def test_SqlModel_reload_reads_values_from_db(self):
+        model = classes.SqlModel.insert({'name': 'Tarzan'})
         model.query({'id':model.data['id']}).update({'name': 'Jane'})
         assert model.data['name'] == 'Tarzan'
         model.reload()
@@ -274,16 +247,16 @@ class TestClasses(unittest.TestCase):
 
     # JoinedModel test
     def test_JoinedModel_get_models_returns_correct_models(self):
-        model1 = classes.SqliteModel.insert({"name": "model 1"})
+        model1 = classes.SqlModel.insert({"name": "model 1"})
         model2 = classes.Attachment({"details": "attachment 1"})
         model2.attach_to(model1)
         model2 = model2.save()
 
         joined = classes.JoinedModel(
-            [classes.SqliteModel, classes.Attachment],
+            [classes.SqlModel, classes.Attachment],
             {
                 **{
-                    f"{classes.SqliteModel.table}.{k}": v
+                    f"{classes.SqlModel.table}.{k}": v
                     for k,v in model1.data.items()
                 },
                 **{
@@ -306,25 +279,28 @@ class TestClasses(unittest.TestCase):
         assert row.data == {'a': b'c'}
 
 
-    # dynamic_sqlite_model test
-    def test_dynamic_sqlite_model_returns_type_ModelProtocol(self):
+    # dynamic_sqlmodel test
+    def test_dynamic_sqlmodel_returns_type_ModelProtocol(self):
         filepath = "some/path/to/file.db"
         tablename = "some_table"
-        modelclass = classes.dynamic_sqlite_model(filepath, tablename)
+        columns = ('id', 'name', 'etc')
+        modelclass = classes.dynamic_sqlmodel(filepath, tablename, columns)
         assert type(modelclass) is type
-        assert issubclass(modelclass, classes.SqliteModel)
+        assert issubclass(modelclass, classes.SqlModel)
         model = modelclass()
         assert isinstance(model, interfaces.ModelProtocol)
-        assert hasattr(model, "file_path") and model.file_path == filepath
+        assert hasattr(model, "connection_info") and model.connection_info == filepath
         assert hasattr(model, "table") and model.table == tablename
+        assert hasattr(model, "columns") and model.columns == columns
 
-        modelclass = classes.dynamic_sqlite_model("some/path/to/file.db")
+        modelclass = classes.dynamic_sqlmodel("some/path/to/file.db")
         assert type(modelclass) is type
-        assert issubclass(modelclass, classes.SqliteModel)
+        assert issubclass(modelclass, classes.SqlModel)
         model = modelclass()
         assert isinstance(model, interfaces.ModelProtocol)
-        assert hasattr(model, "file_path") and model.file_path == filepath
+        assert hasattr(model, "connection_info") and model.connection_info == filepath
         assert model.table == ""
+        assert model.columns == ()
 
 
     # SqlQueryBuilder tests
@@ -334,16 +310,13 @@ class TestClasses(unittest.TestCase):
     def test_SqlQueryBuilder_rejects_invalid_model(self):
         with self.assertRaises(TypeError) as e:
             sqb = classes.SqlQueryBuilder(model=dict)
-        assert str(e.exception) == 'model must be SqlModel subclass'
 
         with self.assertRaises(TypeError) as e:
             sqb = classes.SqlQueryBuilder(model='ssds')
-        assert str(e.exception) == 'model must be SqlModel subclass'
 
     def test_SqlQueryBuilder_equal_raises_TypeError_for_nonstr_column(self):
         with self.assertRaises(TypeError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).equal(b'not a str', '')
-        assert str(e.exception) == 'column must be str'
 
     def test_SqlQueryBuilder_equal_adds_correct_clause_and_param(self):
         sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
@@ -575,7 +548,7 @@ class TestClasses(unittest.TestCase):
 
         with self.assertRaises(ValueError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).order_by('', '')
-        assert str(e.exception) == 'unrecognized column'
+        assert 'unrecognized column' in str(e.exception)
 
         with self.assertRaises(ValueError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).order_by('id', 'not asc or desc')
@@ -608,17 +581,17 @@ class TestClasses(unittest.TestCase):
             classes.SqlQueryBuilder(classes.SqlModel).insert('not a dict')
         assert str(e.exception) == 'data must be dict'
 
-        model_id = classes.SqliteModel.insert({}).data['id']
+        model_id = classes.SqlModel.insert({}).data['id']
 
         with self.assertRaises(ValueError) as e:
             classes.SqlQueryBuilder(
-                classes.SqliteModel,
+                classes.SqlModel,
                 classes.SqliteContext
             ).insert({'id': model_id})
         assert str(e.exception) == 'record with this id already exists'
 
     def test_SqlQueryBuilder_insert_inserts_record_into_database(self):
-        sqb = classes.SqlQueryBuilder(classes.SqliteModel, classes.SqliteContext)
+        sqb = classes.SqlQueryBuilder(classes.SqlModel, classes.SqliteContext)
         model_id = '32123'
         sqb.insert({'id': model_id, 'name': 'test'})
 
@@ -644,7 +617,7 @@ class TestClasses(unittest.TestCase):
 
     def test_SqlQueryBuilder_chunk_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
-            sqb = classes.SqlQueryBuilder(classes.SqliteModel, classes.SqliteContext)
+            sqb = classes.SqlQueryBuilder(classes.SqlModel, classes.SqliteContext)
             sqb.chunk('not an int')
         assert str(e.exception) == 'number must be int > 0'
 
@@ -694,13 +667,9 @@ class TestClasses(unittest.TestCase):
             classes.SqlQueryBuilder(classes.SqlModel).execute_raw(b'not str')
         assert str(e.exception) == 'sql must be str'
 
-    # SqliteQueryBuilder tests
-    def test_SqliteQueryBuilder_implements_QueryBuilderProtocol(self):
-        assert issubclass(classes.SqliteQueryBuilder, classes.SqlQueryBuilder)
-
-    def test_SqliteQueryBuilder_insert_inserts_record_into_datastore(self):
+    def test_SqlQueryBuilder_insert_inserts_record_into_datastore(self):
         # e2e test
-        sqb = classes.SqliteQueryBuilder(model=classes.SqliteModel)
+        sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
         assert sqb.count() == 0, 'count() must return 0'
         inserted = sqb.insert({'name': 'test1'})
         assert isinstance(inserted, sqb.model), \
@@ -712,9 +681,9 @@ class TestClasses(unittest.TestCase):
         assert sqb.find('321') is not None, \
             'find() must return a record that was inserted'
 
-    def test_SqliteQueryBuilder_insert_many_inserts_records_into_datastore(self):
+    def test_SqlQueryBuilder_insert_many_inserts_records_into_datastore(self):
         # e2e test
-        sqb = classes.SqliteQueryBuilder(model=classes.SqliteModel)
+        sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
         assert sqb.count() == 0, 'count() must return 0'
         inserted = sqb.insert_many([
             {'name': 'test1', 'id': '123'},
@@ -729,9 +698,9 @@ class TestClasses(unittest.TestCase):
         assert sqb.find('321') is not None, \
             'find() must return a record that was inserted'
 
-    def test_SqliteQueryBuilder_get_returns_all_matching_records(self):
+    def test_SqlQueryBuilder_get_returns_all_matching_records(self):
         # e2e test
-        sqb = classes.SqliteQueryBuilder(model=classes.SqliteModel)
+        sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
         sqb.insert({'name': 'test1', 'id': '123'})
         sqb.insert({'name': 'test2', 'id': '321'})
         sqb.insert({'name': 'other', 'id': 'other'})
@@ -754,9 +723,9 @@ class TestClasses(unittest.TestCase):
             assert result.data['id'] in ('321', 'other')
             assert result.data['name'] in ('test2', 'other')
 
-    def test_SqliteQueryBuilder_count_returns_correct_number(self):
+    def test_SqlQueryBuilder_count_returns_correct_number(self):
         # e2e test
-        sqb = classes.SqliteQueryBuilder(model=classes.SqliteModel)
+        sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
         sqb.insert({'name': 'test1', 'id': '123'})
         sqb.insert({'name': 'test2', 'id': '321'})
         sqb.insert({'name': 'other', 'id': 'other'})
@@ -766,9 +735,9 @@ class TestClasses(unittest.TestCase):
         assert sqb.reset().excludes('name', '1').count() == 2
         assert sqb.reset().is_in('name', ['other']).count() == 1
 
-    def test_SqliteQueryBuilder_skip_skips_records(self):
+    def test_SqlQueryBuilder_skip_skips_records(self):
         # e2e test
-        sqb = classes.SqliteQueryBuilder(model=classes.SqliteModel)
+        sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
         sqb.insert({'name': 'test1', 'id': '123'})
         sqb.insert({'name': 'test2', 'id': '321'})
         sqb.insert({'name': 'other', 'id': 'other'})
@@ -778,9 +747,9 @@ class TestClasses(unittest.TestCase):
         list2 = sqb.skip(1).take(2)
         assert list1 != list2, 'different offsets should return different results'
 
-    def test_SqliteQueryBuilder_take_limits_results(self):
+    def test_SqlQueryBuilder_take_limits_results(self):
         # e2e test
-        sqb = classes.SqliteQueryBuilder(model=classes.SqliteModel)
+        sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
         sqb.insert({'name': 'test1', 'id': '123'})
         sqb.insert({'name': 'test2', 'id': '321'})
         sqb.insert({'name': 'other', 'id': 'other'})
@@ -791,9 +760,9 @@ class TestClasses(unittest.TestCase):
         assert len(sqb.take(3)) == 3
         assert len(sqb.take(5)) == 3
 
-    def test_SqliteQueryBuilder_chunk_returns_generator_that_yields_list_of_SqliteModel(self):
+    def test_SqlQueryBuilder_chunk_returns_generator_that_yields_list_of_SqlModel(self):
         # e2e test
-        sqb = classes.SqliteQueryBuilder(model=classes.SqliteModel)
+        sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
         dicts = [{'name': i, 'id': i} for i in range(0, 25)]
         expected = [i for i in range(0, 25)]
         observed = []
@@ -804,13 +773,13 @@ class TestClasses(unittest.TestCase):
         for results in sqb.chunk(10):
             assert type(results) is list
             for record in results:
-                assert isinstance(record, classes.SqliteModel)
+                assert isinstance(record, classes.SqlModel)
                 observed.append(int(record.data['id']))
         assert observed == expected
 
-    def test_SqliteQueryBuilder_first_returns_one_record(self):
+    def test_SqlQueryBuilder_first_returns_one_record(self):
         # e2e test
-        sqb = classes.SqliteQueryBuilder(model=classes.SqliteModel)
+        sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
         inserted = sqb.insert({'name': 'test1', 'id': '123'})
         sqb.insert({'name': 'test2', 'id': '321'})
         first = sqb.first()
@@ -818,9 +787,9 @@ class TestClasses(unittest.TestCase):
         first = sqb.order_by('id', 'asc').first()
         assert first == inserted, 'first() must return correct instance'
 
-    def test_SqliteQueryBuilder_update_changes_record(self):
+    def test_SqlQueryBuilder_update_changes_record(self):
         # e2e test
-        sqb = classes.SqliteQueryBuilder(model=classes.SqliteModel)
+        sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
         sqb.insert({'name': 'test1', 'id': '123'})
         assert sqb.find('123').data['name'] == 'test1'
         updates = sqb.update({'name': 'test2'}, {'id': '123'})
@@ -828,9 +797,9 @@ class TestClasses(unittest.TestCase):
         assert updates == 1
         assert sqb.find('123').data['name'] == 'test2'
 
-    def test_SqliteQueryBuilder_delete_removes_record(self):
+    def test_SqlQueryBuilder_delete_removes_record(self):
         # e2e test
-        sqb = classes.SqliteQueryBuilder(model=classes.SqliteModel)
+        sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
         sqb.insert({'name': 'test1', 'id': '123'})
         assert sqb.find('123') is not None
         deleted = sqb.equal('id', '123').delete()
@@ -838,9 +807,9 @@ class TestClasses(unittest.TestCase):
         assert deleted == 1
         assert sqb.reset().find('123') is None
 
-    def test_SqliteQueryBuilder_execute_raw_executes_raw_SQL(self):
+    def test_SqlQueryBuilder_execute_raw_executes_raw_SQL(self):
         # e2e test
-        sqb = classes.SqliteQueryBuilder(model=classes.SqliteModel)
+        sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
         assert sqb.count() == 0, 'count() must return 0'
         result = sqb.execute_raw("insert into example (id, name) values ('123', '321')")
         assert type(result) is tuple, 'execute_raw must return tuple'
@@ -853,13 +822,13 @@ class TestClasses(unittest.TestCase):
         assert type(result) is tuple, 'execute_raw must return tuple'
         assert len(result[1]) == 3, 'execute_raw did not return all rows'
 
-    def test_SqliteQueryBuilder_join_returns_JoinedModel(self):
-        model1 = classes.SqliteModel.insert({"name": "model 1"})
+    def test_SqlQueryBuilder_join_returns_JoinedModel(self):
+        model1 = classes.SqlModel.insert({"name": "model 1"})
         model2 = classes.Attachment({"details": "attachment 1"})
         model2.attach_to(model1)
         model2 = model2.save()
 
-        query = classes.SqliteModel.query()
+        query = classes.SqlModel.query()
         query.join(classes.Attachment, ["id", "related_id"], "inner")
         result = query.get()
         assert type(result) is list
@@ -871,11 +840,25 @@ class TestClasses(unittest.TestCase):
         assert model1.data == result.data[model1.table]
         assert model2.data == result.data[model2.table]
 
-    def test_SqliteQueryBuilder_select_restrains_columns_selected(self):
+    def test_SqlQueryBuilder_chunk_works_with_joins(self):
+        hm = classes.HashedModel.insert({'details': 123})
+        for i in range(10):
+            classes.Attachment({'details': i}).attach_to(hm).save()
+        sqb = classes.SqlQueryBuilder(classes.HashedModel).join(
+            classes.Attachment, ['id', 'related_id'])
+
+        results = []
+        for chunk in sqb.chunk(5):
+            assert all([type(a) is classes.JoinedModel for a in chunk])
+            results.extend(chunk)
+
+        assert len(results) == 10
+
+    def test_SqlQueryBuilder_select_restrains_columns_selected(self):
         # without a join
         names = ['model1', 'model2']
-        models = [classes.SqliteModel.insert({"name": name}) for name in names]
-        results = classes.SqliteModel.query().select(["id"]).get()
+        models = [classes.SqlModel.insert({"name": name}) for name in names]
+        results = classes.SqlModel.query().select(["id"]).get()
         assert type(results) is list
         assert len(results) == 2
         assert all(["id" in r.data for r in results])
@@ -885,7 +868,7 @@ class TestClasses(unittest.TestCase):
         for model in models:
             attachment = classes.Attachment({"details": f"test for {model.data['name']}"})
             attachment.attach_to(model).save()
-        sqb = classes.SqliteModel.query()
+        sqb = classes.SqlModel.query()
         sqb.join(classes.Attachment, ["id", "related_id"])
         sqb.select(["example.name", "attachments.id"])
         results = sqb.get()
@@ -895,9 +878,9 @@ class TestClasses(unittest.TestCase):
         assert all([list(dict.keys(r.data["example"])) == ["name"] for r in results])
         assert all([list(dict.keys(r.data["attachments"])) == ["id"] for r in results])
 
-    def test_SqliteQueryBuilder_group_groups_results(self):
+    def test_SqlQueryBuilder_group_groups_results(self):
         names = ['model1', 'model2']
-        models = [classes.SqliteModel.insert({"name": name}) for name in names]
+        models = [classes.SqlModel.insert({"name": name}) for name in names]
         for model in models:
             for i in range(5):
                 attachment = classes.Attachment({"details": f"test data {i}"})
@@ -906,8 +889,77 @@ class TestClasses(unittest.TestCase):
         sqb.select(["count(*)", "related_id"])
         results = sqb.get()
         assert type(results) is list
-        assert all([isinstance(r, interfaces.RowProtocol) for r in results])
+        assert all([isinstance(r, classes.Row) for r in results])
         assert all([list(dict.keys(r.data)) == ["count(*)", "related_id"] for r in results])
+
+    def test_SqlQueryBuilder_group_works_with_join(self):
+        names = ['model1', 'model2']
+        models = [classes.SqlModel.insert({"name": name}) for name in names]
+        for model in models:
+            for i in range(5):
+                attachment = classes.Attachment({"details": f"test data {i}"})
+                attachment.attach_to(model).save()
+        sqb = classes.SqlModel.query().join(
+            classes.Attachment, ['id', 'related_id']
+        ).group("attachments.related_id").select(["count(*)", "name", "related_id"])
+        results = sqb.get()
+        assert type(results) is list
+        assert all([isinstance(r, classes.Row) for r in results])
+        assert all([list(dict.keys(r.data)) == ["count(*)", "name", "related_id"] for r in results])
+
+    def test_SqlQueryBuilder_works_with_table_or_model(self):
+        sqb1 = classes.SqlQueryBuilder(model=classes.HashedModel)
+        assert sqb1.model is classes.HashedModel
+        assert sqb1.table is classes.HashedModel.table
+        assert sqb1.count() == 0
+        sqb2 = classes.SqlQueryBuilder(table=classes.HashedModel.table,
+                                       columns=classes.HashedModel.columns,
+                                       connection_info=DB_FILEPATH)
+        assert sqb2.count() == 0
+        assert sqb1.table == sqb2.table
+        assert type(sqb2.model) is type and issubclass(sqb2.model, classes.SqlModel)
+
+
+    # connection_info injection/binding tests
+    def test_SqliteContext_works_with_connection_info_bound(self):
+        class SqliteCXMBad(classes.SqliteContext):
+            ...
+
+        class SqliteCXMGood(classes.SqliteContext):
+            connection_info = DB_FILEPATH
+
+        with self.assertRaises(errors.UsageError):
+            with SqliteCXMBad() as cursor:
+                ...
+
+        with SqliteCXMGood() as cursor:
+            ...
+        cxm = SqliteCXMGood()
+        assert cxm.connection_info == DB_FILEPATH
+
+    def test_SqlModel_works_with_connection_info_bound(self):
+        class SqlModelBad(classes.SqlModel):
+            connection_info = ''
+        class SqlModelGood(classes.SqlModel):
+            connection_info = DB_FILEPATH
+
+        with self.assertRaises(errors.UsageError):
+            SqlModelBad.query().count()
+
+        assert SqlModelGood.query().count() == 0
+
+    def test_SqlQueryBuilder_works_with_connection_info_bound(self):
+        class SQBUnbound(classes.SqlQueryBuilder):
+            connection_info = ''
+        class SQBBound(classes.SqlQueryBuilder):
+            connection_info = DB_FILEPATH
+
+        with self.assertRaises(errors.UsageError):
+            SQBUnbound('example', columns=('id')).count()
+
+        # no error when injected or bound
+        assert SQBUnbound('example', connection_info=DB_FILEPATH, columns=('id')).count() == 0
+        assert SQBBound('example', columns=('id')).count() == 0
 
 
     # HashedModel tests
@@ -1117,25 +1169,6 @@ class TestClasses(unittest.TestCase):
 
         related = attachment.related(True)
         assert isinstance(related, classes.SqlModel)
-
-
-    # tests for HashedSqliteModel, DeletedSqliteModel, and AttachmentSqlite
-    def test_HashedSqliteModel_etc(self):
-        assert issubclass(classes.HashedSqliteModel, classes.SqliteModel)
-        hm = classes.HashedSqliteModel.insert({'details': '123'})
-        assert classes.AttachmentSqlite.query().count() == 0
-        am = classes.AttachmentSqlite({'details': '321'})
-        am.attach_to(hm).save()
-        assert classes.AttachmentSqlite.query().count() == 1
-        assert classes.DeletedSqliteModel.query().count() == 0
-        dm = hm.delete()
-        assert classes.DeletedSqliteModel.query().count() == 1
-        assert classes.HashedSqliteModel.query().count() == 0
-        restored: classes.HashedSqliteModel = dm.restore()
-        assert classes.HashedSqliteModel.query().count() == 1
-        assert type(restored) is type(hm)
-        assert restored.id == hm.id
-        assert type(am.id) is str
 
 
 if __name__ == '__main__':

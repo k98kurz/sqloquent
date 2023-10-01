@@ -1,9 +1,9 @@
 from __future__ import annotations
-from sqloquent import HashedSqliteModel, ModelProtocol
+from sqloquent import HashedModel, ModelProtocol
 from typing import Callable
 
 
-class Transaction(HashedSqliteModel):
+class Transaction(HashedModel):
     file_path: str = 'temp.db'
     table: str = 'transactions'
     id_column: str = 'id'

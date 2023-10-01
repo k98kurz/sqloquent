@@ -11,10 +11,11 @@ database easier and simpler. (See section below for full list.)
 The primary features are the `SqlQueryBuilder` and `SqlModel` base classes. The
 `SqlQueryBuilder` uses a monad pattern to build a query from various clauses. The
 `SqlModel` handles encoding, persisting, reading, and decoding models that
-correspond to rows. See below for the methods for each class.
+correspond to rows.
 
-These base classes can be coupled to the supplied sqlite3 coupling or to any SQL
-database client. See the "Usage" section below for detailed instructions.
+These base classes have been coupled to sqlite3 via the `SqliteQueryBuilder` and
+`SqliteModel` classes, but they can be coupled to any SQL database client. See
+the "Usage" section below for detailed instructions for the latter.
 
 Additionally, three classes, `DeletedModel`, `HashedModel`, and `Attachment`
 have been supplied to allow easy implementation of a system that includes a
@@ -57,6 +58,17 @@ There are two primary ways to use this package: either with the bundled sqlite3
 coupling or with a custom coupling to an arbitrary SQL database client. The
 cryptographic audit trail features can be used with any SQL database coupling.
 
+#### Connection Information
+
+Connection information can be bound or injected in several places:
+
+- Bound to each individual model
+- Injected into the query builder
+- Bound to the query builder
+- Bound to the db context manager (see below)
+
+The higher in the list, the
+
 #### Example
 
 The most thorough example is the integration test. The model files can be found
@@ -85,7 +97,7 @@ set either in the CLI environment or in a .env file, e.g.
 generated scaffold code, also define a `MAKE_WITH_CONNSTRING` environment
 variable and set it to anythong other than "false" or "0"; this is a convenience
 feature for working with sqlite3, since that is the only bundled coupling, but
-overwriting the `file_path` attribute on models at the app execution entry point
+overwriting the `connection_info` attribute on models at the app execution entry point
 is probably a better strategy -- if using another SQL binding, the connection info
 should be injected into the context manager (see section about binding to other
 SQL databases/engines below).
@@ -167,24 +179,30 @@ def create_table_things() -> list[Table]:
 Examine the generated SQL of any migration using the
 `sqloquent examine path/to/migration/file` command.
 
+#### Models
 
-#### Using the sqlite3 coupling
-
-To use the supplied sqlite3 coupling without the cryptographic features, extend
-the `SqliteModel`, filling these attributes as shown below:
+Models should extend `SqliteModel` or a model that extends `SqlModel` and
+couples to another database client. To use the supplied sqlite3 coupling without
+the cryptographic features, extend the `SqliteModel`, filling these attributes
+as shown below:
 
 - `table: str`: the name of the table
 - `columns: tuple`: the ordered tuple of column names
+- annotations for columns as necessary
 
 Additionally, set up any relevant relations using the ORM helper methods.
 
 ```python
+from __future__ import annotations
 from sqloquent import SqliteModel, has_many, belongs_to
 
 
 class ModelA(SqliteModel):
+    connection_info = 'temp.db'
     table: str = 'model_a'
     columns: tuple = ('id', 'name', 'details')
+    id: str
+    name: str
     _details: dict = None
 
     def details(self, reload: bool = False) -> dict:
@@ -201,13 +219,52 @@ class ModelA(SqliteModel):
         return self
 
 class ModelB(SqliteModel):
+    connection_info = 'temp.db'
     table: str = 'model_b'
     columns: tuple = ('id', 'name', 'model_a_id', 'number')
+    id: str
+    name: str
+    model_a_id: str
+    number: int
 
 
 ModelA.model_b = has_many(ModelA, ModelB, 'model_a_id')
 ModelB.model_a = belongs_to(ModelB, ModelA, 'model_a_id', True)
+
+
+if __name__ == "__main__":
+    model_a = ModelA.insert({'name': 'Some ModelA'})
+    model_b = ModelB({'name': 'Some ModelB'})
+    model_b.save()
+    assert hasattr(model_a, 'data') and type(model_a.data) is dict
+    assert hasattr(model_b, 'data') and type(model_b.data) is dict
+    model_b.model_a = model_a
+    model_b.model_a().save()
+    model_a.model_b().reload()
+    assert model_a.model_b[0].data['id'] == model_b.id
+    assert model_a.model_b[0].id == model_b.id
+    ModelA.query().delete()
+    ModelB.query().delete()
+    print("success")
 ```
+
+To use this, save the code snippet as "example.py" and run the following to set
+up the database and then run the script:
+
+```bash
+sqloquent make migration --model Thing example.py > create_things_table.py
+sqloquent migrate create_things_table.py
+python example.py
+```
+
+It is noteworthy that every column in the `columns` class attribute will be
+made into a property that accesses the underlying data stored in the `data`
+dict (the annotation just helps the code editor/LSP pick up on this). This will
+not work for any column name that collides with an existing class attribute or
+method, and the behavior can be disabled by adding a class attribute called
+"disable_column_property_mapping"; all row data will still be accessible via the
+`data` attribute on each instance regardless of name collision or feature
+disabling.
 
 If you do not want to use the bundled ORM system, set up any relevant relations
 with `_{related_name}: RelatedModel` attributes and
@@ -223,8 +280,10 @@ from sqloquent import SqliteModel
 class ModelA(SqliteModel):
     table: str = 'model_a'
     columns: tuple = ('id', 'name', 'details')
-    _model_b: ModelB = None
-    _details: dict = None
+    id: str
+    name: str
+    _model_b: ModelB|None = None
+    _details: dict|None = None
 
     def model_b(self, reload: bool = False) -> list[ModelB]:
         """The related model."""
@@ -256,7 +315,11 @@ class ModelA(SqliteModel):
 class ModelB(SqliteModel):
     table: str = 'model_b'
     columns: tuple = ('id', 'name', 'model_a_id', 'number')
-    _model_a: ModelA = None
+    id: str
+    name: str
+    model_a_id: str
+    number: int
+    _model_a: ModelA|None = None
 
     def model_a(self, reload: bool = False) -> Optional[ModelA]:
         """Return the related model."""
@@ -271,6 +334,7 @@ class ModelB(SqliteModel):
         model_a._model_b = self
         return self.save()
 ```
+
 
 #### Coupling to a SQL Database Client
 
@@ -298,14 +362,15 @@ This is a standard context manager that accepts a class that implements
 with the following syntax:
 
 ```python
-with SomeDBContextImplementation(SomeModel) as cursor:
+with SomeDBContextImplementation('some optional connection string') as cursor:
     cursor.execute('...')
 ```
 
-Note that the connection information should be injected here in the context
-manager. The bundled sqlite bindings put the file path to the sqlite db on the
-models themselves to avoid having to rewrite and rebind the whole system to
-customize the db file path.
+Note that the connection information should be bound or injected here in the
+context manager. Connection strings can be put on the models themselves or by
+setting the `connection_info` attribute on the context manager class (e.g.
+`SqliteContext.connection_info = 'temp.db'`) or the `SqlQueryBuilder` class (
+e.g. `SqlQueryBuilder.connection_info = 'temp.db'`).
 
 ##### 2. Extend `SqlQueryBuilder`
 
@@ -325,20 +390,14 @@ by overriding the relevant method(s).
 ##### 3. Extend `SqlModel`
 
 Extend `SqlModel` to include whatever class or instance information is required
-and inject the class from step 2 into `self.query_builder_class` in the
-`__init__` method. Example:
+and inject the class from step 2 into the class attribute `query_builder_class`.
+Example:
 
 ```python
-from sqloquent import QueryBuilderProtocol, SqlModel
-
-
 class SomeDBModel(SqlModel):
     """Model for interacting with SomeDB database."""
     some_config_key: str = 'some_config_value'
     query_builder_class: QueryBuilderProtocol = SomeDBQueryBuilder
-
-    def __init__(self, data: dict = {}) -> None:
-        super().__init__(data)
 ```
 
 ##### 4. Extend Class from Step 3
@@ -376,23 +435,27 @@ generator that yields subsets with length equal to the specified number.
 If a cryptographic audit trail is desirable, use the following multiple
 inheritance + injection pattern to couple the supplied classes to the desired
 `ModelProtocol` implementation, or use the sqlite versions and change the
-file_path attribute.
+connection_info attribute.
 
 ```python
-from sqloquent import HashedSqliteModel, DeletedSqliteModel, AttachmentSqlite
+from sqloquent import HashedModel, DeletedSqliteModel, AttachmentSqlite
 import sqloquent
 
 env_db_file_path = 'some_file.db'
-HashedModel.file_path = env_db_file_path
-DeletedModel.file_path = env_db_file_path
-Attachment.file_path = env_db_file_path
+HashedModel.connection_info = env_db_file_path
+DeletedModel.connection_info = env_db_file_path
+Attachment.connection_info = env_db_file_path
 ```
 
-To use them with some other SQL binding, change the context_manager_class
+This must be done exactly once. The value supplied for `connection_info` (or
+relevant configuration value for other database couplings) should be set with
+some environment configuration system, but here it is only poorly mocked.
 
-This must be done exactly once. The value supplied for `file_path` (or relevant
-configuration value for other database couplings) should be set with some
-environment configuration system, but here it is only poorly mocked.
+To use them with some other SQL binding, instead import `HashedModel`,
+`DeletedModel`, and `Attachment`, then subclass them and set the class attribute
+`query_builder_class` to a subclass of `SqlQueryBuilder` that sets the
+`context_manager` argument to the class implementing `DBContextManager` for the
+desired SQL database.
 
 #### Using the ORM
 
@@ -499,9 +562,9 @@ Classes implement the protocols or extend the classes indicated.
 - DeletedModel(SqlModel)
 - DeletedSqliteModel(DeletedModel, SqliteModel)
 - HashedModel(SqlModel)
-- HashedSqliteModel(HashedModel, SqliteModel)
+- HashedModel(HashedModel, SqliteModel)
 - Attachment(HashedModel)
-- AttachmentSqlite(HashedSqliteModel)
+- AttachmentSqlite(HashedModel)
 - Row(RowProtocol)
 - JoinedModel(JoinedModelProtocol)
 - JoinSpec
@@ -519,7 +582,7 @@ Classes implement the protocols or extend the classes indicated.
 The package includes some ORM helper functions for setting up relations and some
 other useful functions.
 
-- dynamic_sqlite_model
+- dynamic_sqlmodel
 - has_one
 - has_many
 - belongs_to
