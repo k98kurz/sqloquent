@@ -646,7 +646,7 @@ Below is a list of interfaces, classes, errors, and functions. See the
 by [autodox](https://pypi.org/project/autodox) for full documentation, or read
 [interfaces.md](https://github.com/k98kurz/sqloquent/blob/master/interfaces.md)
 for documentation on just the interfaces or
-[tools.md](https://github.com/k98kurz/sqloquent/blob/master/interfaces.md) for
+[tools.md](https://github.com/k98kurz/sqloquent/blob/master/tools.md) for
 information about the bundled tools.
 
 ### Interfaces
