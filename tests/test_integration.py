@@ -303,7 +303,6 @@ class TestIntegration(unittest.TestCase):
         # add users
         alice: models2.User = models2.User.insert({"name": "Alice"})
         bob: models2.User = models2.User.insert({"name": "Bob"})
-        bob.friends
 
         # add avatars
         alice.avatar().secondary = models2.Avatar.insert({

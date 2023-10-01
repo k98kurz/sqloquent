@@ -20,5 +20,5 @@ autodox -include_dunder -exclude_name=traceback,Protocol,runtime_checkable,annot
 # dox sqloquent.tools
 
 ```bash
-autodox -exclude_name=SqliteModel,DeletedModel,Attachment,MigrationProtocol,ModelProtocol,Migration,Table,datetime,module,NoneType,UnionType,tert,vert,tressa,isdir,isfile,get_args,listdir,environ,argv,Any,Type sqloquent.tools > tools.md
+autodox -exclude_name=SqlModel,DeletedModel,HashedModel,Attachment,MigrationProtocol,ModelProtocol,Migration,Table,datetime,module,NoneType,UnionType,tert,vert,tressa,isdir,isfile,get_args,listdir,environ,argv,Any,Type sqloquent.tools > tools.md
 ```
