@@ -28,7 +28,7 @@ class Relation:
     secondary_to_remove: list[ModelProtocol]
     primary: ModelProtocol
     secondary: ModelProtocol|tuple[ModelProtocol]
-    inverse: Optional[Relation|list[Relation]]
+    # inverse: Optional[Relation|list[Relation]]
     _primary: Optional[ModelProtocol]
     _secondary: Optional[ModelProtocol]
 
@@ -41,7 +41,7 @@ class Relation:
         secondary_to_remove: list[ModelProtocol] = [],
         primary: ModelProtocol = None,
         secondary: ModelProtocol|tuple[ModelProtocol] = None,
-        inverse: Optional[Relation] = None
+        # inverse: Optional[Relation] = None
     ) -> None:
         self._primary = None
         self._secondary = None
@@ -53,7 +53,7 @@ class Relation:
         self.secondary_to_remove = secondary_to_remove
         self.primary = primary
         self.secondary = secondary
-        self.inverse = inverse
+        # self.inverse = inverse
 
     @staticmethod
     def single_model_precondition(model) -> None:
@@ -294,12 +294,12 @@ class HasOne(Relation):
         self.secondary_to_add = []
         self.secondary_to_remove = []
 
-        if hasattr(self, 'inverse') and self.inverse:
-            self.inverse.secondary = self.primary
-            self.inverse.primary_to_add = None
-            self.inverse.primary_to_remove = None
-            self.inverse.secondary_to_add = []
-            self.inverse.secondary_to_remove = []
+        # if hasattr(self, 'inverse') and self.inverse:
+        #     self.inverse.secondary = self.primary
+        #     self.inverse.primary_to_add = None
+        #     self.inverse.primary_to_remove = None
+        #     self.inverse.secondary_to_add = []
+        #     self.inverse.secondary_to_remove = []
 
     def reload(self) -> HasOne:
         """Reload the relation from the database. Return self in monad pattern."""
@@ -352,7 +352,8 @@ class HasOne(Relation):
 
         class HasOneWrapped(self.secondary_class):
             def __call__(self) -> Relation:
-                return self.relations[f'{cache_key}_inverse']
+                # return self.relations[f'{cache_key}_inverse']
+                return self.relations[cache_key]
             def __bool__(self) -> bool:
                 return len(self.data.keys()) > 0
 
@@ -385,13 +386,15 @@ class HasOne(Relation):
                     self.relations[cache_key].primary = self
 
                 empty.relations = {}
-                empty.relations[f'{cache_key}_inverse'] = self.relations[cache_key]
+                # empty.relations[f'{cache_key}_inverse'] = self.relations[cache_key]
+                empty.relations[cache_key] = self.relations[cache_key]
                 return empty
 
             model = HasOneWrapped(self.relations[cache_key].secondary.data)
             if hasattr(self.relations[cache_key].secondary, 'relations'):
                 model.relations = {
-                    f"{cache_key}_inverse": self.relations[cache_key]
+                    # f"{cache_key}_inverse": self.relations[cache_key]
+                    cache_key: self.relations[cache_key]
                 }
 
             return model
@@ -408,15 +411,16 @@ class HasOne(Relation):
 
             self.relations[cache_key].secondary = model
 
-            if hasattr(relation, 'inverse') and relation.inverse:
-                if not hasattr(self.relations[cache_key], 'inverse') or \
-                    not hasattr(self.relations[cache_key].inverse, 'copied'):
-                    self.relations[cache_key].inverse = deepcopy(relation.inverse)
-                    self.relations[cache_key].inverse.copied = True
-                self.relations[cache_key].inverse.primary = model
-                self.relations[cache_key].inverse.secondary = self
+            # if hasattr(relation, 'inverse') and relation.inverse:
+            #     if not hasattr(self.relations[cache_key], 'inverse') or \
+            #         not hasattr(self.relations[cache_key].inverse, 'copied'):
+            #         self.relations[cache_key].inverse = deepcopy(relation.inverse)
+            #         self.relations[cache_key].inverse.copied = True
+            #     self.relations[cache_key].inverse.primary = model
+            #     self.relations[cache_key].inverse.secondary = self
 
-            model.relations[f'{cache_key}_inverse'] = self.relations[cache_key]
+            # model.relations[f'{cache_key}_inverse'] = self.relations[cache_key]
+            model.relations[cache_key] = self.relations[cache_key]
 
         return secondary
 
@@ -528,20 +532,20 @@ class HasMany(HasOne):
         self.secondary_to_add = []
         self.secondary_to_remove = []
 
-        if hasattr(self, 'inverse') and type(self.inverse) is list:
-            for inverse in self.inverse:
-                inverse.secondary = self.primary
-                inverse.primary_to_add = None
-                inverse.primary_to_remove = None
-                inverse.secondary_to_add = []
-                inverse.secondary_to_remove = []
+        # if hasattr(self, 'inverse') and type(self.inverse) is list:
+        #     for inverse in self.inverse:
+        #         inverse.secondary = self.primary
+        #         inverse.primary_to_add = None
+        #         inverse.primary_to_remove = None
+        #         inverse.secondary_to_add = []
+        #         inverse.secondary_to_remove = []
 
-        if hasattr(self, 'inverse') and isinstance(self.inverse, Relation):
-            self.inverse.secondary = self.primary
-            self.inverse.primary_to_add = None
-            self.inverse.primary_to_remove = None
-            self.inverse.secondary_to_add = []
-            self.inverse.secondary_to_remove = []
+        # if hasattr(self, 'inverse') and isinstance(self.inverse, Relation):
+        #     self.inverse.secondary = self.primary
+        #     self.inverse.primary_to_add = None
+        #     self.inverse.primary_to_remove = None
+        #     self.inverse.secondary_to_add = []
+        #     self.inverse.secondary_to_remove = []
 
     def reload(self) -> HasMany:
         """Reload the relation from the database. Return self in monad pattern."""
@@ -647,13 +651,13 @@ class HasMany(HasOne):
                  'models must be list[ModelProtocol] or tuple[ModelProtocol]')
             self.relations[cache_key].secondary = models
 
-            if hasattr(relation, 'inverse') and relation.inverse:
-                self.relations[cache_key].inverse = []
-                for model in models:
-                    inverse = deepcopy(relation.inverse)
-                    inverse.primary = model
-                    inverse.secondary = self
-                    self.relations[cache_key].inverse.append(inverse)
+            # if hasattr(relation, 'inverse') and relation.inverse:
+            #     self.relations[cache_key].inverse = []
+            #     for model in models:
+            #         inverse = deepcopy(relation.inverse)
+            #         inverse.primary = model
+            #         inverse.secondary = self
+            #         self.relations[cache_key].inverse.append(inverse)
 
         return secondary
 
@@ -690,11 +694,11 @@ class BelongsTo(HasOne):
         self.secondary_to_add = []
         self.secondary_to_remove = []
 
-        if hasattr(self, 'inverse') and self.inverse:
-            self.inverse.primary_to_add = None
-            self.inverse.primary_to_remove = None
-            self.inverse.secondary_to_add = []
-            self.inverse.secondary_to_remove = []
+        # if hasattr(self, 'inverse') and self.inverse:
+        #     self.inverse.primary_to_add = None
+        #     self.inverse.primary_to_remove = None
+        #     self.inverse.secondary_to_add = []
+        #     self.inverse.secondary_to_remove = []
 
     def reload(self) -> BelongsTo:
         """Reload the relation from the database. Return self in monad pattern."""
@@ -743,7 +747,7 @@ class BelongsTo(HasOne):
 
         class BelongsToWrapped(self.secondary_class):
             def __call__(self) -> Relation:
-                return self.relations[f'{cache_key}_inverse']
+                return self.relations[f'{cache_key}']
             def __bool__(self) -> bool:
                 return len(self.data.keys()) > 0
 
@@ -776,13 +780,13 @@ class BelongsTo(HasOne):
                     self.relations[cache_key].primary = self
 
                 empty.relations = {}
-                empty.relations[f'{cache_key}_inverse'] = self.relations[cache_key]
+                empty.relations[f'{cache_key}'] = self.relations[cache_key]
                 return empty
 
             model = BelongsToWrapped(self.relations[cache_key].secondary.data)
             if hasattr(self.relations[cache_key].secondary, 'relations'):
                 model.relations = {
-                    f"{cache_key}_inverse": self.relations[cache_key]
+                    f"{cache_key}": self.relations[cache_key]
                 }
             return model
 
@@ -795,15 +799,15 @@ class BelongsTo(HasOne):
 
             self.relations[cache_key].secondary = model
 
-            if hasattr(relation, 'inverse') and relation.inverse:
-                self.relations[cache_key].inverse = deepcopy(relation.inverse)
-                self.relations[cache_key].inverse.primary = model
-                if isinstance(relation.inverse, HasMany):
-                    self.relations[cache_key].inverse.secondary = [self]
-                else:
-                    self.relations[cache_key].inverse.secondary = self
+            # if hasattr(relation, 'inverse') and relation.inverse:
+            #     self.relations[cache_key].inverse = deepcopy(relation.inverse)
+            #     self.relations[cache_key].inverse.primary = model
+            #     if isinstance(relation.inverse, HasMany):
+            #         self.relations[cache_key].inverse.secondary = [self]
+            #     else:
+            #         self.relations[cache_key].inverse.secondary = self
 
-            model.relations[f'{cache_key}_inverse'] = self.relations[cache_key]
+            # model.relations[f'{cache_key}_inverse'] = self.relations[cache_key]
 
         return secondary
 
@@ -961,7 +965,7 @@ class BelongsToMany(Relation):
                 item.data[self.secondary_class.id_column]
                 for item in already_exists
             ]
-            query_builder.reset().insert_many([
+            self.pivot.insert_many([
                 {
                     self.primary_id_column: primary_id,
                     self.secondary_id_column: item.data[item.id_column]
@@ -975,12 +979,12 @@ class BelongsToMany(Relation):
         self.secondary_to_add = []
         self.secondary_to_remove = []
 
-        if hasattr(self, 'inverse') and self.inverse and len(self.inverse):
-            for inverse in self.inverse:
-                inverse.primary_to_add = None
-                inverse.primary_to_remove = None
-                inverse.secondary_to_add = []
-                inverse.secondary_to_remove = []
+        # if hasattr(self, 'inverse') and self.inverse and len(self.inverse):
+        #     for inverse in self.inverse:
+        #         inverse.primary_to_add = None
+        #         inverse.primary_to_remove = None
+        #         inverse.secondary_to_add = []
+        #         inverse.secondary_to_remove = []
 
     def reload(self) -> BelongsToMany:
         """Reload the relation from the database. Return self in monad pattern."""
@@ -1102,13 +1106,13 @@ class BelongsToMany(Relation):
             """
             self.relations[cache_key].secondary = models
 
-            if hasattr(relation, 'inverse') and relation.inverse:
-                self.relations[cache_key].inverse = []
-                for model in models:
-                    inverse = deepcopy(relation.inverse)
-                    inverse.primary = model
-                    inverse.secondary = [self]
-                    self.relations[cache_key].inverse.append(inverse)
+            # if hasattr(relation, 'inverse') and relation.inverse:
+            #     self.relations[cache_key].inverse = []
+            #     for model in models:
+            #         inverse = deepcopy(relation.inverse)
+            #         inverse.primary = model
+            #         inverse.secondary = [self]
+            #         self.relations[cache_key].inverse.append(inverse)
 
         return secondary
 
@@ -1122,7 +1126,7 @@ def has_one(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol],
         foreign_id_column = _get_id_column(cls)
 
     relation = HasOne(foreign_id_column, primary_class=cls, secondary_class=owned_model)
-    relation.inverse = BelongsTo(foreign_id_column, primary_class=owned_model, secondary_class=cls)
+    # relation.inverse = BelongsTo(foreign_id_column, primary_class=owned_model, secondary_class=cls)
     return relation.create_property()
 
 def has_many(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol],
@@ -1131,7 +1135,7 @@ def has_many(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol],
         foreign_id_column = _get_id_column(cls)
 
     relation = HasMany(foreign_id_column, primary_class=cls, secondary_class=owned_model)
-    relation.inverse = BelongsTo(foreign_id_column, primary_class=owned_model, secondary_class=cls)
+    # relation.inverse = BelongsTo(foreign_id_column, primary_class=owned_model, secondary_class=cls)
     return relation.create_property()
 
 def belongs_to(cls: Type[ModelProtocol], owner_model: Type[ModelProtocol],
@@ -1140,10 +1144,10 @@ def belongs_to(cls: Type[ModelProtocol], owner_model: Type[ModelProtocol],
         foreign_id_column = _get_id_column(owner_model)
 
     relation = BelongsTo(foreign_id_column, primary_class=cls, secondary_class=owner_model)
-    if inverse_is_many:
-        relation.inverse = HasMany(foreign_id_column, primary_class=owner_model, secondary_class=cls)
-    else:
-        relation.inverse = HasOne(foreign_id_column, primary_class=owner_model, secondary_class=cls)
+    # if inverse_is_many:
+    #     relation.inverse = HasMany(foreign_id_column, primary_class=owner_model, secondary_class=cls)
+    # else:
+    #     relation.inverse = HasOne(foreign_id_column, primary_class=owner_model, secondary_class=cls)
     return relation.create_property()
 
 def belongs_to_many(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
@@ -1156,7 +1160,7 @@ def belongs_to_many(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
 
     relation = BelongsToMany(pivot, primary_id_column, secondary_id_column,
                              primary_class=cls, secondary_class=other_model)
-    inverse = BelongsToMany(pivot, secondary_id_column, primary_id_column,
-                            primary_class=other_model, secondary_class=cls)
-    relation.inverse = inverse
+    # inverse = BelongsToMany(pivot, secondary_id_column, primary_id_column,
+    #                         primary_class=other_model, secondary_class=cls)
+    # relation.inverse = inverse
     return relation.create_property()
