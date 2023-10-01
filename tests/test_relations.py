@@ -343,65 +343,6 @@ class TestRelations(unittest.TestCase):
         assert owner1.owned.data['id'] == owned1.data['id']
         assert owner2.owned.data['id'] == owned2.data['id']
 
-    # def test_has_one_function_sets_inverse(self):
-    #     self.OwnerModel.owned = relations.has_one(
-    #         self.OwnerModel,
-    #         self.OwnedModel,
-    #         'owner_id'
-    #     )
-
-    #     owner = self.OwnerModel.insert({'details': '321'})
-    #     owned = self.OwnedModel.insert({'details': '321'})
-    #     owner.owned = owned
-
-    #     assert hasattr(owner.owned(), 'inverse')
-    #     assert isinstance(owner.owned().inverse, relations.BelongsTo)
-
-    # def test_has_one_function_inverse_sets_primary_and_secondary(self):
-    #     self.OwnerModel.owned = relations.has_one(
-    #         self.OwnerModel,
-    #         self.OwnedModel,
-    #         'owner_id'
-    #     )
-    #     self.OwnedModel.owner = relations.belongs_to(
-    #         self.OwnedModel,
-    #         self.OwnerModel,
-    #         'owner_id'
-    #     )
-
-    #     owner = self.OwnerModel.insert({'details': '321'})
-    #     owned = self.OwnedModel.insert({'details': '321'})
-    #     owner.owned = owned
-
-    #     assert owner.owned().inverse.primary.data == owner.owned.data
-    #     assert owner.owned().inverse.secondary.data == owner.data
-    #     assert hasattr(owned.owner, 'data') and 'id' in owned.owner.data
-
-    # def test_HasOne_changes_affect_inverse(self):
-    #     self.OwnerModel.owned = relations.has_one(
-    #         self.OwnerModel,
-    #         self.OwnedModel,
-    #         'owner_id'
-    #     )
-
-    #     owner = self.OwnerModel.insert({'details': '321'})
-    #     owned = self.OwnedModel.insert({'details': '321'})
-    #     owned2 = self.OwnedModel.insert({'details': '123'})
-    #     owner.owned = owned
-    #     assert len(owner.owned().inverse.secondary_to_add)
-    #     owner.owned().save()
-
-    #     assert owner.owned().inverse.primary.data == owner.owned.data
-    #     assert owner.owned.data == owned.data
-    #     assert not len(owner.owned().inverse.secondary_to_add)
-
-    #     owner.owned = owned2
-    #     assert len(owner.owned().secondary_to_add)
-    #     assert len(owner.owned().inverse.secondary_to_add)
-    #     owner.owned().save()
-    #     assert not len(owner.owned().secondary_to_add)
-    #     assert not len(owner.owned().inverse.secondary_to_add)
-
     def test_HasOne_reload_raises_ValueError_for_empty_relation(self):
         hasone = relations.HasOne(
             'owner_id',
@@ -640,61 +581,6 @@ class TestRelations(unittest.TestCase):
         assert owner1.owned[0].data['id'] == owned1.data['id']
         assert owner2.owned[0].data['id'] == owned2.data['id']
 
-    # def test_has_many_function_sets_inverse(self):
-    #     self.OwnerModel.owned = relations.has_many(
-    #         self.OwnerModel,
-    #         self.OwnedModel,
-    #         'owner_id'
-    #     )
-
-    #     owner = self.OwnerModel.insert({'details': '321'})
-    #     owned = self.OwnedModel.insert({'details': '321'})
-    #     owner.owned = [owned]
-
-    #     assert hasattr(owner.owned(), 'inverse')
-    #     assert isinstance(owner.owned().inverse, list)
-    #     for inverse in owner.owned().inverse:
-    #         assert isinstance(inverse, relations.BelongsTo)
-
-    # def test_has_many_function_inverse_sets_primary_and_secondary(self):
-    #     self.OwnerModel.owned = relations.has_many(
-    #         self.OwnerModel,
-    #         self.OwnedModel,
-    #         'owner_id'
-    #     )
-
-    #     owner = self.OwnerModel.insert({'details': '321'})
-    #     owned = self.OwnedModel.insert({'details': '321'})
-    #     owner.owned = [owned]
-
-    #     assert owner.owned().inverse[0].primary.data == owner.owned[0].data
-    #     assert owner.owned().inverse[0].secondary.data == owner.data
-
-    # def test_HasMany_changes_affect_inverses(self):
-    #     self.OwnerModel.owned = relations.has_many(
-    #         self.OwnerModel,
-    #         self.OwnedModel,
-    #         'owner_id'
-    #     )
-
-    #     owner = self.OwnerModel.insert({'details': '321'})
-    #     owned = self.OwnedModel.insert({'details': '321'})
-    #     owned2 = self.OwnedModel.insert({'details': '123'})
-    #     owner.owned = [owned]
-    #     assert len(owner.owned().inverse[0].secondary_to_add)
-    #     owner.owned().save()
-
-    #     assert owner.owned().inverse[0].primary.data == owner.owned[0].data
-    #     assert owner.owned[0].data == owned.data
-    #     assert not len(owner.owned().inverse[0].secondary_to_add)
-
-    #     owner.owned = [owned2]
-    #     assert len(owner.owned().secondary_to_add)
-    #     assert len(owner.owned().inverse[0].secondary_to_add)
-    #     owner.owned().save()
-    #     assert not len(owner.owned().secondary_to_add)
-    #     assert not len(owner.owned().inverse[0].secondary_to_add)
-
     def test_HasMany_reload_raises_ValueError_for_empty_relation(self):
         hasmany = relations.HasMany(
             'owner_id',
@@ -924,106 +810,9 @@ class TestRelations(unittest.TestCase):
         owned2.owner = owner2
         owned2.owner().save()
 
-        # assert owner1.relations != owner2.relations
         assert owned1.owner() is not owned2.owner()
         assert owned1.owner.data['id'] == owner1.data['id']
         assert owned2.owner.data['id'] == owner2.data['id']
-
-    # def test_belongs_to_function_sets_inverse(self):
-    #     self.OwnedModel.owner = relations.belongs_to(
-    #         self.OwnedModel,
-    #         self.OwnerModel,
-    #         'owner_id'
-    #     )
-
-    #     owner = self.OwnerModel.insert({'details': '321'})
-    #     owned = self.OwnedModel.insert({'details': '321'})
-    #     owned.owner = owner
-
-    #     assert hasattr(owned.owner(), 'inverse')
-    #     assert isinstance(owned.owner().inverse, relations.HasOne)
-
-    #     self.OwnedModel.owner = relations.belongs_to(
-    #         self.OwnedModel,
-    #         self.OwnerModel,
-    #         'owner_id',
-    #         True
-    #     )
-
-    #     owner = self.OwnerModel.insert({'details': '123'})
-    #     owned = self.OwnedModel.insert({'details': '123'})
-    #     owned.owner = owner
-
-    #     assert hasattr(owned.owner(), 'inverse')
-    #     assert isinstance(owned.owner().inverse, relations.HasMany)
-
-    # def test_belongs_to_function_inverse_sets_primary_and_secondary(self):
-    #     self.OwnedModel.owner = relations.belongs_to(
-    #         self.OwnedModel,
-    #         self.OwnerModel,
-    #         'owner_id'
-    #     )
-
-    #     owner = self.OwnerModel.insert({'details': '321'})
-    #     owned = self.OwnedModel.insert({'details': '321'})
-    #     owned.owner = owner
-
-    #     assert owned.owner().inverse.primary.data == owned.owner.data
-    #     assert owned.owner().inverse.secondary.data == owned.data
-
-    # def test_BelongsTo_changes_affect_inverses(self):
-    #     self.OwnedModel.owner = relations.belongs_to(
-    #         self.OwnedModel,
-    #         self.OwnerModel,
-    #         'owner_id'
-    #     )
-
-    #     owner = self.OwnerModel.insert({'details': '321'})
-    #     owner2 = self.OwnerModel.insert({'details': '123'})
-    #     owned = self.OwnedModel.insert({'details': '321'})
-    #     owned.owner = owner
-    #     assert len(owned.owner().inverse.secondary_to_add)
-    #     owned.owner().save()
-
-    #     assert owned.owner().inverse.primary.data == owned.owner.data
-    #     assert owned.owner.data == owner.data
-    #     assert not len(owned.owner().inverse.secondary_to_add)
-
-    #     owned.owner = owner2
-    #     assert owned.owner().inverse.primary.data == owner2.data
-    #     assert len(owned.owner().secondary_to_add)
-    #     assert len(owned.owner().inverse.secondary_to_add)
-    #     owned.owner().save()
-    #     assert not len(owned.owner().secondary_to_add)
-    #     assert not len(owned.owner().inverse.secondary_to_add)
-
-    #     # now test when inverse is HasMany
-    #     self.OwnedModel.owner = relations.belongs_to(
-    #         self.OwnedModel,
-    #         self.OwnerModel,
-    #         'owner_id',
-    #         True
-    #     )
-
-    #     owner = self.OwnerModel.insert({'details': '321'})
-    #     owner2 = self.OwnerModel.insert({'details': '123'})
-    #     owned = self.OwnedModel.insert({'details': '321'})
-    #     owned.owner = owner
-    #     assert len(owned.owner().inverse.secondary_to_add)
-    #     owned.owner().save()
-
-    #     assert owned.owner().inverse.primary.data == owned.owner.data
-    #     assert owned.owner.data == owner.data
-    #     assert not len(owned.owner().inverse.secondary_to_add)
-    #     assert isinstance(owned.owner().inverse.secondary, tuple)
-
-    #     owned.owner = owner2
-    #     assert owned.owner().inverse.primary.data == owner2.data
-    #     assert len(owned.owner().secondary_to_add)
-    #     assert len(owned.owner().inverse.secondary_to_add)
-    #     owned.owner().save()
-    #     assert not len(owned.owner().secondary_to_add)
-    #     assert not len(owned.owner().inverse.secondary_to_add)
 
     def test_BelongsTo_reload_raises_ValueError_for_empty_relation(self):
         belongsto = relations.BelongsTo(
@@ -1294,68 +1083,6 @@ class TestRelations(unittest.TestCase):
         assert owned1.owners() is not owned2.owners()
         assert owned1.owners[0].data['id'] == owner1.data['id']
         assert owned2.owners[0].data['id'] == owner2.data['id']
-
-    # def test_belongs_to_many_function_sets_inverse(self):
-    #     self.OwnerModel.owned = relations.belongs_to_many(
-    #         self.OwnerModel,
-    #         self.OwnedModel,
-    #         Pivot,
-    #         'first_id',
-    #         'second_id'
-    #     )
-
-    #     owner = self.OwnerModel.insert({'details': '321'})
-    #     owned = self.OwnedModel.insert({'details': '321'})
-    #     owner.owned = [owned]
-
-    #     assert hasattr(owner.owned(), 'inverse')
-    #     assert isinstance(owner.owned().inverse, list)
-    #     for inverse in owner.owned().inverse:
-    #         assert isinstance(inverse, relations.BelongsToMany)
-
-    # def test_belongs_to_many_function_inverse_sets_primary_and_secondary(self):
-    #     self.OwnerModel.owned = relations.belongs_to_many(
-    #         self.OwnerModel,
-    #         self.OwnedModel,
-    #         Pivot,
-    #         'first_id',
-    #         'second_id'
-    #     )
-
-    #     owner = self.OwnerModel.insert({'details': '321'})
-    #     owned = self.OwnedModel.insert({'details': '321'})
-    #     owner.owned = [owned]
-
-    #     assert owner.owned().inverse[0].primary.data == owner.owned[0].data
-    #     assert owner.owned().inverse[0].secondary[0].data == owner.data
-
-    # def test_BelongsToMany_changes_affect_inverses(self):
-    #     self.OwnerModel.owned = relations.belongs_to_many(
-    #         self.OwnerModel,
-    #         self.OwnedModel,
-    #         Pivot,
-    #         'first_id',
-    #         'second_id'
-    #     )
-
-    #     owner = self.OwnerModel.insert({'details': '321'})
-    #     owned = self.OwnedModel.insert({'details': '321'})
-    #     owned2 = self.OwnedModel.insert({'details': '123'})
-    #     owner.owned = [owned]
-    #     assert len(owner.owned().inverse[0].secondary_to_add)
-    #     owner.owned().save()
-
-    #     assert owner.owned().inverse[0].primary.data == owner.owned[0].data
-    #     assert owner.owned[0].data == owned.data
-    #     assert not len(owner.owned().inverse[0].secondary_to_add)
-
-    #     owner.owned = [owned2]
-    #     assert owner.owned().inverse[0].primary.data == owned2.data
-    #     assert len(owner.owned().secondary_to_add)
-    #     assert len(owner.owned().inverse[0].secondary_to_add)
-    #     owner.owned().save()
-    #     assert not len(owner.owned().secondary_to_add)
-    #     assert not len(owner.owned().inverse[0].secondary_to_add)
 
     def test_BelongsToMany_reload_raises_ValueError_for_empty_relation(self):
         belongstomany = relations.BelongsToMany(
