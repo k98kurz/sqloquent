@@ -1,7 +1,7 @@
 from context import tools
 from decimal import Decimal
 from genericpath import isdir, isfile
-from integration_vectors import models
+from integration_vectors import models, models2
 from secrets import token_hex
 import os
 import sqlite3
@@ -26,6 +26,10 @@ class TestIntegration(unittest.TestCase):
         models.Identity.connection_info = DB_FILEPATH
         models.Ledger.connection_info = DB_FILEPATH
         models.Transaction.connection_info = DB_FILEPATH
+        models2.User.connection_info = DB_FILEPATH
+        models2.Avatar.connection_info = DB_FILEPATH
+        models2.Post.connection_info = DB_FILEPATH
+        models2.Friendship.connection_info = DB_FILEPATH
         return super().setUpClass()
 
     def setUp(self):
@@ -61,8 +65,6 @@ class TestIntegration(unittest.TestCase):
             src = tools.make_migration_from_model(name, f"{MODELS_PATH}/{name}.py")
             with open(f"{MIGRATIONS_PATH}/{name}_migration.py", 'w') as f:
                 f.write(src)
-                # if name == 'Account':
-                #     print(f'/***Account migration**/\n{src}\n')
 
         # run migrations
         tables = ['accounts', 'correspondences', 'identities', 'ledgers', 'entries', 'transactions']
@@ -281,6 +283,62 @@ class TestIntegration(unittest.TestCase):
         assert len(bledger.transactions(True)) == 2
         assert len(txn.ledgers(True)) == 2
         assert len(txn.entries(True)) == 4
+
+    def test_integration_e2e_models2(self):
+        # generate migrations
+        names = ['User', 'Avatar', 'Post', 'Friendship']
+        for name in names:
+            src = tools.make_migration_from_model(name, f"{MODELS_PATH}2.py")
+            with open(f"{MIGRATIONS_PATH}/{name}_migration.py", 'w') as f:
+                f.write(src)
+
+        # run migrations
+        tables = ['users', 'avatars', 'posts', 'friendships']
+        assert not self.table_exists('migrations')
+        assert self.tables_do_not_exist(tables)
+        tools.automigrate(MIGRATIONS_PATH, DB_FILEPATH)
+        assert self.table_exists('migrations')
+        assert self.tables_exist(tables)
+
+        # add users
+        alice: models2.User = models2.User.insert({"name": "Alice"})
+        bob: models2.User = models2.User.insert({"name": "Bob"})
+        bob.friends
+
+        # add avatars
+        alice.avatar().secondary = models2.Avatar.insert({
+            "url": "http://www.perseus.tufts.edu/img/newbanner.png",
+        })
+        alice.avatar().save()
+        bob.avatar = models2.Avatar.insert({
+            "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/90" +
+            "/Walrus_(Odobenus_rosmarus)_on_Svalbard.jpg/1200px-Walrus_(Odobe" +
+            "nus_rosmarus)_on_Svalbard.jpg",
+        })
+        bob.avatar().save()
+
+        # add a friendship
+        bob.friends = [alice]
+        bob.friends().save()
+        bob.friendships().reload()
+        alice.friendships().reload()
+        alice.friends().reload()
+        assert len(bob.friendships) == 1
+        assert len(alice.friendships) == 1
+        assert alice.friends[0].id == bob.id
+
+        # add posts
+        assert alice.posts().query().count() == 0
+        alice.posts = [
+            models2.Post.insert({"content": "hello world"}),
+            models2.Post.insert({"content": "satan is a lawyer"}),
+        ]
+        alice.posts().save()
+        assert alice.posts().query().count() == 2
+        assert bob.posts().query().count() == 0
+        bob.posts = [models2.Post.insert({"content": "yellow submarine"})]
+        bob.posts().save()
+        assert bob.posts().query().count() == 1
 
     def table_exists(self, name: str) -> bool:
         q = f"select name from sqlite_master where type='table' and name='{name}'"
