@@ -14,7 +14,7 @@ autodox -include_private sqloquent > dox.md
 # dox sqloquent.interfaces
 
 ```bash
-autodox -include_private -exclude_name=traceback,Protocol,runtime_checkable,annotations,Any,Callable,Generator,Iterable,Optional,Type,Union sqloquent.interfaces > interfaces.md
+autodox -include_dunder -exclude_name=traceback,Protocol,runtime_checkable,annotations,Any,Callable,Generator,Iterable,Optional,Type,Union sqloquent.interfaces > interfaces.md
 ```
 
 # dox sqloquent.tools

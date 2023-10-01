@@ -814,6 +814,7 @@ class TestClasses(unittest.TestCase):
         result = sqb.execute_raw("insert into example (id, name) values ('123', '321')")
         assert type(result) is tuple, 'execute_raw must return tuple'
         assert result[0] == 1, 'execute_raw returns wrong rowcount'
+        assert type(result[1]) is list
         result = sqb.execute_raw("insert into example (id, name) values ('321', '123'), ('abc', 'cba')")
         assert result[0] == 2, 'execute_raw returns wrong rowcount'
         assert sqb.count() == 3, 'count() must return 3'

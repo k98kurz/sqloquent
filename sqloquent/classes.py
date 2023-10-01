@@ -746,9 +746,9 @@ class SqlQueryBuilder:
 
         return sql
 
-    def execute_raw(self, sql: str) -> tuple[int, Any]:
-        """Execute raw SQL against the database. Return rowcount and fetchall
-            results.
+    def execute_raw(self, sql: str) -> tuple[int, list[tuple[Any]]]:
+        """Execute raw SQL against the database. Return rowcount and
+            fetchall results.
         """
         tert(type(sql) is str, 'sql must be str')
         with self.context_manager(self.connection_info) as cursor:

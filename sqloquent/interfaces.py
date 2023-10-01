@@ -242,7 +242,7 @@ class QueryBuilderProtocol(Protocol):
         """Returns a fresh instance using the configured model."""
         ...
 
-    def insert(self, data: dict) -> Optional[ModelProtocol]:
+    def insert(self, data: dict) -> Optional[ModelProtocol|RowProtocol]:
         """Insert a record and return a model instance."""
         ...
 
@@ -250,7 +250,7 @@ class QueryBuilderProtocol(Protocol):
         """Insert a batch of records and return the number inserted."""
         ...
 
-    def find(self, id: str) -> Optional[ModelProtocol]:
+    def find(self, id: str) -> Optional[ModelProtocol|RowProtocol]:
         """Find a record by its id and return it."""
         ...
 
@@ -279,15 +279,15 @@ class QueryBuilderProtocol(Protocol):
         """Returns the number of records matching the query."""
         ...
 
-    def take(self, number: int) -> Optional[list[ModelProtocol]]:
+    def take(self, number: int) -> list[ModelProtocol]|list[JoinedModelProtocol]|list[RowProtocol]:
         """Takes the specified number of rows."""
         ...
 
-    def chunk(self, number: int) -> Generator[list[ModelProtocol], None, None]:
+    def chunk(self, number: int) -> Generator[list[ModelProtocol]|list[JoinedModelProtocol]|list[RowProtocol], None, None]:
         """Chunk all matching rows the specified number of rows at a time."""
         ...
 
-    def first(self) -> Optional[ModelProtocol]:
+    def first(self) -> Optional[ModelProtocol|RowProtocol]:
         """Run the query on the datastore and return the first result."""
         ...
 
@@ -305,7 +305,7 @@ class QueryBuilderProtocol(Protocol):
         """Return the sql where clause from the clauses and params."""
         ...
 
-    def execute_raw(self, sql: str) -> tuple[int, Any]:
+    def execute_raw(self, sql: str) -> tuple[int, list[tuple[Any]]]:
         """Execute raw SQL against the database. Return rowcount and fetchall
             results.
         """
