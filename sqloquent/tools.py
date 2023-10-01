@@ -443,7 +443,7 @@ def run_cli() -> None:
         path = argv[2]
         apply, undo = examine(path)
         print("/**** generated up/apply sql ****/\n" + apply)
-        print("\n/*** generated down/undo sql ****/\n" + undo)
+        print("\n/**** generated down/undo sql ****/\n" + undo)
     elif mode == "automigrate":
         path = argv[2]
         automigrate(path, connection_string)
