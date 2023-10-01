@@ -203,12 +203,12 @@ Return Rows when running a non-joined GROUP BY query.
 
 Returns the number of records matching the query.
 
-##### `take(limit: int) -> Optional[list[SqlModel]]:`
+##### `take(limit: int) -> list[SqlModel] | list[JoinedModel] | list[Row]:`
 
 Takes the specified number of rows. Raises TypeError or ValueError for invalid
 limit.
 
-##### `chunk(number: int) -> Generator[list[SqlModel], None, None]:`
+##### `chunk(number: int) -> Generator[list[SqlModel] | list[JoinedModel] | list[Row], None, None]:`
 
 Chunk all matching rows the specified number of rows at a time. Raises TypeError
 or ValueError for invalid number.
@@ -231,7 +231,7 @@ records.
 
 Return the sql where clause from the clauses and params.
 
-##### `execute_raw(sql: str) -> tuple[int, Any]:`
+##### `execute_raw(sql: str) -> tuple[int, list[tuple[Any]]]:`
 
 Execute raw SQL against the database. Return rowcount and fetchall results.
 
@@ -245,7 +245,7 @@ Run the query on the datastore and return a list of joined results. Used by the
 Run the query on the datastore and return a list of results without joins. Used
 by the `get` method when appropriate. Do not call this method manually.
 
-##### `_chunk(number: int) -> Generator[list[SqlModel], None, None]:`
+##### `_chunk(number: int) -> Generator[list[SqlModel] | list[JoinedModel] | list[Row], None, None]:`
 
 Create the generator for chunking.
 
@@ -539,7 +539,7 @@ Sets the number of rows to skip.
 
 Returns a fresh instance using the configured model.
 
-##### `insert(data: dict) -> Optional[ModelProtocol]:`
+##### `insert(data: dict) -> Optional[ModelProtocol | RowProtocol]:`
 
 Insert a record and return a model instance.
 
@@ -547,7 +547,7 @@ Insert a record and return a model instance.
 
 Insert a batch of records and return the number inserted.
 
-##### `find(id: str) -> Optional[ModelProtocol]:`
+##### `find(id: str) -> Optional[ModelProtocol | RowProtocol]:`
 
 Find a record by its id and return it.
 
@@ -573,15 +573,15 @@ Return Rows when running a non-joined GROUP BY query.
 
 Returns the number of records matching the query.
 
-##### `take(number: int) -> Optional[list[ModelProtocol]]:`
+##### `take(number: int) -> list[ModelProtocol] | list[JoinedModelProtocol] | list[RowProtocol]:`
 
 Takes the specified number of rows.
 
-##### `chunk(number: int) -> Generator[list[ModelProtocol], None, None]:`
+##### `chunk(number: int) -> Generator[list[ModelProtocol] | list[JoinedModelProtocol] | list[RowProtocol], None, None]:`
 
 Chunk all matching rows the specified number of rows at a time.
 
-##### `first() -> Optional[ModelProtocol]:`
+##### `first() -> Optional[ModelProtocol | RowProtocol]:`
 
 Run the query on the datastore and return the first result.
 
@@ -598,7 +598,7 @@ records.
 
 Return the sql where clause from the clauses and params.
 
-##### `execute_raw(sql: str) -> tuple[int, Any]:`
+##### `execute_raw(sql: str) -> tuple[int, list[tuple[Any]]]:`
 
 Execute raw SQL against the database. Return rowcount and fetchall results.
 
@@ -706,7 +706,6 @@ Base class for setting up relations.
 - secondary_to_remove: list[ModelProtocol]
 - primary: ModelProtocol
 - secondary: ModelProtocol | tuple[ModelProtocol]
-- inverse: Optional[Relation | list[Relation]]
 - _primary: Optional[ModelProtocol]
 - _secondary: Optional[ModelProtocol]
 

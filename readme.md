@@ -13,6 +13,25 @@ The primary features are the `SqlQueryBuilder` and `SqlModel` base classes. The
 `SqlModel` handles encoding, persisting, reading, and decoding models that
 correspond to rows.
 
+```python
+from sqloquent import SqlQueryBuilder
+
+sqb = SqlQueryBuilder(
+    'some_table', columns=['id', 'etc'], connection_info='temp.db'
+).join('some_other_table', columns=['id', 'some_id', 'data'])
+
+# count the number of matches
+count = sqb.count()
+
+# chunk through them 1000 at a time
+for chunk in sqb.chunk(1000):
+    for joined_model in chunk:
+        ...
+
+# or just get them all
+results = sqb.get()
+```
+
 These base classes have been coupled to sqlite3 via the `SqliteQueryBuilder` and
 `SqliteModel` classes, but they can be coupled to any SQL database client. See
 the "Usage" section below for detailed instructions for the latter.
@@ -44,7 +63,7 @@ real, and numeric are supported by the migration system.
 
 ## Setup and Usage
 
-Requires Python 3.10+. Has not been tested with older Python versions.
+Requires Python 3.10+. This has not been tested with older Python versions.
 
 ### Setup
 
@@ -65,16 +84,24 @@ Connection information can be bound or injected in several places:
 - Bound to each individual model
 - Injected into the query builder
 - Bound to the query builder
-- Bound to the db context manager (see below)
+- Bound to the db context manager
 
-The higher in the list, the
+Items higher in the list will override those lower in the list. For example, if
+you set the connection_info attribute on a model class or instance, it will be
+used for interactions with the db originating from that model class or instance,
+respectively. If you set the connection_info attribute on the query builder
+class, it will be used, but if you pass it as a parameter to initialize a query
+builder, that paramter will be used instead.
 
 #### Example
 
-The most thorough example is the integration test. The model files can be found
+The most thorough examples are the integration tests. The model files for the
+first can be found
 [here](https://github.com/k98kurz/sqloquent/tree/master/tests/integration_vectors/models),
 and the test itself is
-[here](https://github.com/k98kurz/sqloquent/blob/master/tests/test_integration.py#L56).
+[here](https://github.com/k98kurz/sqloquent/blob/master/tests/test_integration.py#L61).
+
+The second one is outlined in the "Using the ORM" section below.
 
 The models were scaffolded using the CLI tool, then the details filled out in
 each. The relations were set up in the `__init__.py` file. The integration test
@@ -402,24 +429,36 @@ class SomeDBModel(SqlModel):
 
 ##### 4. Extend Class from Step 3
 
-To create models, simply extend the class from step 3, filling these attributes:
+To create models, simply extend the class from step 3, setting class annotations
+and filling these attributes:
 
 - `table: str`: the name of the table
 - `columns: tuple`: the ordered tuple of column names
 
+Model class annotations are helpful because the columns will be mapped to class
+properties, i.e. `model.data['id'] == model.id`. However, since the base class
+methods are type hinted for the base class, instance variables returned from
+class methods should be type hinted, e.g.
+`model: SomeDBModel = SomeDBModel.find(some_id)`; alternately, the methods can
+be overridden just for the type hints, and the code editor LSP should still read
+the doc block of the base class method if the child class method is left without
+a doc block.
+
 Additionally, set up any relevant relations using the ORM functions or,
-if you don't want to use the ORM, with `_{related_name}: RelatedModel`
-attributes and `{related_name}(self, reload: bool = False)` methods. Dicts
-should be encoded to comply with the database client, e.g. by using `json.dumps`
-for databases that lack a native JSON data type or for clients that require
-encoding before making the query. See the above example for using the sqlite3
-coupling.
+if you don't want to use the ORM, with `_{related_name}: SomeModel` attributes
+and `{related_name}(self, reload: bool = False)` methods. Dicts should be
+encoded to comply with the database client, e.g. by using `json.dumps` for
+databases that lack a native JSON data type or for clients that require encoding
+before making the query.
 
-##### 5. `QueryBuilder` Features
+##### 5. `SqlQueryBuilder` Features
 
-A few quick notes about `QueryBuilder` implementations, including the bundled
-`SqlQueryBuilder` and `SqliteQueryBuilder`:
+A few quick notes about `QueryBuilderProtocol` implementations, including the
+bundled `SqlQueryBuilder`:
 
+- The query builder can be used either with a model or with a table, e.g.
+`SqlQueryBuilder(SomeModel)` or `SqlQueryBuilder('some_table', columns=['id', 'etc'])`.
+If used with a table name, then columns must be specified.
 - Pagination is accomplished using the `skip(number)` and `take(number)`
 methods, or by directly setting the `limit` and `offset` attributes. The
 `offset` will only apply when `limit` is specified because that is how SQL works
@@ -429,33 +468,43 @@ generator that yields subsets with length equal to the specified number.
 - For debugging/learning purposes, the `to_sql` produces human-readable SQL.
 - The `execute_raw(sql)` method executes raw SQL and returns a tuple of
 `(int rowcount, Any results from fetchall)`.
+- If only certain columns are desired, they can be selected with `select(names)`;
+SQL functions can also be selected in this way, e.g. `select["count(*)"]`.
+- Joins can be accomplished using `join(AnotherModel, [table1_col, table2_col])`
+or `join('another_table', [table1_col, table2_col], columns=['id', 'etc])`. Note
+that if a table name is specified, then columns for the table must be provided.
 
 #### Using the Cryptographic Features
 
-If a cryptographic audit trail is desirable, use the following multiple
-inheritance + injection pattern to couple the supplied classes to the desired
-`ModelProtocol` implementation, or use the sqlite versions and change the
-connection_info attribute.
+If a cryptographic audit trail is desirable, use an inheritance pattern to
+couple the supplied classes to the desired `ModelProtocol` implementation, or
+simply change the connection_info attribute to use with sqlite3.
 
 ```python
-from sqloquent import HashedModel, DeletedSqliteModel, AttachmentSqlite
-import sqloquent
+from .dbcxm import SomeDBContextManager
+from sqloquent import HashedModel, DeletedModel, Attachment, SqlQueryBuilder
 
 env_db_file_path = 'some_file.db'
+env_connstring = 'user=admin,password=admin'
+
+# option 1: inheritance
+class CustomQueryBuilder(SqlQueryBuilder):
+    def __init__(self, model_or_table, **kwargs,):
+        return super().__init__(model_or_table, SomeDBContextManager, **kwargs)
+
+class NewModel(HashedModel, SomeDBModel):
+    connection_info = env_connstring
+    query_builder_class = CustomQueryBuilder
+
+# option 2: bind the classes
 HashedModel.connection_info = env_db_file_path
 DeletedModel.connection_info = env_db_file_path
 Attachment.connection_info = env_db_file_path
 ```
 
-This must be done exactly once. The value supplied for `connection_info` (or
-relevant configuration value for other database couplings) should be set with
-some environment configuration system, but here it is only poorly mocked.
-
-To use them with some other SQL binding, instead import `HashedModel`,
-`DeletedModel`, and `Attachment`, then subclass them and set the class attribute
-`query_builder_class` to a subclass of `SqlQueryBuilder` that sets the
-`context_manager` argument to the class implementing `DBContextManager` for the
-desired SQL database.
+The latter must be done exactly once. The value supplied for `connection_info`
+should be set with some environment configuration system, but here it is only
+poorly mocked.
 
 #### Using the ORM
 
@@ -466,17 +515,16 @@ Each `Relation` child class instance has a method `create_property` that returns
 a property that can be set on a model class:
 
 ```python
+from sqloquent import HasOne, BelongsTo
+
 class User(SqlModel):
     ...
 
 class Avatar(SqlModel):
     columns = ('id', 'url', 'user_id')
 
-User_Avatar = HasOne('user_id', User, Avatar)
-User_Avatar.inverse = BelongsTo('user_id', Post, User)
-User_Avatar.inverse.inverse = User_Avatar
-User.avatar = User_Avatar.create_propert()
-Avatar.user = User_Avatar.inverse.create_property()
+User.avatar = HasOne('user_id', User, Avatar).create_property()
+Avatar.user = BelongsTo('user_id', Avatar, User).create_property()
 ```
 
 There are also four helper functions for setting up relations between models:
@@ -485,57 +533,121 @@ are the intended way for setting up relation between models. Far friendlier way
 to use the ORM.
 
 ```python
-class User(SqlModel):
-    @property
-    def friends(self) -> list[User]:
-        friends = []
-        if hasattr(self.my_friends) and self.my_friends:
-            friends += self.my_friends
-        if hasattr(self.befriended_by) and self.befriended_by:
-            friends += self.befriended_by
-        return friends
-    @friends.setter
-    def friends(self, friends: list[User]) -> None:
-        current_friends = []
-        if hasattr(self.my_friends) and self.my_friends:
-            current_friends += self.my_friends
-        if hasattr(self.befriended_by) and self.befriended_by:
-            current_friends += self.befriended_by
+from __future__ import annotations
+from sqloquent import (
+    SqlModel, RelatedCollection, RelatedModel,
+    has_one, has_many, belongs_to, belongs_to_many,
+)
 
-        new_friends = tuple(f for f in friends if f not in current_friends)
-        if hasattr(self.my_friends):
-            self.my_friends = self.my_friends + new_friends
-        elif hasattr(self.befriended_by):
-            self.befriended_by = self.befriended_by + new_friends
+class User(SqlModel):
+    table = 'users'
+    columns = ('id', 'name')
+    friends: RelatedCollection
+    friendships: RelatedCollection
+    avatar: RelatedModel
+    posts: RelatedCollection
 
 class Avatar(SqlModel):
+    table = 'avatars'
     columns = ('id', 'url', 'user_id')
+    user: RelatedModel
 
 class Post(SqlModel):
+    table = 'posts'
     columns = ('id', 'content', 'user_id')
+    author: RelatedModel
 
-class Friendships(SqlModel):
+class Friendship(SqlModel):
+    table = 'friendships'
     columns = ('id', 'user1_id', 'user2_id')
+    user1: RelatedModel
+    user2: RelatedModel
+
+    @classmethod
+    def insert(cls, data: dict) -> Friendship | None:
+        # also set inverse relationship
+        result = super().insert(data)
+        if result:
+            super().insert({
+                **data,
+                'user1_id': data['user2_id'],
+                'user2_id': data['user1_id'],
+            })
+
+    @classmethod
+    def insert_many(cls, items: list[dict]) -> int:
+        inverse = [
+            {
+                'user1_id': item['user2_id'],
+                'user2_id': item['user1_id']
+            }
+            for item in items
+        ]
+        return super().insert_many([*items, *inverse])
+
+    def delete(self):
+        # first delete the inverse
+        self.query().equal('user1_id', self.data['user2_.id']).equal(
+            'user2_id', self.data['user1_id']
+        ).delete()
+        super().delete()
 
 User.avatar = has_one(User, Avatar)
+Avatar.user = belongs_to(Avatar, User)
+
 User.posts = has_many(User, Post)
 Post.author = belongs_to(Post, User)
-User.my_friends = belongs_to_many(User, User, Friendships, 'user1_id', 'user2_id')
-User.befriended_by = belongs_to_many(User, User, Friendships, 'user2_id', 'user1_id')
+
+User.friendships = has_many(User, Friendship, 'user1_id')
+User.friends = belongs_to_many(User, User, Friendship, 'user1_id', 'user2_id')
+
+Friendship.user1 = belongs_to(Friendship, User, 'user1_id')
+Friendship.user2 = belongs_to(Friendship, User, 'user2_id')
 ```
 
-NB: polymorphic relations are not supported. See the `Attachment` class for an
-example of how to implement polymorphism if necessary. The above example also
-shows a contrived and probably suboptimal way to have a many-to-many relation on
-a single model.
+The relations can then be used as follows:
 
-## Interfaces and Classes
+```python
+# add users
+alice: models2.User = models2.User.insert({"name": "Alice"})
+bob: models2.User = models2.User.insert({"name": "Bob"})
+
+# add avatars
+alice.avatar().secondary = models2.Avatar.insert({
+    "url": "http://www.perseus.tufts.edu/img/newbanner.png",
+})
+alice.avatar().save()
+bob.avatar = models2.Avatar.insert({
+    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/90" +
+    "/Walrus_(Odobenus_rosmarus)_on_Svalbard.jpg/1200px-Walrus_(Odobe" +
+    "nus_rosmarus)_on_Svalbard.jpg",
+})
+bob.avatar().save()
+
+# add a friendship
+bob.friends = [alice]
+bob.friends().save()
+bob.friendships().reload()
+alice.friendships().reload()
+alice.friends().reload()
+```
+
+The above is included in the second integration test:
+- [models](https://github.com/k98kurz/sqloquent/blob/master/tests/integration_vectors/models2.py)
+- [test](https://github.com/k98kurz/sqloquent/blob/master/tests/test_integration.py#L287)
+
+NB: polymorphic relations are not supported. See the `Attachment` class for an
+example of how to implement polymorphism if necessary.
+
+## Interfaces, Classes, Functions, and Tools
 
 Below is a list of interfaces, classes, errors, and functions. See the
 [dox.md](https://github.com/k98kurz/sqloquent/blob/master/dox.md) file generated
 by [autodox](https://pypi.org/project/autodox) for full documentation, or read
 [interfaces.md](https://github.com/k98kurz/sqloquent/blob/master/interfaces.md)
-for documentation on just the interfaces.
+for documentation on just the interfaces or
+[tools.md](https://github.com/k98kurz/sqloquent/blob/master/interfaces.md) for
+information about the bundled tools.
 
 ### Interfaces
 
@@ -546,6 +658,8 @@ for documentation on just the interfaces.
 - RowProtocol(Protocol)
 - QueryBuilderProtocol(Protocol)
 - RelationProtocol(Protocol)
+- RelatedModel(ModelProtocol)
+- RelatedCollection(Protocol)
 - ColumnProtocol(Protocol)
 - TableProtocol(Protocol)
 - MigrationProtocol(Protocol)
@@ -557,14 +671,9 @@ Classes implement the protocols or extend the classes indicated.
 - SqlModel(ModelProtocol)
 - SqlQueryBuilder(QueryBuilderProtocol)
 - SqliteContext(DBContextProtocol)
-- SqliteModel(SqlModel)
-- SqliteQueryBuilder(SqlQueryBuilder)
 - DeletedModel(SqlModel)
-- DeletedSqliteModel(DeletedModel, SqliteModel)
 - HashedModel(SqlModel)
-- HashedModel(HashedModel, SqliteModel)
 - Attachment(HashedModel)
-- AttachmentSqlite(HashedModel)
 - Row(RowProtocol)
 - JoinedModel(JoinedModelProtocol)
 - JoinSpec
@@ -589,6 +698,24 @@ other useful functions.
 - belongs_to_many
 - get_index_name
 
+### Tools
+
+The package includes a set of tools with a CLI invocation script.
+
+- make_migration_create
+- make_migration_alter
+- make_migration_drop
+- make_migration_from_model
+- publish_migrations
+- make_model
+- migrate
+- rollback
+- refresh
+- examine
+- automigrate
+- autorollback
+- autorefresh
+
 ## Tests
 
 Open a terminal in the root directory and run the following:
@@ -604,8 +731,8 @@ python tests/test_integration.py
 The tests demonstrate the intended (and actual) behavior of the classes, as
 well as some contrived examples of how they are used. Perusing the tests will be
 informative to anyone seeking to use/break this package, especially the
-integration test which demonstrates the full package. There are currently 194
-unit tests + 1 e2e integration test.
+integration test which demonstrates the full package. There are currently 183
+unit tests + 2 e2e integration tests.
 
 ## ISC License
 

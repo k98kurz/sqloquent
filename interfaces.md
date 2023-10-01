@@ -28,10 +28,29 @@ Get one record returned by the previous query.
 
 Get all records returned by the previous query.
 
+##### `_proto_hook():`
+
+##### `_no_init_or_replace_init():`
+
 ### `DBContextProtocol(Protocol)`
 
 Interface showing how a context manager for connecting to a database should
 behave.
+
+#### Methods
+
+##### `_no_init_or_replace_init():`
+
+##### `__enter__() -> CursorProtocol:`
+
+Enter the `with` block. Should return a cursor useful for making db calls.
+
+##### `__exit__(_DBContextProtocol__exc_type: Optional[Type[BaseException]], _DBContextProtocol__exc_value: Optional[BaseException], _DBContextProtocol__traceback: Optional[TracebackType]) -> None:`
+
+Exit the `with` block. Should commit any pending transactions and close the
+cursor and connection upon exiting the context.
+
+##### `_proto_hook():`
 
 ### `ModelProtocol(Protocol)`
 
@@ -78,6 +97,18 @@ Reload values from datastore. Return self in monad pattern.
 
 Return a QueryBuilderProtocol for the model.
 
+##### `__hash__() -> int:`
+
+Allow inclusion in sets.
+
+##### `__eq__() -> bool:`
+
+Return True if types and hashes are equal, else False.
+
+##### `_proto_hook():`
+
+##### `_no_init_or_replace_init():`
+
 ### `JoinedModelProtocol(Protocol)`
 
 Interface for representations of JOIN query results.
@@ -96,6 +127,10 @@ Parse data of form {table.column:value} to {table:{column:value}}.
 
 Returns the underlying models.
 
+##### `_no_init_or_replace_init():`
+
+##### `_proto_hook():`
+
 ### `RowProtocol(Protocol)`
 
 Interface for a generic row representation.
@@ -103,6 +138,12 @@ Interface for a generic row representation.
 #### Properties
 
 - data: Returns the underlying row data.
+
+#### Methods
+
+##### `_proto_hook():`
+
+##### `_no_init_or_replace_init():`
 
 ### `QueryBuilderProtocol(Protocol)`
 
@@ -163,7 +204,7 @@ Sets the number of rows to skip.
 
 Returns a fresh instance using the configured model.
 
-##### `insert(data: dict) -> Optional[ModelProtocol]:`
+##### `insert(data: dict) -> Optional[ModelProtocol | RowProtocol]:`
 
 Insert a record and return a model instance.
 
@@ -171,7 +212,7 @@ Insert a record and return a model instance.
 
 Insert a batch of records and return the number inserted.
 
-##### `find(id: str) -> Optional[ModelProtocol]:`
+##### `find(id: str) -> Optional[ModelProtocol | RowProtocol]:`
 
 Find a record by its id and return it.
 
@@ -197,15 +238,15 @@ Return Rows when running a non-joined GROUP BY query.
 
 Returns the number of records matching the query.
 
-##### `take(number: int) -> Optional[list[ModelProtocol]]:`
+##### `take(number: int) -> list[ModelProtocol] | list[JoinedModelProtocol] | list[RowProtocol]:`
 
 Takes the specified number of rows.
 
-##### `chunk(number: int) -> Generator[list[ModelProtocol], None, None]:`
+##### `chunk(number: int) -> Generator[list[ModelProtocol] | list[JoinedModelProtocol] | list[RowProtocol], None, None]:`
 
 Chunk all matching rows the specified number of rows at a time.
 
-##### `first() -> Optional[ModelProtocol]:`
+##### `first() -> Optional[ModelProtocol | RowProtocol]:`
 
 Run the query on the datastore and return the first result.
 
@@ -222,9 +263,13 @@ records.
 
 Return the sql where clause from the clauses and params.
 
-##### `execute_raw(sql: str) -> tuple[int, Any]:`
+##### `execute_raw(sql: str) -> tuple[int, list[tuple[Any]]]:`
 
 Execute raw SQL against the database. Return rowcount and fetchall results.
+
+##### `_no_init_or_replace_init():`
+
+##### `_proto_hook():`
 
 ### `RelationProtocol(Protocol)`
 
@@ -278,17 +323,53 @@ Get the cache key for the relation.
 Produces a property to be set on a model, allowing it to access the related
 model through the relation.
 
+##### `_no_init_or_replace_init():`
+
+##### `_proto_hook():`
+
 ### `RelatedModel(ModelProtocol)`
 
 Interface showing what a related model returned from an ORM helper function or
 RelationProtocol.create_property will behave. This is used for relations where
 the primary model is associated with a single secondary model.
 
+#### Methods
+
+##### `__call__() -> RelationProtocol:`
+
+Return the underlying relation when the property is called as a method, e.g.
+`phone.owner()` will return the relation while `phone.owner` will access the
+related model.
+
+##### `_proto_hook():`
+
+##### `_no_init_or_replace_init():`
+
 ### `RelatedCollection(Protocol)`
 
 Interface showing what a related model returned from an ORM helper function or
 RelationProtocol.create_property will behave. This is used for relations where
 the primary model is associated with multiple secondary models.
+
+#### Methods
+
+##### `__call__() -> RelationProtocol:`
+
+Return the underlying relation when the property is called as a method, e.g.
+`fish.scales()` will return the relation while `fish.scales` will access the
+related models.
+
+##### `__iter__() -> ModelProtocol:`
+
+Allow the collection to be iterated over, returning a model on each iteration.
+
+##### `__getitem__() -> ModelProtocol:`
+
+Return the related model at the given index.
+
+##### `_proto_hook():`
+
+##### `_no_init_or_replace_init():`
 
 ### `ColumnProtocol(Protocol)`
 
@@ -328,6 +409,10 @@ Should drop the column from the table.
 ##### `rename(new_name: str) -> ColumnProtocol:`
 
 Should rename the column.
+
+##### `_proto_hook():`
+
+##### `_no_init_or_replace_init():`
 
 ### `TableProtocol(Protocol)`
 
@@ -389,6 +474,10 @@ SQL while still using the migration system. Return self in monad pattern.
 
 Return the SQL for the table structure changes.
 
+##### `_proto_hook():`
+
+##### `_no_init_or_replace_init():`
+
 ### `MigrationProtocol(Protocol)`
 
 Interface for a migration class.
@@ -430,4 +519,18 @@ callbacks and result in unexpected behavior.
 
 Apply the backward migration.
 
+##### `_proto_hook():`
+
+##### `_no_init_or_replace_init():`
+
+## Values
+
+- __name__: str
+- __doc__: NoneType
+- __package__: str
+- __loader__: SourceFileLoader
+- __spec__: ModuleSpec
+- __file__: str
+- __cached__: str
+- __builtins__: dict
 
