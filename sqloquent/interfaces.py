@@ -1,3 +1,17 @@
+"""
+    The interfaces used by the package. RelatedCollection and
+    RelatedModel describe the properties created by the ORM. Any custom
+    relations should implement the RelationProtocol and return either
+    RelatedCollection or RelatedModel from the create_property method.
+    CursorProtocol and DBContextProtocol must be implemented to bind the
+    library to a new SQL driver. ColumnProtocol, TableProtocol, and
+    MigrationProtocol describe the schema migration system and can be
+    implemented for custom schema migration functionality, e.g. a new
+    ColumnProtocol implementation to handle specific column types for
+    the database.
+"""
+
+
 from __future__ import annotations
 from types import TracebackType
 from typing import (

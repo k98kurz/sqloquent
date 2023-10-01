@@ -1050,6 +1050,12 @@ def _get_id_column(cls: Type[ModelProtocol]) -> str:
 
 def has_one(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol],
             foreign_id_column: str = None) -> property:
+    """Creates a HasOne relation and returns the result of
+        create_property. Usage syntax is like `User.avatar = has_one(
+        User, Avatar)`. If the foreign id column on the Avatar.table
+        table is not user_id (cls.__name__ PascalCase -> snake_case +
+        "_id"), then it can be specified.
+    """
     if foreign_id_column is None:
         foreign_id_column = _get_id_column(cls)
 
@@ -1058,6 +1064,12 @@ def has_one(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol],
 
 def has_many(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol],
              foreign_id_column: str = None) -> property:
+    """Creates a HasMany relation and returns the result of
+        create_property. Usage syntax is like `User.posts = has_many(
+        User, Post)`. If the foreign id column on the Post.table
+        table is not user_id (cls.__name__ PascalCase -> snake_case +
+        "_id"), then it can be specified.
+    """
     if foreign_id_column is None:
         foreign_id_column = _get_id_column(cls)
 
@@ -1066,6 +1078,12 @@ def has_many(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol],
 
 def belongs_to(cls: Type[ModelProtocol], owner_model: Type[ModelProtocol],
                foreign_id_column: str = None) -> property:
+    """Creates a BelongsTo relation and returns the result of
+        create_property. Usage syntax is like `Post.owner = belongs_to(
+        Post, User)`.  If the foreign id column on the Post.table
+        table is not user_id (cls.__name__ PascalCase -> snake_case +
+        "_id"), then it can be specified.
+    """
     if foreign_id_column is None:
         foreign_id_column = _get_id_column(owner_model)
 
@@ -1075,6 +1093,13 @@ def belongs_to(cls: Type[ModelProtocol], owner_model: Type[ModelProtocol],
 def belongs_to_many(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
                 pivot: Type[ModelProtocol],
                 primary_id_column: str = None, secondary_id_column: str = None) -> property:
+    """Creates a BelongsToMany relation and returns the result of
+        create_property. Usage syntax is like `User.liked_posts =
+        belongs_to_many(User, Post, LikedPost)`. If the foriegn id
+        columns on LikedPost are not user_id and post_id (cls.__name__
+        or other_model.__name__ PascalCase -> snake_case + "_id"), then
+        they can be specified.
+    """
     if primary_id_column is None:
         primary_id_column = _get_id_column(cls)
     if secondary_id_column is None:

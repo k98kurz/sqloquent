@@ -1,3 +1,9 @@
+"""
+    The majority of useful features are exposed from the root level of
+    the package, and the rest from either sqloquent.tools or from
+    invoking the tools through the CLI.
+"""
+
 from sqloquent.classes import (
     SqlModel,
     SqlQueryBuilder,

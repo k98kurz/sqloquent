@@ -1,5 +1,14 @@
 # sqloquent.interfaces
 
+The interfaces used by the package. RelatedCollection and RelatedModel describe
+the properties created by the ORM. Any custom relations should implement the
+RelationProtocol and return either RelatedCollection or RelatedModel from the
+create_property method. CursorProtocol and DBContextProtocol must be implemented
+to bind the library to a new SQL driver. ColumnProtocol, TableProtocol, and
+MigrationProtocol describe the schema migration system and can be implemented
+for custom schema migration functionality, e.g. a new ColumnProtocol
+implementation to handle specific column types for the database.
+
 ## Classes
 
 ### `CursorProtocol(Protocol)`
@@ -523,14 +532,4 @@ Apply the backward migration.
 
 ##### `_no_init_or_replace_init():`
 
-## Values
-
-- __name__: str
-- __doc__: NoneType
-- __package__: str
-- __loader__: SourceFileLoader
-- __spec__: ModuleSpec
-- __file__: str
-- __cached__: str
-- __builtins__: dict
 

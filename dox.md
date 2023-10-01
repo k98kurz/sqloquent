@@ -1,5 +1,9 @@
 # sqloquent
 
+The majority of useful features are exposed from the root level of the package,
+and the rest from either sqloquent.tools or from invoking the tools through the
+CLI.
+
 ## Classes
 
 ### `SqlModel`
@@ -764,8 +768,7 @@ Creates a property to be used on a model.
 ### `HasOne(Relation)`
 
 Class for the relation where primary owns a secondary: primary.data[id_column] =
-secondary.data[foreign_id_column]. An inverse of BelongsTo. An instance of this
-class is set on the owner model.
+secondary.data[foreign_id_column]. An owner model.
 
 #### Annotations
 
@@ -806,9 +809,8 @@ precondition check fails.
 ### `HasMany(HasOne)`
 
 Class for the relation where primary owns multiple secondary models:
-model.data[foreign_id_column] = primary.data[id_column] for model in secondary.
-The other inverse of BelongsTo. An instance of this class is set on the owner
-model.
+model.data[foreign_id_column] = primary.data[id_column] instance of this class
+is set on the owner model.
 
 #### Properties
 
@@ -1098,11 +1100,32 @@ TypeError for invalid connection_string or table_name.
 
 ### `has_one(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol], foreign_id_column: str = None) -> property:`
 
+Creates a HasOne relation and returns the result of create_property. Usage
+syntax is like `User.avatar = has_one( User, Avatar)`. If the foreign id column
+on the Avatar.table table is not user_id (cls.__name__ PascalCase -> snake_case
++ "_id"), then it can be specified.
+
 ### `has_many(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol], foreign_id_column: str = None) -> property:`
 
-### `belongs_to(cls: Type[ModelProtocol], owner_model: Type[ModelProtocol], foreign_id_column: str = None, inverse_is_many: bool = False) -> property:`
+Creates a HasMany relation and returns the result of create_property. Usage
+syntax is like `User.posts = has_many( User, Post)`. If the foreign id column on
+the Post.table table is not user_id (cls.__name__ PascalCase -> snake_case +
+"_id"), then it can be specified.
+
+### `belongs_to(cls: Type[ModelProtocol], owner_model: Type[ModelProtocol], foreign_id_column: str = None) -> property:`
+
+Creates a BelongsTo relation and returns the result of create_property. Usage
+syntax is like `Post.owner = belongs_to( Post, User)`. If the foreign id column
+on the Post.table table is not user_id (cls.__name__ PascalCase -> snake_case +
+"_id"), then it can be specified.
 
 ### `belongs_to_many(cls: Type[ModelProtocol], other_model: Type[ModelProtocol], pivot: Type[ModelProtocol], primary_id_column: str = None, secondary_id_column: str = None) -> property:`
+
+Creates a BelongsToMany relation and returns the result of create_property.
+Usage syntax is like `User.liked_posts = belongs_to_many(User, Post, LikedPost)`.
+If the foriegn id columns on LikedPost are not user_id and post_id (cls.__name__
+or other_model.__name__ PascalCase -> snake_case + "_id"), then they can be
+specified.
 
 ### `get_index_name(table: TableProtocol, columns: list[Column | str], is_unique: bool = False) -> str:`
 
