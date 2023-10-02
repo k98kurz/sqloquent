@@ -58,6 +58,7 @@ migrations, as well as track, apply, rollback, and refresh migrations.
 - [x] Decent documentation
 - [ ] Add support for all SQL types in migration system.
 - [ ] Add `--columns name=type,etc` param for model generator
+- [ ] Make `make migration --model ...` compute alter from diff with existing schema
 
 Currently, only the basic sqlite3 types (affinities) of text, blob, integer,
 real, and numeric are supported by the migration system.
