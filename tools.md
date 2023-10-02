@@ -22,9 +22,11 @@ Generate a migration scaffold from a model.
 
 Publish the migrations for the DeletedModel and Attachment.
 
-### `make_model(name: str, base: str = 'SqlModel', columns: list = None, connection_string: str = '') -> str:`
+### `make_model(name: str, base: str = 'SqlModel', columns: dict = None, connection_string: str = '') -> str:`
 
-Generate a model scaffold with the given name.
+Generate a model scaffold with the given name, columns, and connection_string.
+The columns parameter must be a dict mapping names to type annotation strings,
+which should each be one of ('str', 'int', 'float', 'bytes).
 
 ### `migrate(path: str, connection_string: str = ''):`
 
