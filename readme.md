@@ -56,9 +56,10 @@ migrations, as well as track, apply, rollback, and refresh migrations.
 - [x] Code scaffold tools + CLI
 - [x] Schema migration system
 - [x] Decent documentation
+- [x] Added `--columns name=type,etc` param for model generator
 - [ ] Add support for all SQL types in migration system.
-- [ ] Add `--columns name=type,etc` param for model generator
 - [ ] Make `make migration --model ...` compute alter from diff with existing schema
+- [ ] Add asyncio compatibility
 
 Currently, only the basic sqlite3 types (affinities) of text, blob, integer,
 real, and numeric are supported by the migration system.

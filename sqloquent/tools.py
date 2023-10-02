@@ -188,11 +188,19 @@ def publish_migrations(path: str, connection_string: str = ''):
         f.write(hashed_model_src)
 
 
-def make_model(name: str, base: str = 'SqlModel', columns: list[str] = None,
+def make_model(name: str, base: str = 'SqlModel', columns: dict[str, str] = None,
                connection_string: str = '') -> str:
-    """Generate a model scaffold with the given name."""
+    """Generate a model scaffold with the given name, columns, and
+        connection_string. The columns parameter must be a dict mapping
+        names to type annotation strings, which should each be one of
+        ('str', 'int', 'float', 'bytes).
+    """
     vert(base in ('SqlModel', 'HashedModel'),
          f"base must be one of (SqlModel, HashedModel); {base} encountered")
+    tert(columns is None or type(columns) is dict,'columns must be dict[str, str]')
+    vert(columns is None or all([type(k) is type(v) is str for k,v in columns.items()]),
+         'columns must be dict[str, str]')
+    valid_types = ('str', 'int', 'float', 'bytes')
     table_name = _pascalcase_to_snake_case(name)
     table_name = f'{table_name}s' if table_name[-1:] != 'y' else f'{table_name[:-1]}ies'
     src = f"from sqloquent import {base}\n\n\n"
@@ -201,7 +209,11 @@ def make_model(name: str, base: str = 'SqlModel', columns: list[str] = None,
     src += f"    table: str = '{table_name}'\n"
     src += f"    id_column: str = 'id'\n"
     if columns:
-        src += f"    columns: tuple[str] = {tuple(columns)}\n"
+        src += f"    columns: tuple[str] = {tuple([name for name in columns])}\n"
+        for name, datatype in columns.items():
+            vert(datatype in valid_types,
+                 f'{datatype} is not a valid type annotation; must be one of {valid_types}')
+            src += f"    {name}: {datatype}\n"
     else:
         src += f"    columns: tuple[str] = ('id',)\n"
     return src
@@ -349,7 +361,7 @@ def help_cli(name: str) -> str:
     {name} make migration --alter name
     {name} make migration --drop name
     {name} make migration --model name path/to/model/file
-    {name} make model name [--sqlite|--sql|--hashedlite|--hashed] (inherits SqlModel by default)
+    {name} make model name [--sqlite|--sql|--hashedlite|--hashed] [--columns name1=type,name2,etc]
     {name} migrate path/to/migration/file
     {name} rollback path/to/migration/file
     {name} refresh path/to/migration/file
@@ -362,6 +374,7 @@ def help_cli(name: str) -> str:
     "desired. The `automigrate` command reads the files in the specified\n" + \
     "directory, then runs the managed migration tool which tracks migrations\n" + \
     "using a migrations table.\n\n" + \
+    "The data types for the --columns param are (str, int, float, bytes).\n\n" + \
     "The `publish` command publishes migrations for the included DeletedModel\n" +\
     "and Attachment classes. Use of these is optional.\n\n" + \
     "Include CONNECTION_STRING in a .env file or as an environment variable\n" + \
@@ -417,16 +430,32 @@ def run_cli() -> None:
                 print(help_cli(argv[0]))
                 exit(1)
             name = argv[3]
+            columns = {}
+            if '--columns' in argv:
+                colindex = argv.index('--columns')
+                if len(argv) >= colindex + 2:
+                    columns_str = argv[colindex+1]
+                    columns_list = columns_str.split(',')
+                    for s in columns_list:
+                        if len(s.split('=')) > 1:
+                            name, datatype = s.split('=')
+                            columns[name] = datatype
+                        else:
+                            columns[s] = 'str'
             if len(argv) == 5:
                 if argv[4] == "--sql":
-                    return print(make_model(name, 'SqlModel',
-                                            connection_string=connstring_for_make))
+                    return print(make_model(
+                        name, 'SqlModel', connection_string=connstring_for_make,
+                        columns=columns))
                 elif argv[4] == "--hashed":
-                    return print(make_model(name, 'HashedModel',
-                                            connection_string=connstring_for_make))
+                    return print(make_model(
+                        name, 'HashedModel', connection_string=connstring_for_make,
+                        columns=columns))
                 elif argv[4] == "--hashedlite":
-                    return print(make_model(name, 'HashedModel'))
-            return print(make_model(name, connection_string=connstring_for_make))
+                    return print(make_model(
+                        name, 'HashedModel'))
+            return print(make_model(name, connection_string=connstring_for_make,
+                                    columns=columns))
         else:
             print(f"unrecognized make kind: {kind}")
             exit(1)
