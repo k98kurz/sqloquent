@@ -69,16 +69,17 @@ class AsyncDBContextProtocol(Protocol):
         ...
 
     async def __enter__(self) -> AsyncCursorProtocol:
-        """Enter the `with` block. Should return a cursor useful for
-            making db calls.
+        """Enter the `async with` block. Should return a cursor useful
+            for making db calls.
         """
         ...
 
     async def __exit__(self, __exc_type: Optional[Type[BaseException]],
                 __exc_value: Optional[BaseException],
                 __traceback: Optional[TracebackType]) -> None:
-        """Exit the `with` block. Should commit any pending transactions
-            and close the cursor and connection upon exiting the context.
+        """Exit the `async with` block. Should commit any pending
+            transactions and close the cursor and connection upon
+            exiting the context.
         """
         ...
 
