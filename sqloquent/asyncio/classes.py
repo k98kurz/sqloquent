@@ -7,7 +7,7 @@ from sqloquent.asyncio.interfaces import (
     AsyncModelProtocol,
 )
 from sqloquent.classes import JoinSpec, Row
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from hashlib import sha256
 from types import TracebackType
 from typing import Any, AsyncGenerator, Optional, Type, Union
@@ -35,7 +35,7 @@ class AsyncSqliteContext:
 
     async def __aenter__(self) -> AsyncCursorProtocol:
         """Enter the context block and return the cursor."""
-        self.connection = aiosqlite.connect(self.connection_info)
+        self.connection = await aiosqlite.connect(self.connection_info)
         self.cursor = await self.connection.cursor().__aenter__()
         return self.cursor
 
