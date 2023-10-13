@@ -59,7 +59,7 @@ class AsyncDBContextProtocol(Protocol):
     """Interface showing how a context manager for connecting
         to a database should behave.
     """
-    def __init__(self, connection_info: str = '') -> None:
+    async def __init__(self, connection_info: str = '') -> None:
         """Using the connection_info parameter is optional but should be
             supported. I recommend setting a class attribute with the
             default value taken from an environment variable, then use
@@ -68,13 +68,13 @@ class AsyncDBContextProtocol(Protocol):
         """
         ...
 
-    def __enter__(self) -> AsyncCursorProtocol:
+    async def __enter__(self) -> AsyncCursorProtocol:
         """Enter the `with` block. Should return a cursor useful for
             making db calls.
         """
         ...
 
-    def __exit__(self, __exc_type: Optional[Type[BaseException]],
+    async def __exit__(self, __exc_type: Optional[Type[BaseException]],
                 __exc_value: Optional[BaseException],
                 __traceback: Optional[TracebackType]) -> None:
         """Exit the `with` block. Should commit any pending transactions
