@@ -3,16 +3,13 @@
     AsyncRelatedModel describe the properties created by the ORM. Any custom
     relations should implement the AsyncRelationProtocol and return either
     AsyncRelatedCollection or AsyncRelatedModel from the create_property method.
-    AsyncCursorProtocol and AsyncDBContextProtocol must be implemented to
-    bind the library to a new SQL driver. ColumnProtocol, TableProtocol,
-    and MigrationProtocol describe the schema migration system and can
-    be implemented for custom schema migration functionality, e.g. a new
-    ColumnProtocol implementation to handle specific column types for
-    the database.
+    AsyncCursorProtocol and AsyncDBContextProtocol must be implemented to bind
+    the library to a new SQL driver.
 """
 
 
 from __future__ import annotations
+from sqloquent.interfaces import RowProtocol
 from types import TracebackType
 from typing import (
     Any,
@@ -59,7 +56,7 @@ class AsyncDBContextProtocol(Protocol):
     """Interface showing how a context manager for connecting
         to a database should behave.
     """
-    async def __init__(self, connection_info: str = '') -> None:
+    def __init__(self, connection_info: str = '') -> None:
         """Using the connection_info parameter is optional but should be
             supported. I recommend setting a class attribute with the
             default value taken from an environment variable, then use
@@ -68,13 +65,13 @@ class AsyncDBContextProtocol(Protocol):
         """
         ...
 
-    async def __enter__(self) -> AsyncCursorProtocol:
+    async def __aenter__(self) -> AsyncCursorProtocol:
         """Enter the `async with` block. Should return a cursor useful
             for making db calls.
         """
         ...
 
-    async def __exit__(self, __exc_type: Optional[Type[BaseException]],
+    async def __aexit__(self, __exc_type: Optional[Type[BaseException]],
                 __exc_value: Optional[BaseException],
                 __traceback: Optional[TracebackType]) -> None:
         """Exit the `async with` block. Should commit any pending
@@ -175,15 +172,6 @@ class AsyncJoinedModelProtocol(Protocol):
 
     async def get_models(self) -> list[AsyncModelProtocol]:
         """Returns the underlying models."""
-        ...
-
-
-@runtime_checkable
-class RowProtocol(Protocol):
-    """Interface for a generic row representation."""
-    @property
-    def data(self) -> dict:
-        """Returns the underlying row data."""
         ...
 
 
