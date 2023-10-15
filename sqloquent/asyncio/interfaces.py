@@ -148,7 +148,7 @@ class AsyncModelProtocol(Protocol):
         ...
 
     @classmethod
-    async def query(cls, conditions: dict = None) -> AsyncQueryBuilderProtocol:
+    def query(cls, conditions: dict = None) -> AsyncQueryBuilderProtocol:
         """Return a AsyncQueryBuilderProtocol for the model."""
         ...
 

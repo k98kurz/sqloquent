@@ -1,45 +1,40 @@
 from __future__ import annotations
-from .errors import tert, tressa
-from .interfaces import ModelProtocol, QueryBuilderProtocol, RelatedCollection, RelatedModel
-from .tools import _pascalcase_to_snake_case
+from sqloquent.errors import tert, tressa
+from sqloquent.asyncio.interfaces import (
+    AsyncModelProtocol,
+    AsyncQueryBuilderProtocol,
+    AsyncRelatedCollection,
+    AsyncRelatedModel,
+)
+from sqloquent.tools import _pascalcase_to_snake_case
 from abc import abstractmethod
 from copy import deepcopy
 from typing import Optional, Type
+import asyncio
 
 
-"""
-    Puts the R in ORM. Change-tracking measures were taken as an
-    optimization strategy to reduce the frequency of db calls. However,
-    these measures often have to call the db anyway just to maintain
-    data integrity, so it is arguable if it is at all helpful. I will
-    experiment with scrapping it entirely in the future and then do some
-    performance profiling to see if it is worth keeping. Problems for an
-    older me.
-"""
-
-
-class Relation:
+class AsyncRelation:
     """Base class for setting up relations."""
-    primary_class: Type[ModelProtocol]
-    secondary_class: Type[ModelProtocol]
-    primary_to_add: ModelProtocol
-    primary_to_remove: ModelProtocol
-    secondary_to_add: list[ModelProtocol]
-    secondary_to_remove: list[ModelProtocol]
-    primary: ModelProtocol
-    secondary: ModelProtocol|tuple[ModelProtocol]
-    _primary: Optional[ModelProtocol]
-    _secondary: Optional[ModelProtocol]
+    primary_class: Type[AsyncModelProtocol]
+    secondary_class: Type[AsyncModelProtocol]
+    primary_to_add: AsyncModelProtocol
+    primary_to_remove: AsyncModelProtocol
+    secondary_to_add: list[AsyncModelProtocol]
+    secondary_to_remove: list[AsyncModelProtocol]
+    primary: AsyncModelProtocol
+    secondary: AsyncModelProtocol|tuple[AsyncModelProtocol]
+    _primary: Optional[AsyncModelProtocol]
+    _secondary: Optional[AsyncModelProtocol]
 
     def __init__(self,
-        primary_class: Type[ModelProtocol],
-        secondary_class: Type[ModelProtocol],
-        primary_to_add: ModelProtocol = None,
-        primary_to_remove: ModelProtocol = None,
-        secondary_to_add: list[ModelProtocol] = [],
-        secondary_to_remove: list[ModelProtocol] = [],
-        primary: ModelProtocol = None,
-        secondary: ModelProtocol|tuple[ModelProtocol] = None,
+        primary_class: Type[AsyncModelProtocol],
+        secondary_class: Type[AsyncModelProtocol],
+        primary_to_add: AsyncModelProtocol = None,
+        primary_to_remove: AsyncModelProtocol = None,
+        secondary_to_add: list[AsyncModelProtocol] = [],
+        secondary_to_remove: list[AsyncModelProtocol] = [],
+        primary: AsyncModelProtocol = None,
+        secondary: AsyncModelProtocol|tuple[AsyncModelProtocol] = None,
     ) -> None:
         self._primary = None
         self._secondary = None
@@ -57,31 +52,31 @@ class Relation:
         """Precondition check for a single model. Raises TypeError if
             the check fails.
         """
-        tert(isinstance(model, ModelProtocol), 'model must implement ModelProtocol')
+        tert(isinstance(model, AsyncModelProtocol), 'model must implement AsyncModelProtocol')
 
     @staticmethod
     def multi_model_precondition(model) -> None:
         """Precondition checks for a list of models. Raises TypeError if
             any check fails.
         """
-        tert(type(model) in (list, tuple), 'must be a list of ModelProtocol')
+        tert(type(model) in (list, tuple), 'must be a list of AsyncModelProtocol')
         for item in model:
-            tert(isinstance(item, ModelProtocol), 'must be a list of ModelProtocol')
+            tert(isinstance(item, AsyncModelProtocol), 'must be a list of AsyncModelProtocol')
 
     @property
-    def primary(self) -> ModelProtocol:
+    def primary(self) -> AsyncModelProtocol:
         """The primary model instance. Setting raises TypeError if a
             precondition check fails.
         """
         return self._primary
 
     @primary.setter
-    def primary(self, primary: Optional[ModelProtocol]) -> None:
+    def primary(self, primary: Optional[AsyncModelProtocol]) -> None:
         """Sets the primary model instance. Raises TypeError if a
             precondition check fails.
         """
         if self.secondary_to_remove and self.primary:
-            self.save()
+            asyncio.run(self.save())
 
         if primary is None:
             if self._primary is not None and self.primary_to_remove is None:
@@ -104,17 +99,17 @@ class Relation:
         self._primary = primary
 
     @property
-    def secondary(self) -> Optional[ModelProtocol|tuple[ModelProtocol]]:
+    def secondary(self) -> Optional[AsyncModelProtocol|tuple[AsyncModelProtocol]]:
         """The secondary model instance(s)."""
         return self._secondary
 
     @secondary.setter
     @abstractmethod
-    def secondary(self, secondary: ModelProtocol|tuple[ModelProtocol]) -> None:
+    def secondary(self, secondary: AsyncModelProtocol|tuple[AsyncModelProtocol]) -> None:
         """Sets the secondary model instance(s)."""
         pass
 
-    def primary_model_precondition(self, primary: ModelProtocol) -> None:
+    def primary_model_precondition(self, primary: AsyncModelProtocol) -> None:
         """Precondition check for the primary instance. Raises TypeError
             if the check fails.
         """
@@ -122,7 +117,7 @@ class Relation:
             tert(isinstance(primary, self.primary_class),
                 f'primary must be instance of {self.primary_class.__name__}')
 
-    def secondary_model_precondition(self, secondary: ModelProtocol) -> None:
+    def secondary_model_precondition(self, secondary: AsyncModelProtocol) -> None:
         """Precondition check for a secondary instance. Raises TypeError
             if the check fails.
         """
@@ -130,15 +125,15 @@ class Relation:
             f'secondary must be instance of {self.secondary_class.__name__}')
 
     @staticmethod
-    def pivot_preconditions(pivot: Type[ModelProtocol]) -> None:
+    def pivot_preconditions(pivot: Type[AsyncModelProtocol]) -> None:
         """Precondition check for a pivot type. Raises TypeError if the
             check fails.
         """
         tert(isinstance(pivot, type),
-             'pivot must be class implementing ModelProtocol')
+             'pivot must be class implementing AsyncModelProtocol')
 
     @abstractmethod
-    def save(self) -> None:
+    async def save(self) -> None:
         """Save the relation by setting/unsetting the relevant database
             values and unset the following attributes: primary_to_add,
             primary_to_remove, secondary_to_add, and secondary_to_remove.
@@ -146,17 +141,17 @@ class Relation:
         pass
 
     @abstractmethod
-    def reload(self) -> Relation:
+    async def reload(self) -> AsyncRelation:
         """Reload the relation from the database. Return self in monad pattern."""
         pass
 
     @abstractmethod
-    def query(self) -> QueryBuilderProtocol|None:
+    def query(self) -> AsyncQueryBuilderProtocol|None:
         """Creates the base query for the underlying relation."""
         pass
 
     def get_cache_key(self) -> str:
-        """Returns the cache key for the Relation."""
+        """Returns the cache key for the AsyncRelation."""
         return (f'{self.primary_class.__name__}_{self.__class__.__name__}'
                      f'_{self.secondary_class.__name__}')
 
@@ -166,7 +161,7 @@ class Relation:
         pass
 
 
-class HasOne(Relation):
+class AsyncHasOne(AsyncRelation):
     """Class for the relation where primary owns a secondary:
         primary.data[id_column] = secondary.data[foreign_id_column]. An
         owner model.
@@ -174,7 +169,7 @@ class HasOne(Relation):
     foreign_id_column: str
 
     def __init__(self, foreign_id_column: str, *args, **kwargs) -> None:
-        """Set the foreign_id_column attribute, then let the Relation init
+        """Set the foreign_id_column attribute, then let the AsyncRelation init
             handle the rest. Raises TypeError if foreign_id_column is not
             a str.
         """
@@ -183,19 +178,19 @@ class HasOne(Relation):
         super().__init__(*args, **kwargs)
 
     @property
-    def secondary(self) -> Optional[ModelProtocol]:
+    def secondary(self) -> Optional[AsyncModelProtocol]:
         """The secondary model instance. Setting raises TypeError if the
             precondition check fails.
         """
         return self._secondary
 
     @secondary.setter
-    def secondary(self, secondary: ModelProtocol|None) -> None:
+    def secondary(self, secondary: AsyncModelProtocol|None) -> None:
         """Sets the secondary model instance. Includes convoluted change-
             tracking measures to reduce the frequency of database calls.
         """
         if self.primary_to_remove and self.secondary:
-            self.save()
+            asyncio.run(self.save())
 
         if secondary is None:
             if self._secondary:
@@ -229,7 +224,7 @@ class HasOne(Relation):
         self._secondary = secondary
         self.secondary_to_add = [secondary]
 
-    def save(self) -> None:
+    async def save(self) -> None:
         """Save the relation by setting/unsetting the relevant database
             values and unset the following attributes: primary_to_add,
             primary_to_remove, secondary_to_add, and secondary_to_remove.
@@ -238,11 +233,11 @@ class HasOne(Relation):
         tressa(self.primary is not None
                or self.primary_to_remove is not None
                or self.primary_to_add is not None,
-               'cannot save incomplete HasOne')
+               'cannot save incomplete AsyncHasOne')
         tressa(self.secondary is not None
                or len(self.secondary_to_remove) > 0
                or len(self.secondary_to_add) > 0,
-               'cannot save incomplete HasOne')
+               'cannot save incomplete AsyncHasOne')
 
         qb = self.secondary_class.query()
         remove = False
@@ -264,7 +259,7 @@ class HasOne(Relation):
             remove = True
 
         if remove:
-            qb.update({
+            await qb.update({
                 self.foreign_id_column: None
             }, {
                 self.secondary_class.id_column: owned_id,
@@ -274,14 +269,14 @@ class HasOne(Relation):
 
         if self.primary and self.secondary:
             if self.primary_class.id_column not in self._primary.data:
-                self._primary.save()
+                await self._primary.save()
             if self.secondary_class.id_column not in self._secondary.data:
-                self._secondary.save()
+                await self._secondary.save()
             owner_id = self._primary.data[self.primary_class.id_column]
             owned_id = self._secondary.data[self.secondary_class.id_column]
             self._secondary.data[self.foreign_id_column] = owner_id
 
-            qb.equal(self.secondary_class.id_column, owned_id).update({
+            await qb.equal(self.secondary_class.id_column, owned_id).update({
                 self.foreign_id_column: owner_id
             })
 
@@ -290,7 +285,7 @@ class HasOne(Relation):
         self.secondary_to_add = []
         self.secondary_to_remove = []
 
-    def reload(self) -> HasOne:
+    async def reload(self) -> AsyncHasOne:
         """Reload the relation from the database. Return self in monad pattern."""
         self.primary_to_add = None
         self.primary_to_remove = None
@@ -299,19 +294,19 @@ class HasOne(Relation):
 
         if self.primary and self.primary_class.id_column in self.primary.data:
             primary_id = self.primary.data[self.primary.id_column]
-            self._secondary = self.secondary_class.query({
+            self._secondary = await self.secondary_class.query({
                 self.foreign_id_column: primary_id
             }).first()
             return self
 
         if self.secondary and self.foreign_id_column in self.secondary.data:
             secondary_id = self.secondary.data[self.foreign_id_column]
-            self._primary = self.primary_class.find(secondary_id)
+            self._primary = await self.primary_class.find(secondary_id)
             return self
 
         raise ValueError('cannot reload an empty relation')
 
-    def query(self) -> QueryBuilderProtocol|None:
+    def query(self) -> AsyncQueryBuilderProtocol|None:
         """Creates the base query for the underlying relation."""
         if self.primary and self.primary_class.id_column in self.primary.data:
             primary_id = self.primary.data[self.primary.id_column]
@@ -340,15 +335,15 @@ class HasOne(Relation):
 
 
         class HasOneWrapped(self.secondary_class):
-            def __call__(self) -> Relation:
+            def __call__(self) -> AsyncRelation:
                 return self.relations[cache_key]
             def __bool__(self) -> bool:
                 return len(self.data.keys()) > 0
 
-        HasOneWrapped.__name__ = f'(HasOne){self.secondary_class.__name__}'
+        HasOneWrapped.__name__ = f'(AsyncHasOne){self.secondary_class.__name__}'
 
-        def setup_relation(self: ModelProtocol):
-            """Sets up the HasOne relation during instance initialization."""
+        def setup_relation(self: AsyncModelProtocol):
+            """Sets up the AsyncHasOne relation during instance initialization."""
             if not hasattr(self, 'relations'):
                 self.relations = {}
             self.relations[cache_key] = deepcopy(relation)
@@ -360,7 +355,7 @@ class HasOne(Relation):
 
 
         @property
-        def secondary(self: ModelProtocol) -> RelatedModel:
+        def secondary(self: AsyncModelProtocol) -> AsyncRelatedModel:
             """The secondary model instance. Setting raises TypeError if
                 the precondition check fails.
             """
@@ -386,12 +381,12 @@ class HasOne(Relation):
             return model
 
         @secondary.setter
-        def secondary(self: ModelProtocol, model: ModelProtocol) -> None:
+        def secondary(self: AsyncModelProtocol, model: AsyncModelProtocol) -> None:
             """Sets the secondary model. Raises TypeError if the
                 precondition check fails.
             """
-            tert(isinstance(model, ModelProtocol),
-                 'model must implement ModelProtocol')
+            tert(isinstance(model, AsyncModelProtocol),
+                 'model must implement AsyncModelProtocol')
             if not hasattr(model, 'relations'):
                 model.relations = {}
 
@@ -403,23 +398,23 @@ class HasOne(Relation):
         return secondary
 
 
-class HasMany(HasOne):
+class AsyncHasMany(AsyncHasOne):
     """Class for the relation where primary owns multiple secondary
         models: model.data[foreign_id_column] = primary.data[id_column]
         instance of this class is set on the owner model.
     """
     @property
-    def secondary(self) -> Optional[tuple[ModelProtocol]]:
+    def secondary(self) -> Optional[tuple[AsyncModelProtocol]]:
         """The secondary model instance. Setting raises TypeError if the
             precondition check fails.
         """
         return self._secondary
 
     @secondary.setter
-    def secondary(self, secondary: Optional[list[ModelProtocol]]) -> None:
+    def secondary(self, secondary: Optional[list[AsyncModelProtocol]]) -> None:
         """Sets the secondary model instance."""
         if self.primary_to_remove and self._secondary:
-            self.save()
+            asyncio.run(self.save())
 
         secondary_is_set = self._secondary is not None and len(self._secondary) > 0
 
@@ -466,18 +461,18 @@ class HasMany(HasOne):
 
         self._secondary = tuple(secondary)
 
-    def save(self) -> None:
+    async def save(self) -> None:
         """Save the relation by setting the relevant database value(s).
             Raises UsageError if the relation is incomplete.
         """
-        tressa(self.primary is not None, 'cannot save incomplete HasMany')
-        tressa(self.secondary is not None, 'cannot save incomplete HasMany')
+        tressa(self.primary is not None, 'cannot save incomplete AsyncHasMany')
+        tressa(self.secondary is not None, 'cannot save incomplete AsyncHasMany')
 
         qb = self.secondary_class.query()
         owner_id = self.primary.data[self.primary_class.id_column]
         for model in self.secondary:
             if self.secondary_class.id_column not in model.data:
-                model.save()
+                await model.save()
         owned_ids = [
             model.data[self.secondary_class.id_column]
             for model in self.secondary
@@ -492,7 +487,7 @@ class HasMany(HasOne):
                 if item.data[self.foreign_id_column] == owner_id
             ]
             if secondary_ids:
-                qb.is_in(self.secondary_class.id_column, secondary_ids).update({
+                await qb.is_in(self.secondary_class.id_column, secondary_ids).update({
                     self.foreign_id_column: None
                 })
                 qb = qb.reset()
@@ -500,7 +495,7 @@ class HasMany(HasOne):
                     if item.data[self.secondary_class.id_column] in secondary_ids:
                         item.data[self.foreign_id_column] = None
 
-        qb.is_in(self.secondary_class.id_column, owned_ids).update({
+        await qb.is_in(self.secondary_class.id_column, owned_ids).update({
             self.foreign_id_column: owner_id
         })
 
@@ -509,7 +504,9 @@ class HasMany(HasOne):
         self.secondary_to_add = []
         self.secondary_to_remove = []
 
-    def reload(self) -> HasMany:
+
+
+    async def reload(self) -> AsyncHasMany:
         """Reload the relation from the database. Return self in monad pattern."""
         self.primary_to_add = None
         self.primary_to_remove = None
@@ -518,19 +515,19 @@ class HasMany(HasOne):
 
         if self.primary and self.primary_class.id_column in self.primary.data:
             primary_id = self.primary.data[self.primary.id_column]
-            self._secondary = self.secondary_class.query({
+            self._secondary = await self.secondary_class.query({
                 self.foreign_id_column: primary_id
             }).get()
             return self
 
         if self.secondary:
             primary_id = self.secondary[0].data[self.foreign_id_column]
-            self._primary = self.primary_class.find(primary_id)
+            self._primary = await self.primary_class.find(primary_id)
             return self
 
         raise ValueError('cannot reload an empty relation')
 
-    def query(self) -> QueryBuilderProtocol|None:
+    def query(self) -> AsyncQueryBuilderProtocol|None:
         """Creates the base query for the underlying relation."""
         if self.primary and self.primary_class.id_column in self.primary.data:
             primary_id = self.primary.data[self.primary.id_column]
@@ -555,13 +552,13 @@ class HasMany(HasOne):
 
 
         class HasManyTuple(tuple):
-            def __call__(self) -> HasMany:
+            def __call__(self) -> AsyncHasMany:
                 return self.relation
 
-        HasManyTuple.__name__ = f'(HasMany){self.secondary_class.__name__}'
+        HasManyTuple.__name__ = f'(AsyncHasMany){self.secondary_class.__name__}'
 
-        def setup_relation(self: ModelProtocol):
-            """Sets up the HasMany relation during instance initialization."""
+        def setup_relation(self: AsyncModelProtocol):
+            """Sets up the AsyncHasMany relation during instance initialization."""
             if not hasattr(self.__class__, 'id_relations'):
                 self.__class__.id_relations = {}
             if not hasattr(self, 'relations'):
@@ -582,7 +579,7 @@ class HasMany(HasOne):
 
 
         @property
-        def secondary(self: ModelProtocol) -> RelatedCollection:
+        def secondary(self: AsyncModelProtocol) -> AsyncRelatedCollection:
             """The secondary model instance. Setting raises TypeError if
                 the precondition check fails.
             """
@@ -603,43 +600,43 @@ class HasMany(HasOne):
             return models
 
         @secondary.setter
-        def secondary(self: ModelProtocol, models: Optional[list[ModelProtocol]]) -> None:
+        def secondary(self: AsyncModelProtocol, models: Optional[list[AsyncModelProtocol]]) -> None:
             """Sets the secondary model instances. Raises TypeError if a
                 precondition check fails.
             """
             tert(type(models) in (list, tuple),
-                 'models must be list[ModelProtocol] or tuple[ModelProtocol]')
-            tert(all([isinstance(m, ModelProtocol) for m in models]),
-                 'models must be list[ModelProtocol] or tuple[ModelProtocol]')
+                 'models must be list[AsyncModelProtocol] or tuple[AsyncModelProtocol]')
+            tert(all([isinstance(m, AsyncModelProtocol) for m in models]),
+                 'models must be list[AsyncModelProtocol] or tuple[AsyncModelProtocol]')
             self.relations[cache_key].secondary = models
 
         return secondary
 
 
-class BelongsTo(HasOne):
+class AsyncBelongsTo(AsyncHasOne):
     """Class for the relation where primary belongs to a secondary:
         primary.data[foreign_id_column] = secondary.data[id_column].
-        Inverse of HasOne and HasMany. An instance of this class is set
+        Inverse of AsyncHasOne and AsyncHasMany. An instance of this class is set
         on the owned model.
     """
-    def save(self) -> None:
+    async def save(self) -> None:
         """Persists the relation to the database. Raises UsageError if
             the relation is incomplete.
         """
-        tressa(self._primary is not None, 'cannot save incomplete BelongsTo')
-        tressa(self._secondary is not None, 'cannot save incomplete BelongsTo')
+        tressa(self._primary is not None, 'cannot save incomplete AsyncBelongsTo')
+        tressa(self._secondary is not None, 'cannot save incomplete AsyncBelongsTo')
 
         if self.secondary_class.id_column not in self._secondary.data:
-            self._secondary.save()
+            await self._secondary.save()
 
         owner_id = self._secondary.data[self.secondary_class.id_column]
 
-        self._primary.update({
+        await self._primary.update({
             self.foreign_id_column: owner_id
         })
 
         if self.primary_to_remove is not None:
-            self.primary_to_remove.update({
+            await self.primary_to_remove.update({
                 self.foreign_id_column: None
             })
 
@@ -648,7 +645,7 @@ class BelongsTo(HasOne):
         self.secondary_to_add = []
         self.secondary_to_remove = []
 
-    def reload(self) -> BelongsTo:
+    async def reload(self) -> AsyncBelongsTo:
         """Reload the relation from the database. Return self in monad pattern."""
         self.primary_to_add = None
         self.primary_to_remove = None
@@ -657,19 +654,19 @@ class BelongsTo(HasOne):
 
         if self.primary and self.foreign_id_column in self.primary.data:
             secondary_id = self.primary.data[self.foreign_id_column]
-            self._secondary = self.secondary_class.find(secondary_id)
+            self._secondary = await self.secondary_class.find(secondary_id)
             return self
 
         if self.secondary and self.secondary_class.id_column in self.secondary.data:
             secondary_id = self.secondary.data[self.secondary.id_column]
-            self._primary = self.primary_class.query({
+            self._primary = await self.primary_class.query({
                 self.foreign_id_column: secondary_id
             }).first()
             return self
 
         raise ValueError('cannot reload an empty relation')
 
-    def query(self) -> QueryBuilderProtocol|None:
+    def query(self) -> AsyncQueryBuilderProtocol|None:
         """Creates the base query for the underlying relation."""
         if self.primary and self.foreign_id_column in self.primary.data:
             secondary_id = self.primary.data[self.foreign_id_column]
@@ -694,15 +691,15 @@ class BelongsTo(HasOne):
 
 
         class BelongsToWrapped(self.secondary_class):
-            def __call__(self) -> Relation:
+            def __call__(self) -> AsyncRelation:
                 return self.relations[f'{cache_key}']
             def __bool__(self) -> bool:
                 return len(self.data.keys()) > 0
 
-        BelongsToWrapped.__name__ = f'(BelongsTo){self.secondary_class.__name__}'
+        BelongsToWrapped.__name__ = f'(AsyncBelongsTo){self.secondary_class.__name__}'
 
-        def setup_relation(self: ModelProtocol):
-            """Sets up the HasMany relation during instance initialization."""
+        def setup_relation(self: AsyncModelProtocol):
+            """Sets up the AsyncHasMany relation during instance initialization."""
             if not hasattr(self, 'relations'):
                 self.relations = {}
             self.relations[cache_key] = deepcopy(relation)
@@ -714,7 +711,7 @@ class BelongsTo(HasOne):
 
 
         @property
-        def secondary(self: ModelProtocol) -> RelatedModel:
+        def secondary(self: AsyncModelProtocol) -> AsyncRelatedModel:
             """The secondary model instance. Setting raises TypeError if
                 the precondition check fails.
             """
@@ -739,9 +736,9 @@ class BelongsTo(HasOne):
             return model
 
         @secondary.setter
-        def secondary(self: ModelProtocol, model: ModelProtocol) -> None:
-            tert(isinstance(model, ModelProtocol),
-                 'model must implement ModelProtocol')
+        def secondary(self: AsyncModelProtocol, model: AsyncModelProtocol) -> None:
+            tert(isinstance(model, AsyncModelProtocol),
+                 'model must implement AsyncModelProtocol')
             if not hasattr(model, 'relations'):
                 model.relations = {}
 
@@ -750,21 +747,21 @@ class BelongsTo(HasOne):
         return secondary
 
 
-class BelongsToMany(Relation):
+class AsyncBelongsToMany(AsyncRelation):
     """Class for the relation where each primary can have many secondary
         and each secondary can have many primary; e.g. users and roles,
         or roles and permissions. This requires the use of a pivot.
     """
-    pivot: Type[ModelProtocol]
+    pivot: Type[AsyncModelProtocol]
     primary_id_column: str
     secondary_id_column: str
 
-    def __init__(self, pivot: Type[ModelProtocol],
+    def __init__(self, pivot: Type[AsyncModelProtocol],
                 primary_id_column: str,
                 secondary_id_column: str,
                 *args, **kwargs) -> None:
         """Set the pivot and query_builder_pivot attributes, then let the
-            Relation class handle the rest. Raises TypeError if
+            AsyncRelation class handle the rest. Raises TypeError if
             either primary_id_column or secondary_id_column is not a str.
         """
         tert(type(primary_id_column) is type(secondary_id_column) is str,
@@ -775,17 +772,17 @@ class BelongsToMany(Relation):
         super().__init__(*args, **kwargs)
 
     @property
-    def secondary(self) -> Optional[list[ModelProtocol]]:
+    def secondary(self) -> Optional[list[AsyncModelProtocol]]:
         """The secondary model instances. Setting raises TypeError if a
             precondition check fails.
         """
         return self._secondary
 
     @secondary.setter
-    def secondary(self, secondary: Optional[list[ModelProtocol]]) -> None:
+    def secondary(self, secondary: Optional[list[AsyncModelProtocol]]) -> None:
         """Sets the secondary model instance."""
         if self.primary_to_remove and self._secondary:
-            self.save()
+            asyncio.run(self.save())
 
         if secondary is None:
             if self._secondary:
@@ -836,20 +833,20 @@ class BelongsToMany(Relation):
         self._secondary = tuple(secondary)
 
     @property
-    def pivot(self) -> Type[ModelProtocol]:
+    def pivot(self) -> Type[AsyncModelProtocol]:
         return self._pivot
 
     @pivot.setter
-    def pivot(self, pivot: Type[ModelProtocol]) -> None:
+    def pivot(self, pivot: Type[AsyncModelProtocol]) -> None:
         self.pivot_preconditions(pivot)
         self._pivot = pivot
 
-    def save(self) -> None:
+    async def save(self) -> None:
         """Save the relation by setting/unsetting the relevant database
             value(s). Raises UsageError if the relation is incomplete.
         """
-        tressa(self._primary is not None, 'cannot save incomplete BelongsToMany')
-        tressa(self._secondary is not None, 'cannot save incomplete BelongsToMany')
+        tressa(self._primary is not None, 'cannot save incomplete AsyncBelongsToMany')
+        tressa(self._secondary is not None, 'cannot save incomplete AsyncBelongsToMany')
 
         secondary_ids_to_remove = [
             item.data[item.id_column]
@@ -873,7 +870,7 @@ class BelongsToMany(Relation):
         must_add_primary = self.primary_to_add is not None
 
         if must_remove_secondary:
-            query_builder.is_in(
+            await query_builder.is_in(
                 self.secondary_id_column,
                 secondary_ids_to_remove
             ).is_in(
@@ -883,7 +880,7 @@ class BelongsToMany(Relation):
 
         if must_remove_primary:
             primary_to_remove_id = self.primary_to_remove.data[self.primary_class.id_column]
-            query_builder.reset().equal(
+            await query_builder.reset().equal(
                 self.primary_id_column,
                 primary_to_remove_id
             ).is_in(
@@ -895,7 +892,7 @@ class BelongsToMany(Relation):
 
         if must_add_primary or must_add_secondary:
             primary_id = self._primary.data[self.primary_class.id_column]
-            already_exists = query_builder.reset().equal(
+            already_exists = await query_builder.reset().equal(
                 self.primary_id_column,
                 primary_id
             ).get()
@@ -903,7 +900,7 @@ class BelongsToMany(Relation):
                 item.data[self.secondary_class.id_column]
                 for item in already_exists
             ]
-            self.pivot.insert_many([
+            await self.pivot.insert_many([
                 {
                     self.primary_id_column: primary_id,
                     self.secondary_id_column: item.data[item.id_column]
@@ -917,7 +914,7 @@ class BelongsToMany(Relation):
         self.secondary_to_add = []
         self.secondary_to_remove = []
 
-    def reload(self) -> BelongsToMany:
+    async def reload(self) -> AsyncBelongsToMany:
         """Reload the relation from the database. Return self in monad pattern."""
         self.primary_to_add = None
         self.primary_to_remove = None
@@ -926,10 +923,10 @@ class BelongsToMany(Relation):
 
         if self.primary and self.primary_class.id_column in self.primary.data:
             primary_id = self.primary.data[self.primary.id_column]
-            pivots = self.pivot.query({
+            pivots = await self.pivot.query({
                 self.primary_id_column: primary_id
             }).get()
-            self._secondary = self.secondary_class.query().is_in(
+            self._secondary = await self.secondary_class.query().is_in(
                 self.secondary_class.id_column,
                 [pivot.data[self.secondary_id_column] for pivot in pivots]
             ).get()
@@ -938,9 +935,9 @@ class BelongsToMany(Relation):
         if self.secondary and len(self.secondary):
             for secondary in self.secondary:
                 if self.secondary_class.id_column not in secondary.data:
-                    secondary.save()
+                    await secondary.save()
 
-            pivots = self.pivot.query().is_in(
+            pivots = await self.pivot.query().is_in(
                 self.secondary_id_column,
                 [secondary.data[secondary.id_column] for secondary in self.secondary]
             ).order_by(self.primary_id_column).get()
@@ -954,14 +951,14 @@ class BelongsToMany(Relation):
                     if pivot.data[self.primary_id_column] == primary_id
                 ]
                 if len(subset) == len(self.secondary):
-                    self._primary = self.primary_class.find(primary_id)
+                    self._primary = await self.primary_class.find(primary_id)
                     return self
 
             return self
 
         raise ValueError('cannot reload an empty relation')
 
-    def query(self) -> QueryBuilderProtocol|None:
+    def query(self) -> AsyncQueryBuilderProtocol|None:
         """Creates the base query for the underlying relation. This will
             return the query for a join between the pivot and the
             related model.
@@ -992,13 +989,13 @@ class BelongsToMany(Relation):
 
 
         class BelongsToManyTuple(tuple):
-            def __call__(self) -> BelongsToMany:
+            def __call__(self) -> AsyncBelongsToMany:
                 return self.relation
 
-        BelongsToManyTuple.__name__ = f'BelongsToMany{self.secondary_class.__name__}'
+        BelongsToManyTuple.__name__ = f'AsyncBelongsToMany{self.secondary_class.__name__}'
 
-        def setup_relation(self: ModelProtocol):
-            """Sets up the HasMany relation during instance initialization."""
+        def setup_relation(self: AsyncModelProtocol):
+            """Sets up the AsyncHasMany relation during instance initialization."""
             if not hasattr(self, 'relations'):
                 self.relations = {}
             self.relations[cache_key] = deepcopy(relation)
@@ -1010,7 +1007,7 @@ class BelongsToMany(Relation):
 
 
         @property
-        def secondary(self: ModelProtocol) -> RelatedCollection:
+        def secondary(self: AsyncModelProtocol) -> AsyncRelatedCollection:
             """The secondary model instances. Setting raises TypeError
                 if a precondition check fails.
             """
@@ -1031,7 +1028,7 @@ class BelongsToMany(Relation):
             return models
 
         @secondary.setter
-        def secondary(self: ModelProtocol, models: Optional[list[ModelProtocol]]) -> None:
+        def secondary(self: AsyncModelProtocol, models: Optional[list[AsyncModelProtocol]]) -> None:
             """Sets the secondary model instances. Raises TypeError if
                 the precondition check fails.
             """
@@ -1040,13 +1037,13 @@ class BelongsToMany(Relation):
         return secondary
 
 
-def _get_id_column(cls: Type[ModelProtocol]) -> str:
+def _get_id_column(cls: Type[AsyncModelProtocol]) -> str:
     return _pascalcase_to_snake_case(cls.__name__) + f'_{cls.id_column}'
 
-def has_one(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol],
+def async_has_one(cls: Type[AsyncModelProtocol], owned_model: Type[AsyncModelProtocol],
             foreign_id_column: str = None) -> property:
-    """Creates a HasOne relation and returns the result of
-        create_property. Usage syntax is like `User.avatar = has_one(
+    """Creates a AsyncHasOne relation and returns the result of
+        create_property. Usage syntax is like `User.avatar = async_has_one(
         User, Avatar)`. If the foreign id column on the Avatar.table
         table is not user_id (cls.__name__ PascalCase -> snake_case +
         "_id"), then it can be specified.
@@ -1054,13 +1051,13 @@ def has_one(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol],
     if foreign_id_column is None:
         foreign_id_column = _get_id_column(cls)
 
-    relation = HasOne(foreign_id_column, primary_class=cls, secondary_class=owned_model)
+    relation = AsyncHasOne(foreign_id_column, primary_class=cls, secondary_class=owned_model)
     return relation.create_property()
 
-def has_many(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol],
+def async_has_many(cls: Type[AsyncModelProtocol], owned_model: Type[AsyncModelProtocol],
              foreign_id_column: str = None) -> property:
-    """Creates a HasMany relation and returns the result of
-        create_property. Usage syntax is like `User.posts = has_many(
+    """Creates a AsyncHasMany relation and returns the result of
+        create_property. Usage syntax is like `User.posts = async_has_many(
         User, Post)`. If the foreign id column on the Post.table
         table is not user_id (cls.__name__ PascalCase -> snake_case +
         "_id"), then it can be specified.
@@ -1068,13 +1065,13 @@ def has_many(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol],
     if foreign_id_column is None:
         foreign_id_column = _get_id_column(cls)
 
-    relation = HasMany(foreign_id_column, primary_class=cls, secondary_class=owned_model)
+    relation = AsyncHasMany(foreign_id_column, primary_class=cls, secondary_class=owned_model)
     return relation.create_property()
 
-def belongs_to(cls: Type[ModelProtocol], owner_model: Type[ModelProtocol],
+def async_belongs_to(cls: Type[AsyncModelProtocol], owner_model: Type[AsyncModelProtocol],
                foreign_id_column: str = None) -> property:
-    """Creates a BelongsTo relation and returns the result of
-        create_property. Usage syntax is like `Post.owner = belongs_to(
+    """Creates a AsyncBelongsTo relation and returns the result of
+        create_property. Usage syntax is like `Post.owner = async_belongs_to(
         Post, User)`.  If the foreign id column on the Post.table
         table is not user_id (cls.__name__ PascalCase -> snake_case +
         "_id"), then it can be specified.
@@ -1082,15 +1079,15 @@ def belongs_to(cls: Type[ModelProtocol], owner_model: Type[ModelProtocol],
     if foreign_id_column is None:
         foreign_id_column = _get_id_column(owner_model)
 
-    relation = BelongsTo(foreign_id_column, primary_class=cls, secondary_class=owner_model)
+    relation = AsyncBelongsTo(foreign_id_column, primary_class=cls, secondary_class=owner_model)
     return relation.create_property()
 
-def belongs_to_many(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
-                pivot: Type[ModelProtocol],
+def async_belongs_to_many(cls: Type[AsyncModelProtocol], other_model: Type[AsyncModelProtocol],
+                pivot: Type[AsyncModelProtocol],
                 primary_id_column: str = None, secondary_id_column: str = None) -> property:
-    """Creates a BelongsToMany relation and returns the result of
+    """Creates a AsyncBelongsToMany relation and returns the result of
         create_property. Usage syntax is like `User.liked_posts =
-        belongs_to_many(User, Post, LikedPost)`. If the foriegn id
+        async_belongs_to_many(User, Post, LikedPost)`. If the foriegn id
         columns on LikedPost are not user_id and post_id (cls.__name__
         or other_model.__name__ PascalCase -> snake_case + "_id"), then
         they can be specified.
@@ -1100,6 +1097,6 @@ def belongs_to_many(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
     if secondary_id_column is None:
         secondary_id_column = _get_id_column(other_model)
 
-    relation = BelongsToMany(pivot, primary_id_column, secondary_id_column,
+    relation = AsyncBelongsToMany(pivot, primary_id_column, secondary_id_column,
                              primary_class=cls, secondary_class=other_model)
     return relation.create_property()
