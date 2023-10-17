@@ -1,6 +1,6 @@
 from __future__ import annotations
 from sqloquent.errors import tert, vert, tressa
-from sqloquent.asyncio.interfaces import (
+from sqloquent.asyncql.interfaces import (
     AsyncDBContextProtocol,
     AsyncCursorProtocol,
     AsyncQueryBuilderProtocol,
@@ -13,7 +13,6 @@ from types import TracebackType
 from typing import Any, AsyncGenerator, Optional, Type, Union
 from uuid import uuid4
 import aiosqlite
-import asyncio
 import packify
 
 
@@ -363,7 +362,7 @@ class AsyncSqlQueryBuilder:
                 data[key] = None
 
         if self.model.id_column in columns:
-            vert(self.find(data[self.model.id_column]) is None,
+            vert(await self.find(data[self.model.id_column]) is None,
                  'record with this id already exists')
 
         sql = f'insert into {self.model.table} ({",".join(columns)})' + \
@@ -601,7 +600,7 @@ class AsyncSqlQueryBuilder:
 
         async with self.context_manager(self.connection_info) as cursor:
             await cursor.execute(sql, self.params)
-            return await cursor.fetchone()[0]
+            return (await cursor.fetchone())[0]
 
     async def take(self, limit: int) -> list[AsyncSqlModel]|list[AsyncJoinedModel]|list[Row]:
         """Takes the specified number of rows. Raises TypeError or
@@ -612,7 +611,7 @@ class AsyncSqlQueryBuilder:
         self.limit = limit
         return await self.get()
 
-    async def chunk(self, number: int) -> AsyncGenerator[list[AsyncSqlModel]|list[AsyncJoinedModel]|list[Row], None, None]:
+    def chunk(self, number: int) -> AsyncGenerator[list[AsyncSqlModel]|list[AsyncJoinedModel]|list[Row], None, None]:
         """Chunk all matching rows the specified number of rows at a
             time. Raises TypeError or ValueError for invalid number.
         """

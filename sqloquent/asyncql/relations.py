@@ -1,6 +1,6 @@
 from __future__ import annotations
 from sqloquent.errors import tert, tressa
-from sqloquent.asyncio.interfaces import (
+from sqloquent.asyncql.interfaces import (
     AsyncModelProtocol,
     AsyncQueryBuilderProtocol,
     AsyncRelatedCollection,

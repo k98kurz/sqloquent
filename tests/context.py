@@ -10,4 +10,10 @@ from sqloquent import (
     relations,
     migration,
     tools,
+    asyncql,
+)
+from sqloquent.asyncql import (
+    classes as async_classes,
+    interfaces as async_interfaces,
+    relations as async_relations,
 )

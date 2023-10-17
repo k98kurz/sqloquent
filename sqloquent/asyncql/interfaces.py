@@ -13,7 +13,6 @@ from sqloquent.interfaces import RowProtocol
 from types import TracebackType
 from typing import (
     Any,
-    Callable,
     Generator,
     Iterable,
     Optional,
