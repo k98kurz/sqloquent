@@ -85,7 +85,21 @@ class TestIntegration(unittest.TestCase):
         name = 'Attachment'
         result = tools.make_migration_from_model(name, 'sqloquent/classes.py', DB_FILEPATH)
         assert type(result) is str
-        assert name.lower() in result
+        assert name.lower() in result, "table name should be in migration"
+        assert 'Table.drop' in result
+        assert 'Table.create' in result
+        assert 'Migration' in result
+        assert 'Table' in result
+        assert 'up' in result
+        assert 'down' in result
+        assert 'def migration' in result
+        assert DB_FILEPATH in result
+
+    def test_make_migration_from_async_model_returns_str_with_correct_content(self):
+        name = 'AsyncAttachment'
+        result = tools.make_migration_from_model(name, 'sqloquent/asyncql/classes.py', DB_FILEPATH)
+        assert type(result) is str
+        assert name.replace('Async', '').lower() in result, "table name should be in migration"
         assert 'Table.drop' in result
         assert 'Table.create' in result
         assert 'Migration' in result
@@ -103,7 +117,7 @@ class TestIntegration(unittest.TestCase):
             'thing2': 'float',
             'thing3': 'bytes',
         }
-        bases = ('SqlModel', 'HashedModel')
+        bases = ('SqlModel', 'HashedModel', 'AsyncSqlModel', 'AsyncHashedModel')
         for base in bases:
             result = tools.make_model(
                 name,

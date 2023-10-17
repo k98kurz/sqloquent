@@ -1,3 +1,9 @@
+"""
+    Classes for use with asyncio. Requires an additional dependency,
+    which should be installed with `pip install sqloquent[asyncql]`.
+"""
+
+
 from .interfaces import (
     AsyncCursorProtocol,
     AsyncDBContextProtocol,
@@ -17,4 +23,15 @@ from .classes import (
     AsyncHashedModel,
     AsyncAttachment,
     async_dynamic_sqlmodel,
+)
+from .relations import (
+    AsyncRelation,
+    AsyncHasOne,
+    AsyncHasMany,
+    AsyncBelongsTo,
+    AsyncBelongsToMany,
+    async_has_one,
+    async_has_many,
+    async_belongs_to,
+    async_belongs_to_many
 )

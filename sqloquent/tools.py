@@ -195,15 +195,21 @@ def make_model(name: str, base: str = 'SqlModel', columns: dict[str, str] = None
         names to type annotation strings, which should each be one of
         ('str', 'int', 'float', 'bytes).
     """
-    vert(base in ('SqlModel', 'HashedModel'),
-         f"base must be one of (SqlModel, HashedModel); {base} encountered")
+    tert(type(name) is str, 'name must be str')
+    vert(name.isalnum(), 'name must be alphanumeric')
+    vert(base in ('SqlModel', 'HashedModel', 'AsyncSqlModel', 'AsyncHashedModel'),
+         "base must be one of (SqlModel, HashedModel, AsyncSqlModel, " +
+         f"AsyncHashedModel); {base} encountered")
     tert(columns is None or type(columns) is dict,'columns must be dict[str, str]')
     vert(columns is None or all([type(k) is type(v) is str for k,v in columns.items()]),
          'columns must be dict[str, str]')
     valid_types = ('str', 'int', 'float', 'bytes')
     table_name = _pascalcase_to_snake_case(name)
     table_name = f'{table_name}s' if table_name[-1:] != 'y' else f'{table_name[:-1]}ies'
-    src = f"from sqloquent import {base}\n\n\n"
+    if "Async" in base:
+        src = f"from sqloquent.asyncql import {base}\n\n\n"
+    else:
+        src = f"from sqloquent import {base}\n\n\n"
     src += f"class {name}({base}):\n"
     src += f"    connection_info: str = '{connection_string}'\n"
     src += f"    table: str = '{table_name}'\n"
@@ -361,7 +367,7 @@ def help_cli(name: str) -> str:
     {name} make migration --alter name
     {name} make migration --drop name
     {name} make migration --model name path/to/model/file
-    {name} make model name [--sqlite|--sql|--hashedlite|--hashed] [--columns name1=type,name2,etc]
+    {name} make model name [--sqlite|--sql|--hashedlite|--hashed] [--columns name1=type,name2,etc] [--async]
     {name} migrate path/to/migration/file
     {name} rollback path/to/migration/file
     {name} refresh path/to/migration/file
@@ -431,6 +437,7 @@ def run_cli() -> None:
                 exit(1)
             name = argv[3]
             columns = {}
+            base = "SqlModel"
             if '--columns' in argv:
                 colindex = argv.index('--columns')
                 if len(argv) >= colindex + 2:
@@ -442,19 +449,16 @@ def run_cli() -> None:
                             columns[name] = datatype
                         else:
                             columns[s] = 'str'
-            if len(argv) == 5:
+            if len(argv) >= 5:
                 if argv[4] == "--sql":
-                    return print(make_model(
-                        name, 'SqlModel', connection_string=connstring_for_make,
-                        columns=columns))
+                    base = 'SqlModel'
                 elif argv[4] == "--hashed":
-                    return print(make_model(
-                        name, 'HashedModel', connection_string=connstring_for_make,
-                        columns=columns))
+                    base = 'HashedModel'
                 elif argv[4] == "--hashedlite":
-                    return print(make_model(
-                        name, 'HashedModel'))
-            return print(make_model(name, connection_string=connstring_for_make,
+                    base = 'HashedModel'
+            if "--async" in argv:
+                base = f"Async{base}"
+            return print(make_model(name, base, connection_string=connstring_for_make,
                                     columns=columns))
         else:
             print(f"unrecognized make kind: {kind}")
