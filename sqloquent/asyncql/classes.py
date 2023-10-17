@@ -928,8 +928,8 @@ class AsyncSqlModel:
         return sqb
 
 
-class DeletedModel(AsyncSqlModel):
-    """Model for preserving and restoring deleted HashedModel records."""
+class AsyncDeletedModel(AsyncSqlModel):
+    """Model for preserving and restoring deleted AsyncHashedModel records."""
     table: str = 'deleted_records'
     columns: tuple = ('id', 'model_class', 'record_id', 'record')
     id: str
@@ -963,7 +963,7 @@ class DeletedModel(AsyncSqlModel):
         return model
 
 
-class HashedModel(AsyncSqlModel):
+class AsyncHashedModel(AsyncSqlModel):
     """Model for interacting with sql database using hash for id."""
     table: str = 'hashed_records'
     columns: tuple = ('id', 'details')
@@ -980,7 +980,7 @@ class HashedModel(AsyncSqlModel):
         return sha256(preimage).digest().hex()
 
     @classmethod
-    async def insert(cls, data: dict) -> Optional[HashedModel]:
+    async def insert(cls, data: dict) -> Optional[AsyncHashedModel]:
         """Insert a new record to the datastore. Return instance. Raises
             TypeError for non-dict data or unencodable type (calls
             cls.generate_id, which calls packify.pack).
@@ -1003,7 +1003,7 @@ class HashedModel(AsyncSqlModel):
 
         return await cls.query().insert_many(items)
 
-    async def update(self, updates: dict) -> HashedModel:
+    async def update(self, updates: dict) -> AsyncHashedModel:
         """Persist the specified changes to the datastore, creating a new
             record in the process. Return new record in monad pattern.
             Raises TypeError or ValueError for invalid updates.
@@ -1026,15 +1026,15 @@ class HashedModel(AsyncSqlModel):
             instance = await self.insert(updates)
         return instance
 
-    async def delete(self) -> DeletedModel:
+    async def delete(self) -> AsyncDeletedModel:
         """Delete the model, putting it in the deleted_records table,
-            then return the DeletedModel. Raises packify.UsageError for
+            then return the AsyncDeletedModel. Raises packify.UsageError for
             unserializable data.
         """
         model_class = self.__class__.__name__
         record_id = self.data[self.id_column]
         record = packify.pack(self.data)
-        deleted = await DeletedModel.insert({
+        deleted = await AsyncDeletedModel.insert({
             'model_class': model_class,
             'record_id': record_id,
             'record': record
@@ -1043,7 +1043,7 @@ class HashedModel(AsyncSqlModel):
         return deleted
 
 
-class Attachment(HashedModel):
+class AsyncAttachment(AsyncHashedModel):
     """Class for attaching immutable details to a record."""
     table: str = 'attachments'
     columns: tuple = ('id', 'related_model', 'related_id', 'details')
@@ -1064,7 +1064,7 @@ class Attachment(HashedModel):
             self._related = await model_class.find(self.data['related_id'])
         return self._related
 
-    def attach_to(self, related: AsyncSqlModel) -> Attachment:
+    def attach_to(self, related: AsyncSqlModel) -> AsyncAttachment:
         """Attach to related model then return self."""
         tert(issubclass(related.__class__, AsyncSqlModel),
             'related must inherit from AsyncSqlModel')
@@ -1078,7 +1078,7 @@ class Attachment(HashedModel):
             self._details = packify.unpack(self.data['details'])
         return self._details
 
-    def set_details(self, details: packify.SerializableType = {}) -> Attachment:
+    def set_details(self, details: packify.SerializableType = {}) -> AsyncAttachment:
         """Set the details column using either supplied data or by
             packifying self._details. Return self in monad pattern.
             Raises packify.UsageError or TypeError if details contains
@@ -1090,6 +1090,6 @@ class Attachment(HashedModel):
         return self
 
     @classmethod
-    async def insert(cls, data: dict) -> Optional[Attachment]:
+    async def insert(cls, data: dict) -> Optional[AsyncAttachment]:
         # """Redefined for better LSP support."""
         return await super().insert(data)

@@ -13,5 +13,8 @@ from .classes import (
     AsyncSqlModel,
     AsyncJoinedModel,
     AsyncSqlQueryBuilder,
+    AsyncDeletedModel,
+    AsyncHashedModel,
+    AsyncAttachment,
     async_dynamic_sqlmodel,
 )
