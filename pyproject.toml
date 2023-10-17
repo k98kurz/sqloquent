@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sqloquent"
-version = "0.2.3"
+version = "0.2.999"
 authors = [
   { name="k98kurz", email="k98kurz@gmail.com" },
 ]
@@ -28,3 +28,8 @@ dependencies = [
 
 [project.scripts]
 sqloquent = "sqloquent.tools:run_cli"
+
+[project.optional-dependencies]
+asyncql = [
+  "aiosqlite"
+]
