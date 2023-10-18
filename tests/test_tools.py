@@ -185,6 +185,13 @@ class TestIntegration(unittest.TestCase):
             assert f"thing2n: float|None" in result
             assert f"thing3n: bytes|None" in result
 
+    def test_make_model_sets_query_builder(self):
+        name = "TestClass"
+        result = tools.make_model(name)
+        assert 'AsyncSqlQueryBuilder' not in result
+        result = tools.make_model(name, sqb=('AsyncSqlQueryBuilder', 'sqloquent.asyncql'))
+        assert 'from sqloquent.asyncql import AsyncSqlQueryBuilder' in result
+
     def test_publish_migrations_creates_attachments_and_deleted_model_migrations(self):
         list_files = lambda: [f for f in os.listdir(MIGRATIONS_PATH) if f[-3:] == '.py']
         assert len(list_files()) == 0

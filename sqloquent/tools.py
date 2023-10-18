@@ -211,7 +211,7 @@ def publish_migrations(path: str, connection_string: str = '', ctx: tuple = None
 
 
 def make_model(name: str, base: str = 'SqlModel', columns: dict[str, str] = None,
-               connection_string: str = '') -> str:
+               connection_string: str = '', sqb: tuple[str] = None) -> str:
     """Generate a model scaffold with the given name, columns, and
         connection_string. The columns parameter must be a dict mapping
         names to type annotation strings, which should each be one of
@@ -226,6 +226,9 @@ def make_model(name: str, base: str = 'SqlModel', columns: dict[str, str] = None
     tert(columns is None or type(columns) is dict,'columns must be dict[str, str]')
     vert(columns is None or all([type(k) is type(v) is str for k,v in columns.items()]),
          'columns must be dict[str, str]')
+    tert(sqb is None or type(sqb) in (tuple, list), "sqb must be (str,) or (str, str)")
+    tert(sqb is None or all([type(s) is str for s in sqb]), "sqb must be (str,) or (str, str)")
+    vert(sqb is None or 1 <= len(sqb) <= 2, "sqb must be (str,) or (str, str)")
     valid_types = (
         'str', 'int', 'float', 'bytes',
         'str|None', 'int|None', 'float|None', 'bytes|None',
@@ -236,8 +239,12 @@ def make_model(name: str, base: str = 'SqlModel', columns: dict[str, str] = None
         src = f"from sqloquent.asyncql import {base}\n\n\n"
     else:
         src = f"from sqloquent import {base}\n\n\n"
+    if sqb and len(sqb) == 2:
+        src = src[:-2] + f"from {sqb[1]} import {sqb[0]}\n\n\n"
     src += f"class {name}({base}):\n"
     src += f"    connection_info: str = '{connection_string}'\n"
+    if sqb:
+        src += f"    query_builder_class: Type[QueryBuilderProtocol] = {sqb[0]}\n"
     src += f"    table: str = '{table_name}'\n"
     src += f"    id_column: str = 'id'\n"
     if columns:
@@ -393,7 +400,7 @@ def help_cli(name: str) -> str:
     {name} make migration --alter name [--ctx name [--from package_name]]
     {name} make migration --drop name [--ctx name [--from package_name]]
     {name} make migration --model name path/to/model/file [--ctx name [--from package_name]]
-    {name} make model name [--hashed] [--columns name1=type,name2,etc] [--async]
+    {name} make model name [--hashed] [--columns name1=type,name2,etc] [--async] [--sqb name [--from package_name]]
     {name} migrate path/to/migration/file
     {name} rollback path/to/migration/file
     {name} refresh path/to/migration/file
@@ -477,6 +484,7 @@ def run_cli() -> None:
             name = argv[3]
             columns = {}
             base = "SqlModel"
+            sqb = None
             if '--columns' in argv:
                 colindex = argv.index('--columns')
                 if len(argv) >= colindex + 2:
@@ -492,9 +500,21 @@ def run_cli() -> None:
                 base = 'HashedModel'
             if "--async" in argv:
                 base = f"Async{base}"
+            if "--sqb" in argv:
+                argi = argv.index("--sqb")
+                if len(argv) < argi + 2:
+                    print(help_cli(argv[0]))
+                    exit(1)
+                sqb = [argv[argi + 1]]
+                if "--from" in argv:
+                    argi = argv.index("--from")
+                    if len(argv) < argi + 2:
+                        print(help_cli(argv[0]))
+                        exit(1)
+                    sqb.append(argv[argi + 1])
 
             return print(make_model(name, base, connection_string=connstring_for_make,
-                                    columns=columns))
+                                    columns=columns, sqb=sqb))
         else:
             print(f"unrecognized make kind: {kind}")
             exit(1)
