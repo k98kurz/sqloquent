@@ -27,12 +27,19 @@ def _pascalcase_to_snake_case(name: str) -> str:
     """
     return re.sub(r'(?<!^)(?=[A-Z])', '_', name).lower()
 
-def _make_migration_src_start() -> str:
-    return "from sqloquent import Migration, Table\n\n\n"
+def _make_migration_src_start(ctx: tuple = None) -> str:
+    src = "from sqloquent import Migration, Table\n"
+    if type(ctx) in (tuple, list) and len(ctx) <= 2:
+        tert(all([type(c) is str for c in ctx]), 'ctx must be (str,) or (str, str)')
+        vert(len(ctx) in (1, 2), 'ctx must be (str,) or (str, str)')
+        if len(ctx) == 2:
+            src += f"from {ctx[1]} import {ctx[0]}\n"
+    return f"{src}\n\n"
 
-def make_migration_create(name: str, connection_string: str = '') -> str:
+def make_migration_create(name: str, connection_string: str = '',
+                          ctx: tuple = None) -> str:
     """Generate a migration scaffold from a table name to create a table."""
-    src = _make_migration_src_start()
+    src = _make_migration_src_start(ctx)
     table_name = _pascalcase_to_snake_case(name)
     src += f"def create_table_{table_name}() -> list[Table]:\n"
     src += f"    t = Table.create('{table_name}')\n"
@@ -42,15 +49,19 @@ def make_migration_create(name: str, connection_string: str = '') -> str:
     src += f"def drop_table_{table_name}() -> list[Table]:\n"
     src += f"    return [Table.drop('{table_name}')]\n\n"
     src += f"def migration(connection_string: str = '{connection_string}') -> Migration:\n"
-    src += f"    migration = Migration(connection_string)\n"
+    if ctx:
+        src += f"    migration = Migration(connection_string, {ctx[0]})\n"
+    else:
+        src += f"    migration = Migration(connection_string)\n"
     src += f"    migration.up(create_table_{table_name})\n"
     src += f"    migration.down(drop_table_{table_name})\n"
     src += f"    return migration"
     return src
 
-def make_migration_alter(name: str, connection_string: str = '') -> str:
+def make_migration_alter(name: str, connection_string: str = '',
+                         ctx: tuple = None) -> str:
     """Generate a migration scaffold from a table name to alter a table."""
-    src = _make_migration_src_start()
+    src = _make_migration_src_start(ctx)
     table_name = _pascalcase_to_snake_case(name)
     src += f"def alter_table_{table_name}() -> list[Table]:\n"
     src += f"    t = Table.alter('{table_name}')\n"
@@ -61,15 +72,19 @@ def make_migration_alter(name: str, connection_string: str = '') -> str:
     src += f"    ...\n"
     src += f"    return [t]\n\n"
     src += f"def migration(connection_string: str = '{connection_string}') -> Migration:\n"
-    src += f"    migration = Migration(connection_string)\n"
+    if ctx:
+        src += f"    migration = Migration(connection_string, {ctx[0]})\n"
+    else:
+        src += f"    migration = Migration(connection_string)\n"
     src += f"    migration.up(alter_table_{table_name})\n"
     src += f"    migration.down(unalter_table_{table_name})\n"
     src += f"    return migration"
     return src
 
-def make_migration_drop(name: str, connection_string: str = '') -> str:
+def make_migration_drop(name: str, connection_string: str = '',
+                        ctx: tuple = None) -> str:
     """Generate a migration scaffold from a table name to drop a table."""
-    src = _make_migration_src_start()
+    src = _make_migration_src_start(ctx)
     table_name = _pascalcase_to_snake_case(name)
     src += f"def drop_table_{table_name}() -> list[Table]:\n"
     src += f"    return [Table.drop('{table_name}')]\n\n"
@@ -79,14 +94,18 @@ def make_migration_drop(name: str, connection_string: str = '') -> str:
     src += f"    ...\n"
     src += f"    return [t]\n\n"
     src += f"def migration(connection_string: str = '{connection_string}') -> Migration:\n"
-    src += f"    migration = Migration(connection_string)\n"
+    if ctx:
+        src += f"    migration = Migration(connection_string, {ctx[0]})\n"
+    else:
+        src += f"    migration = Migration(connection_string)\n"
     src += f"    migration.up(drop_table_{table_name})\n"
     src += f"    migration.down(recreate_table_{table_name})\n"
     src += f"    return migration"
     return src
 
 def make_migration_from_model(model_name: str, model_path: str,
-                              connection_string: str = '') -> str:
+                              connection_string: str = '',
+                              ctx: tuple = None) -> str:
     """Generate a migration scaffold from a model."""
     module = _import(model_path)
     tressa(hasattr(module, model_name),
@@ -94,7 +113,7 @@ def make_migration_from_model(model_name: str, model_path: str,
     model: ModelProtocol = getattr(module, model_name)
     tert(isinstance(model(), ModelProtocol),
             "specified model is invalid; must implement ModelProtocol")
-    return _make_migration_from_model(model, model_name, connection_string)
+    return _make_migration_from_model(model, model_name, connection_string, ctx)
 
 def _get_column_type_from_annotation(annotation: Any) -> tuple[str, bool]:
     nullable = False
@@ -131,7 +150,7 @@ def _get_column_type_from_annotation(annotation: Any) -> tuple[str, bool]:
         return ('text', nullable)
 
 def _make_migration_from_model(model: ModelProtocol, model_name: str,
-                               connection_string: str = '') -> str:
+                               connection_string: str = '', ctx: tuple = None) -> str:
     table_name = model.table or _pascalcase_to_snake_case(model_name)
     types: dict[str, tuple[Type, bool]] = {}
     if model.__annotations__:
@@ -139,7 +158,7 @@ def _make_migration_from_model(model: ModelProtocol, model_name: str,
             if column in model.__annotations__:
                 annotation = model.__annotations__[column]
                 types[column] = _get_column_type_from_annotation(annotation)
-    src = _make_migration_src_start()
+    src = _make_migration_src_start(ctx)
     src += f"def create_table_{table_name}() -> list[Table]:\n"
     src += f"    t = Table.create('{table_name}')\n"
     for column in model.columns:
@@ -154,7 +173,10 @@ def _make_migration_from_model(model: ModelProtocol, model_name: str,
     src += f"def drop_table_{table_name}() -> list[Table]:\n"
     src += f"    return [Table.drop('{table_name}')]\n\n"
     src += f"def migration(connection_string: str = '{connection_string}') -> Migration:\n"
-    src += f"    migration = Migration(connection_string)\n"
+    if ctx:
+        src += f"    migration = Migration(connection_string, {ctx[0]})\n"
+    else:
+        src += f"    migration = Migration(connection_string)\n"
     src += f"    migration.up(create_table_{table_name})\n"
     src += f"    migration.down(drop_table_{table_name})\n"
     src += f"    return migration"
@@ -367,11 +389,11 @@ def help_cli(name: str) -> str:
     """Return the help string for the CLI tool."""
     name = name.split("/")[-1]
     """Produce and return the help text."""
-    return f"""usage: {name} make migration --create name
-    {name} make migration --alter name
-    {name} make migration --drop name
-    {name} make migration --model name path/to/model/file
-    {name} make model name [--sqlite|--sql|--hashedlite|--hashed] [--columns name1=type,name2,etc] [--async]
+    return f"""usage: {name} make migration --create name [--ctx name [--from package_name]]
+    {name} make migration --alter name [--ctx name [--from package_name]]
+    {name} make migration --drop name [--ctx name [--from package_name]]
+    {name} make migration --model name path/to/model/file [--ctx name [--from package_name]]
+    {name} make model name [--hashed] [--columns name1=type,name2,etc] [--async]
     {name} migrate path/to/migration/file
     {name} rollback path/to/migration/file
     {name} refresh path/to/migration/file
@@ -422,18 +444,31 @@ def run_cli() -> None:
                 exit(1)
             param = argv[3]
             name = argv[4]
+            ctx = None
+            if "--ctx" in argv:
+                argi = argv.index("--ctx")
+                if len(argv) < argi + 2:
+                    print(help_cli(argv[0]))
+                    exit(1)
+                ctx = [argv[argi + 1]]
+                if "--from" in argv:
+                    argi = argv.index("--from")
+                    if len(argv) < argi + 2:
+                        print(help_cli(argv[0]))
+                        exit(1)
+                    ctx.append(argv[argi + 1])
             if param == "--create":
-                return print(make_migration_create(name, connstring_for_make))
+                return print(make_migration_create(name, connstring_for_make, ctx))
             elif param == "--alter":
-                return print(make_migration_alter(name, connstring_for_make))
+                return print(make_migration_alter(name, connstring_for_make, ctx))
             elif param == "--drop":
-                return print(make_migration_drop(name, connstring_for_make))
+                return print(make_migration_drop(name, connstring_for_make, ctx))
             elif param == "--model":
                 if len(argv) < 6:
                     print(f"error: `make migration --model {name}` missing path parameter")
                     print(help_cli(argv[0]))
                     exit(1)
-                return print(make_migration_from_model(name, argv[5], connstring_for_make))
+                return print(make_migration_from_model(name, argv[5], connstring_for_make, ctx))
         elif kind == "model":
             if len(argv) < 4:
                 print("make model missing parameter: name")
@@ -453,15 +488,11 @@ def run_cli() -> None:
                             columns[name] = datatype
                         else:
                             columns[s] = 'str'
-            if len(argv) >= 5:
-                if argv[4] == "--sql":
-                    base = 'SqlModel'
-                elif argv[4] == "--hashed":
-                    base = 'HashedModel'
-                elif argv[4] == "--hashedlite":
-                    base = 'HashedModel'
+            if "--hashed" in argv:
+                base = 'HashedModel'
             if "--async" in argv:
                 base = f"Async{base}"
+
             return print(make_model(name, base, connection_string=connstring_for_make,
                                     columns=columns))
         else:

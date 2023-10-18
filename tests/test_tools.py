@@ -109,6 +109,51 @@ class TestIntegration(unittest.TestCase):
         assert 'def migration' in result
         assert DB_FILEPATH in result
 
+    def test_make_miration_create_sets_context_manager(self):
+        name = token_hex(4)
+        result = tools.make_migration_create(name, DB_FILEPATH)
+        assert 'SqliteContext' not in result
+        assert 'Migration(connection_string, SqliteContext)' not in result
+        assert 'Migration(connection_string)' in result
+        result = tools.make_migration_create(name, DB_FILEPATH, ('SqliteContext', 'sqloquent'))
+        assert 'from sqloquent import SqliteContext' in result
+        assert 'Migration(connection_string, SqliteContext)' in result
+        assert 'Migration(connection_string)' not in result
+
+    def test_make_miration_alter_sets_context_manager(self):
+        name = token_hex(4)
+        result = tools.make_migration_alter(name, DB_FILEPATH)
+        assert 'SqliteContext' not in result
+        assert 'Migration(connection_string, SqliteContext)' not in result
+        assert 'Migration(connection_string)' in result
+        result = tools.make_migration_alter(name, DB_FILEPATH, ('SqliteContext', 'sqloquent'))
+        assert 'from sqloquent import SqliteContext' in result
+        assert 'Migration(connection_string, SqliteContext)' in result
+        assert 'Migration(connection_string)' not in result
+
+    def test_make_miration_drop_sets_context_manager(self):
+        name = token_hex(4)
+        result = tools.make_migration_drop(name, DB_FILEPATH)
+        assert 'SqliteContext' not in result
+        assert 'Migration(connection_string, SqliteContext)' not in result
+        assert 'Migration(connection_string)' in result
+        result = tools.make_migration_drop(name, DB_FILEPATH, ('SqliteContext', 'sqloquent'))
+        assert 'from sqloquent import SqliteContext' in result
+        assert 'Migration(connection_string, SqliteContext)' in result
+        assert 'Migration(connection_string)' not in result
+
+    def test_make_miration_from_model_sets_context_manager(self):
+        name = 'Attachment'
+        result = tools.make_migration_from_model(name, 'sqloquent/classes.py', DB_FILEPATH)
+        assert 'SqliteContext' not in result
+        assert 'Migration(connection_string, SqliteContext)' not in result
+        assert 'Migration(connection_string)' in result
+        result = tools.make_migration_from_model(
+            name, 'sqloquent/classes.py', DB_FILEPATH, ('SqliteContext', 'sqloquent'))
+        assert 'from sqloquent import SqliteContext' in result
+        assert 'Migration(connection_string, SqliteContext)' in result
+        assert 'Migration(connection_string)' not in result
+
     def test_make_model_returns_str_with_correct_content(self):
         name = f"M{token_hex(4)}"
         columns = {
