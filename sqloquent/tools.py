@@ -182,23 +182,23 @@ def _make_migration_from_model(model: ModelProtocol, model_name: str,
     src += f"    return migration"
     return src
 
-def publish_migrations(path: str, connection_string: str = ''):
-    """Publish the migrations for the DeletedModel and Attachment."""
+def publish_migrations(path: str, connection_string: str = '', ctx: tuple = None):
+    """Publish the migrations for the DeletedModel, HashedModel, and Attachment."""
     tert(type(path) is str, 'path must be str')
     tressa(isdir(path), 'path must be valid path to an existing directory')
 
     deleted_model_src = _make_migration_from_model(
-        DeletedModel, 'DeletedModel', connection_string)
+        DeletedModel, 'DeletedModel', connection_string, ctx)
     deleted_model_src = deleted_model_src.replace("t.text('record').index()", "t.blob('record')")
     deleted_model_src = deleted_model_src.replace('    ...\n', '')
 
     attachment_src = _make_migration_from_model(
-        Attachment, 'Attachment', connection_string)
+        Attachment, 'Attachment', connection_string, ctx)
     attachment_src = attachment_src.replace("t.text('details').index()", "t.blob('details')")
     attachment_src = attachment_src.replace('    ...\n', '')
 
     hashed_model_src = _make_migration_from_model(
-        HashedModel, 'HashedModel', connection_string)
+        HashedModel, 'HashedModel', connection_string, ctx)
     hashed_model_src = hashed_model_src.replace("t.text('details').index()", "t.blob('details')")
     hashed_model_src = hashed_model_src.replace('    ...\n', '')
 
@@ -401,14 +401,14 @@ def help_cli(name: str) -> str:
     {name} automigrate path/to/migrations/folder
     {name} autorollback path/to/migrations/folder
     {name} autorefresh path/to/migrations/folder
-    {name} publish path/to/migrations/folder\n\n""" + \
+    {name} publish path/to/migrations/folder [--ctx name [--from package_name]]\n\n""" + \
     "The `make` commands print the string source to std out for piping as\n" + \
     "desired. The `automigrate` command reads the files in the specified\n" + \
     "directory, then runs the managed migration tool which tracks migrations\n" + \
     "using a migrations table.\n\n" + \
     "The data types for the --columns param are (str, int, float, bytes).\n\n" + \
-    "The `publish` command publishes migrations for the included DeletedModel\n" +\
-    "and Attachment classes. Use of these is optional.\n\n" + \
+    "The `publish` command publishes migrations for the included DeletedModel,\n" +\
+    "HashedModel, and Attachment classes. Use of these is optional.\n\n" + \
     "Include CONNECTION_STRING in a .env file or as an environment variable\n" + \
     "to set the connection string used by migration commands. Include\n" + \
     "MAKE_WITH_CONNSTRING in a .env file or as an environment variable to\n" + \
@@ -525,7 +525,20 @@ def run_cli() -> None:
         if len(argv) < 3:
             print("missing path")
             exit(1)
-        return publish_migrations(argv[2], connstring_for_make)
+        ctx = None
+        if "--ctx" in argv:
+            argi = argv.index("--ctx")
+            if len(argv) < argi + 2:
+                print(help_cli(argv[0]))
+                exit(1)
+            ctx = [argv[argi + 1]]
+            if "--from" in argv:
+                argi = argv.index("--from")
+                if len(argv) < argi + 2:
+                    print(help_cli(argv[0]))
+                    exit(1)
+                ctx.append(argv[argi + 1])
+        return publish_migrations(argv[2], connstring_for_make, ctx)
     else:
         print(f"unrecognized mode: {mode}")
         exit(1)
