@@ -193,7 +193,8 @@ def make_model(name: str, base: str = 'SqlModel', columns: dict[str, str] = None
     """Generate a model scaffold with the given name, columns, and
         connection_string. The columns parameter must be a dict mapping
         names to type annotation strings, which should each be one of
-        ('str', 'int', 'float', 'bytes).
+        ('str', 'int', 'float', 'bytes', 'str|None', 'int|None',
+        'float|None', 'bytes|None').
     """
     tert(type(name) is str, 'name must be str')
     vert(name.isalnum(), 'name must be alphanumeric')
@@ -203,7 +204,10 @@ def make_model(name: str, base: str = 'SqlModel', columns: dict[str, str] = None
     tert(columns is None or type(columns) is dict,'columns must be dict[str, str]')
     vert(columns is None or all([type(k) is type(v) is str for k,v in columns.items()]),
          'columns must be dict[str, str]')
-    valid_types = ('str', 'int', 'float', 'bytes')
+    valid_types = (
+        'str', 'int', 'float', 'bytes',
+        'str|None', 'int|None', 'float|None', 'bytes|None',
+    )
     table_name = _pascalcase_to_snake_case(name)
     table_name = f'{table_name}s' if table_name[-1:] != 'y' else f'{table_name[:-1]}ies'
     if "Async" in base:

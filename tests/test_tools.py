@@ -116,6 +116,9 @@ class TestIntegration(unittest.TestCase):
             'thing1': 'int',
             'thing2': 'float',
             'thing3': 'bytes',
+            'thing1n': 'int|None',
+            'thing2n': 'float|None',
+            'thing3n': 'bytes|None',
         }
         bases = ('SqlModel', 'HashedModel', 'AsyncSqlModel', 'AsyncHashedModel')
         for base in bases:
@@ -133,6 +136,9 @@ class TestIntegration(unittest.TestCase):
             assert f"thing1: int" in result
             assert f"thing2: float" in result
             assert f"thing3: bytes" in result
+            assert f"thing1n: int|None" in result
+            assert f"thing2n: float|None" in result
+            assert f"thing3n: bytes|None" in result
 
     def test_publish_migrations_creates_attachments_and_deleted_model_migrations(self):
         list_files = lambda: [f for f in os.listdir(MIGRATIONS_PATH) if f[-3:] == '.py']
