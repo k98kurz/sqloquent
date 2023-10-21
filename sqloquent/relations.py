@@ -1170,8 +1170,7 @@ class Contains(HasMany):
                     self.relations[cache_key] = deepcopy(relation)
                     self.relations[cache_key].primary = self
 
-                empty.relations = {}
-                empty.relations[f'{cache_key}'] = self.relations[cache_key]
+                empty.relation = self.relations[cache_key]
                 return empty
 
             models = ContainsTuple(self.relations[cache_key].secondary)

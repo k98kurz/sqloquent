@@ -1,3 +1,4 @@
+from __future__ import annotations
 from context import classes, errors, interfaces, relations
 from genericpath import isfile
 import os
@@ -50,6 +51,13 @@ class TestRelations(unittest.TestCase):
             connection_info: str = DB_FILEPATH
             table: str = 'dag'
             columns: tuple = ('id', 'details', 'parent_ids')
+            parents: interfaces.RelatedCollection
+            children: interfaces.RelatedCollection
+
+            @classmethod
+            def insert(cls, data: dict) -> DAGItem|None:
+                # """For better type hinting."""
+                return super().insert(data)
 
         self.OwnedModel = OwnedModel
         self.OwnerModel = OwnerModel
@@ -1743,6 +1751,41 @@ class TestRelations(unittest.TestCase):
         belongstomany.reload()
         assert belongstomany.primary
         assert belongstomany.primary == owned1
+
+    def test_Contains_Within_e2e(self):
+        self.DAGItem.parents = relations.contains(
+            self.DAGItem,
+            self.DAGItem,
+            'parent_ids',
+        )
+        self.DAGItem.children = relations.within(
+            self.DAGItem,
+            self.DAGItem,
+            'parent_ids',
+        )
+
+        parent1 = self.DAGItem.insert({'details': 'Gen 1 item 1'})
+        parent2 = self.DAGItem.insert({'details': 'Gen 1 item 2'})
+        child1 = self.DAGItem({'details': 'Gen 2 item 1'})
+        child2 = self.DAGItem({'details': 'Gen 2 item 2'})
+
+        assert len(parent1.children) == 0
+        parent1.children = [child1, child2]
+        parent1.children().save()
+        parent1.children().reload()
+        assert len(parent1.children) == 2
+        assert child1 in parent1.children
+        assert child2 in parent1.children
+
+        assert len(child1.parents) == 0
+        child1.parents().reload()
+        assert child1.parents == (parent1,)
+        child1.parents = [parent1, parent2]
+        child1.parents().save()
+
+        assert len(parent2.children) == 0
+        parent2.children().reload()
+        assert len(parent2.children) == 1
 
 
 if __name__ == '__main__':
