@@ -1020,9 +1020,11 @@ class HashedModel(SqlModel):
         return cls.query().insert_many(items)
 
     def update(self, updates: dict) -> HashedModel:
-        """Persist the specified changes to the datastore, creating a new
-            record in the process. Return new record in monad pattern.
-            Raises TypeError or ValueError for invalid updates.
+        """Persist the specified changes to the datastore, creating a
+            new record in the process. Update and return self in monad
+            pattern. Raises TypeError or ValueError for invalid updates.
+            Did not need to overwrite the save method because save calls
+            update or insert.
         """
         tert(type(updates) is dict, 'updates must be dict')
 
@@ -1036,11 +1038,18 @@ class HashedModel(SqlModel):
 
         # insert new record or update and return
         if self.data[self.id_column]:
+            # if there's nothing to do, do nothing
+            new_id = self.generate_id({**self.data, **updates})
+            if new_id == self.data[self.id_column]:
+                return self
+
             instance = self.insert(updates)
             self.delete()
         else:
             instance = self.insert(updates)
-        return instance
+
+        self.data = instance.data
+        return self
 
     def delete(self) -> DeletedModel:
         """Delete the model, putting it in the deleted_records table,

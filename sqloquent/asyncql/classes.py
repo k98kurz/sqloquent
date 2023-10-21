@@ -1003,9 +1003,11 @@ class AsyncHashedModel(AsyncSqlModel):
         return await cls.query().insert_many(items)
 
     async def update(self, updates: dict) -> AsyncHashedModel:
-        """Persist the specified changes to the datastore, creating a new
-            record in the process. Return new record in monad pattern.
-            Raises TypeError or ValueError for invalid updates.
+        """Persist the specified changes to the datastore, creating a
+            new record in the process. Update and return self in monad
+            pattern. Raises TypeError or ValueError for invalid updates.
+            Did not need to overwrite the save method because save calls
+            update or insert.
         """
         tert(type(updates) is dict, 'updates must be dict')
 
@@ -1019,10 +1021,17 @@ class AsyncHashedModel(AsyncSqlModel):
 
         # insert new record or update and return
         if self.data[self.id_column]:
+            # if there's nothing to do, do nothing
+            new_id = self.generate_id({**self.data, **updates})
+            if new_id == self.data[self.id_column]:
+                return self
+
             instance = await self.insert(updates)
             await self.delete()
         else:
             instance = await self.insert(updates)
+
+        self.data = instance.data
         return instance
 
     async def delete(self) -> AsyncDeletedModel:

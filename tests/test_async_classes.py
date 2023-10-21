@@ -948,10 +948,10 @@ class TestClasses(unittest.TestCase):
         expected = sha256(preimage).digest().hex()
         assert observed == expected, 'wrong hash encountered'
 
-    # def test_AsyncHashedModel_insert_raises_TypeError_for_nondict_input(self):
-    #     with self.assertRaises(TypeError) as e:
-    #         async_classes.AsyncHashedModel.insert('not a dict')
-    #     assert str(e.exception) == 'data must be dict'
+    def test_AsyncHashedModel_insert_raises_TypeError_for_nondict_input(self):
+        with self.assertRaises(TypeError) as e:
+            run(async_classes.AsyncHashedModel.insert('not a dict'))
+        assert str(e.exception) == 'data must be dict'
 
     def test_AsyncHashedModel_insert_generates_id_and_makes_record(self):
         data = { 'details': token_bytes(8).hex() }
@@ -1015,12 +1015,14 @@ class TestClasses(unittest.TestCase):
 
         updated = run(inserted.update(data2))
         assert run(async_classes.AsyncDeletedModel.query().count()) == 1
+        assert updated.data == inserted.data
         assert updated.data['id'] != id1
 
         updated.data['details'] = data3['details']
+        id2 = updated.data['id']
         saved = run(updated.save())
         assert run(async_classes.AsyncDeletedModel.query().count()) == 2
-        assert saved.data['id'] not in (id1, updated.data['id'])
+        assert saved.data['id'] not in (id1, id2)
 
 
     # AsyncDeletedModel tests

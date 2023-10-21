@@ -1040,12 +1040,15 @@ class TestClasses(unittest.TestCase):
 
         updated = inserted.update(data2)
         assert classes.DeletedModel.query().count() == 1
+        assert updated.data == inserted.data
         assert updated.data['id'] != id1
 
         updated.data['details'] = data3['details']
+        id2 = updated.data['id']
         saved = updated.save()
         assert classes.DeletedModel.query().count() == 2
-        assert saved.data['id'] not in (id1, updated.data['id'])
+        assert saved.data['id'] not in (id1, id2)
+        assert saved.data == updated.data
 
 
     # DeletedModel tests
