@@ -1043,10 +1043,10 @@ class BelongsToMany(Relation):
 class Contains(HasMany):
     """Class for encoding a relationship in which a model contains the
         ID(s) for other models within a column:
-        primary.data[foreign_id_column] = ",".join([s.data[id_column]
-        for s in secondary]). Useful for DAGs using HashedModel or
-        something similar. IDs are sorted for deterministic hashing via
-        HashedModel.
+        primary.data[foreign_id_column] = ",".join(sorted([
+        s.data[id_column] for s in secondary])). Useful for DAGs using
+        HashedModel or something similar. IDs are sorted for
+        deterministic hashing via HashedModel.
     """
     secondary: tuple[ModelProtocol]
     _secondary: tuple[ModelProtocol]
