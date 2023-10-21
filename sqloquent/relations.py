@@ -702,7 +702,7 @@ class BelongsTo(HasOne):
         BelongsToWrapped.__name__ = f'(BelongsTo){self.secondary_class.__name__}'
 
         def setup_relation(self: ModelProtocol):
-            """Sets up the HasMany relation during instance initialization."""
+            """Sets up the BelongsTo relation during instance initialization."""
             if not hasattr(self, 'relations'):
                 self.relations = {}
             self.relations[cache_key] = deepcopy(relation)
@@ -995,10 +995,10 @@ class BelongsToMany(Relation):
             def __call__(self) -> BelongsToMany:
                 return self.relation
 
-        BelongsToManyTuple.__name__ = f'BelongsToMany{self.secondary_class.__name__}'
+        BelongsToManyTuple.__name__ = f'(BelongsToMany){self.secondary_class.__name__}'
 
         def setup_relation(self: ModelProtocol):
-            """Sets up the HasMany relation during instance initialization."""
+            """Sets up the BelongsToMany relation during instance initialization."""
             if not hasattr(self, 'relations'):
                 self.relations = {}
             self.relations[cache_key] = deepcopy(relation)
@@ -1035,6 +1035,152 @@ class BelongsToMany(Relation):
             """Sets the secondary model instances. Raises TypeError if
                 the precondition check fails.
             """
+            self.relations[cache_key].secondary = models
+
+        return secondary
+
+
+class Contains(HasMany):
+    """Class for encoding a relationship in which a model contains the
+        ID(s) for other models within a column:
+        primary.data[foreign_id_column] = ",".join([s.data[id_column]
+        for s in secondary]). Useful for DAGs using HashedModel or
+        something similar. IDs are sorted for deterministic hashing via
+        HashedModel.
+    """
+    secondary: tuple[ModelProtocol]
+    _secondary: tuple[ModelProtocol]
+
+    def save(self) -> None:
+        """Persists the relation to the database. Raises UsageError if
+            the relation is incomplete.
+        """
+        tressa(self._primary is not None, 'cannot save incomplete Contains')
+        tressa(self._secondary is not None, 'cannot save incomplete Contains')
+
+        secondary = []
+        for s in self._secondary:
+            if not self.secondary_class.id_column in s.data:
+                s = s.save()
+            secondary.append(s)
+        self._secondary = tuple(secondary)
+
+        ids = ",".join(sorted([
+            s.data[self.secondary_class.id_column]
+            for s in self._secondary
+        ]))
+
+        self.primary.data[self.foreign_id_column] = ids
+        self._primary = self.primary.save()
+
+        if self.primary_to_remove is not None:
+            self.primary_to_remove.update({
+                self.foreign_id_column: None
+            })
+
+        self.primary_to_add = None
+        self.primary_to_remove = None
+        self.secondary_to_add = []
+        self.secondary_to_remove = []
+
+    def reload(self) -> Contains:
+        """Reload the relation from the database. Return self in monad pattern."""
+        self.primary_to_add = None
+        self.primary_to_remove = None
+        self.secondary_to_add = []
+        self.secondary_to_remove = []
+
+        if self.primary and self.foreign_id_column in self.primary.data:
+            secondary_ids = self.primary.data[self.foreign_id_column].split(',')
+            self._secondary = self.secondary_class.query().is_in(
+                self.secondary_class.id_column, secondary_ids).get()
+            return self
+
+        if self.secondary and all([
+            self.secondary_class.id_column in s.data for s in self.secondary
+        ]):
+            secondary_ids = ",".join(sorted([
+                s.data[self.secondary_class.id_column]
+                for s in self.secondary
+            ]))
+            self._primary = self.primary_class.query({
+                self.foreign_id_column: secondary_ids
+            }).first()
+            return self
+
+        raise ValueError('cannot reload an empty relation')
+
+    def query(self) -> QueryBuilderProtocol|None:
+        """Creates the base query for the underlying relation."""
+        if self.primary and self.foreign_id_column in self.primary.data:
+            secondary_ids = self.primary.data[self.foreign_id_column] or ''
+            secondary_ids = secondary_ids.split(',')
+            return self.secondary_class.query().is_in(
+                self.secondary_class.id_column, secondary_ids
+            )
+        if self.secondary:
+            secondary_ids = [
+                s.data[self.secondary_class.id_column]
+                for s in self.secondary
+            ]
+            return self.secondary_class.query().is_in(
+                self.secondary_class.id_column, secondary_ids
+            )
+
+    def create_property(self) -> property:
+        """Creates a property that can be used to set relation properties
+            on models. Sets the relevant post-init hook to set up the
+            relation on newly created models. Setting the secondary
+            property on the instance will raise a TypeError if the
+            precondition check fails.
+        """
+        relation = self
+        cache_key = self.get_cache_key()
+
+
+        class ContainsTuple(tuple):
+            def __call__(self) -> Contains:
+                return self.relation
+
+        ContainsTuple.__name__ = f'(Contains){self.secondary_class.__name__}'
+
+        def setup_relation(self: ModelProtocol):
+            """Sets up the Contains relation during instance initialization."""
+            if not hasattr(self, 'relations'):
+                self.relations = {}
+            self.relations[cache_key] = deepcopy(relation)
+            self.relations[cache_key].primary = self
+
+        if not hasattr(self.primary_class, '_post_init_hooks'):
+            self.primary_class._post_init_hooks = {}
+        self.primary_class._post_init_hooks[cache_key] = setup_relation
+
+
+        @property
+        def secondary(self: ModelProtocol) -> RelatedModel:
+            """The secondary model instance. Setting raises TypeError if
+                the precondition check fails.
+            """
+            if cache_key not in self.relations or \
+                self.relations[cache_key] is None or \
+                self.relations[cache_key].secondary is None:
+                empty = ContainsTuple()
+
+                if cache_key not in self.relations or self.relations[cache_key] is None:
+                    self.relations[cache_key] = deepcopy(relation)
+                    self.relations[cache_key].primary = self
+
+                empty.relations = {}
+                empty.relations[f'{cache_key}'] = self.relations[cache_key]
+                return empty
+
+            models = ContainsTuple(self.relations[cache_key].secondary)
+            models.relation = self.relations[cache_key]
+            return models
+
+        @secondary.setter
+        def secondary(self: ModelProtocol, models: Optional[list[ModelProtocol]]) -> None:
+            """Sets the secondary model instances."""
             self.relations[cache_key].secondary = models
 
         return secondary
@@ -1090,7 +1236,7 @@ def belongs_to_many(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
                 primary_id_column: str = None, secondary_id_column: str = None) -> property:
     """Creates a BelongsToMany relation and returns the result of
         create_property. Usage syntax is like `User.liked_posts =
-        belongs_to_many(User, Post, LikedPost)`. If the foriegn id
+        belongs_to_many(User, Post, LikedPost)`. If the foreign id
         columns on LikedPost are not user_id and post_id (cls.__name__
         or other_model.__name__ PascalCase -> snake_case + "_id"), then
         they can be specified.
@@ -1102,4 +1248,17 @@ def belongs_to_many(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
 
     relation = BelongsToMany(pivot, primary_id_column, secondary_id_column,
                              primary_class=cls, secondary_class=other_model)
+    return relation.create_property()
+
+def contains(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
+             foreign_ids_column: str = None) -> property:
+    """Creates a Contains relation and returns the result of calling
+        create_property. Usage syntax is like `Item.parents = contains(
+        Item, Item)`. If the column containing the sorted list of ids is
+        not item_ids, it can be specified.
+    """
+    if foreign_ids_column is None:
+        foreign_ids_column = _get_id_column(other_model) + 's'
+    relation = Contains(foreign_ids_column, primary_class=cls,
+                        secondary_class=other_model)
     return relation.create_property()

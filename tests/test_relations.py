@@ -31,6 +31,9 @@ class TestRelations(unittest.TestCase):
         self.cursor.execute('create table pivot (id text, first_id text, second_id text)')
         self.cursor.execute('create table owners (id text, details text)')
         self.cursor.execute('create table owned (id text, owner_id text, details text)')
+        self.cursor.execute('create table dag (id text, details text, parent_ids text)')
+        self.cursor.execute('create table deleted_records (id text not null, ' +
+            'model_class text not null, record_id text not null, record blob not null)')
 
         # rebuild test classes because properties will be changed in tests
         class OwnedModel(classes.SqlModel):
@@ -43,8 +46,15 @@ class TestRelations(unittest.TestCase):
             table: str = 'owners'
             columns: tuple = ('id', 'details')
 
+        class DAGItem(classes.HashedModel):
+            connection_info: str = DB_FILEPATH
+            table: str = 'dag'
+            columns: tuple = ('id', 'details', 'parent_ids')
+
         self.OwnedModel = OwnedModel
         self.OwnerModel = OwnerModel
+        self.DAGItem = DAGItem
+        classes.DeletedModel.connection_info = DB_FILEPATH
 
         return super().setUp()
 
@@ -1095,6 +1105,251 @@ class TestRelations(unittest.TestCase):
 
         with self.assertRaises(ValueError) as e:
             belongstomany.reload()
+        assert str(e.exception) == 'cannot reload an empty relation'
+
+    # Contains tests
+    def test_Contains_extends_Relation(self):
+        assert issubclass(relations.Contains, relations.Relation)
+
+    def test_Contains_initializes_properly(self):
+        contains = relations.Contains(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        assert isinstance(contains, relations.Contains)
+
+        with self.assertRaises(TypeError) as e:
+            relations.Contains(
+                b'not a str',
+                'second_id'
+            )
+        assert str(e.exception) == 'foreign_id_column must be str', e.exception
+
+    def test_Contains_sets_primary_and_secondary_correctly(self):
+        contains = relations.Contains(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        secondary = self.DAGItem.insert({'details': '321ads'})
+        primary = self.DAGItem({'details':'321'})
+
+        assert contains.primary is None
+        contains.primary = primary
+        assert contains.primary is primary
+
+        with self.assertRaises(TypeError) as e:
+            contains.secondary = secondary
+        assert str(e.exception) == 'must be a list of ModelProtocol'
+
+        with self.assertRaises(TypeError) as e:
+            contains.secondary = [self.OwnedModel()]
+        assert str(e.exception) == 'secondary must be instance of DAGItem'
+
+        assert contains.secondary is None
+        contains.secondary = [secondary]
+        assert contains.secondary[0] == secondary
+
+    def test_Contains_get_cache_key_includes_foreign_id_column(self):
+        contains = relations.Contains(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        cache_key = contains.get_cache_key()
+        assert cache_key == 'DAGItem_Contains_DAGItem_parent_ids'
+
+    def test_Contains_save_raises_error_for_incomplete_relation(self):
+        contains = relations.Contains(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+
+        with self.assertRaises(errors.UsageError) as e:
+            contains.save()
+        assert str(e.exception) == 'cannot save incomplete Contains'
+
+    def test_Contains_save_changes_foreign_id_column_on_primary(self):
+        contains = relations.Contains(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        primary = self.DAGItem({'details':'321'})
+        secondary = self.DAGItem.insert({'details': '321ads'})
+
+        contains.primary = primary
+        contains.secondary = [secondary]
+
+        assert primary.id is None
+        contains.save()
+        assert primary.id is not None
+        assert contains.query().count() == 1
+        contains.save()
+        assert contains.query().count() == 1
+
+    def test_Contains_save_unsets_change_tracking_properties(self):
+        contains = relations.Contains(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        primary = self.DAGItem({'details':'321'})
+        primary2 = self.DAGItem({'details':'321asds'})
+        secondary = self.DAGItem.insert({'details': '321ads'})
+        secondary2 = self.DAGItem.insert({'details': 'sdsdsd'})
+
+        contains.primary = primary
+        contains.secondary = [secondary]
+        contains.save()
+        contains.primary = primary2
+
+        assert contains.primary_to_add is not None
+        assert contains.primary_to_remove is not None
+        contains.save()
+        assert contains.primary_to_add is None
+        assert contains.primary_to_remove is None
+
+        contains.secondary = [secondary2]
+        assert len(contains.secondary_to_add)
+        assert len(contains.secondary_to_remove)
+        contains.save()
+        assert not len(contains.secondary_to_add)
+        assert not len(contains.secondary_to_remove)
+
+    def test_Contains_changing_primary_and_secondary_updates_models_correctly(self):
+        contains = relations.Contains(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        primary1 = self.DAGItem({'details': '321ads'})
+        primary2 = self.DAGItem({'details': '12332'})
+        secondary1 = self.DAGItem.insert({'details':'321'})
+        secondary2 = self.DAGItem.insert({'details':'afgbfb'})
+
+        assert primary1.id is None
+        contains.primary = primary1
+        contains.secondary = [secondary1]
+        contains.save()
+        assert primary1.id is not None
+
+        assert primary2.id is None
+        contains.primary = primary2
+        contains.save()
+        assert primary2.id is not None
+
+        old_id = contains.primary.id
+        contains.secondary = [secondary2]
+        contains.save()
+        assert contains.primary.id != old_id
+
+    def test_Contains_create_property_returns_property(self):
+        contains = relations.Contains(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        prop = contains.create_property()
+
+        assert type(prop) is property
+
+    def test_Contains_property_wraps_input_class(self):
+        contains = relations.Contains(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        self.DAGItem.parents = contains.create_property()
+
+        child = self.DAGItem({'details': '321'})
+        parent = self.DAGItem({'details': '123'})
+
+        assert not child.parents
+        child.parents = [parent]
+        assert child.parents
+        assert isinstance(child.parents, tuple)
+        assert child.parents[0].data == parent.data
+
+        assert callable(child.parents)
+        assert type(child.parents()) is relations.Contains
+
+    def test_Contains_save_changes_only_foreign_id_column_in_db(self):
+        contains = relations.Contains(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        self.DAGItem.parents = contains.create_property()
+
+        parent = self.DAGItem.insert({'details': '321'})
+        child = self.DAGItem({'details': '123', 'parent_ids': ''})
+        child.parents = []
+        assert child.parents().query().count() == 0
+        child.parents = [parent]
+        child.parents[0].data['details'] = 'abc'
+        child.parents().save()
+
+        parent.reload()
+        assert parent.data['details'] == '321'
+        assert child.parents().query().count() == 1
+
+    def test_contains_function_sets_property_from_Contains(self):
+        self.DAGItem.parents = relations.contains(
+            self.DAGItem,
+            self.DAGItem,
+            'parent_ids',
+        )
+
+        assert type(self.DAGItem.parents) is property
+
+        parent = self.DAGItem.insert({'details': '123'})
+        child = self.DAGItem({'details': '321'})
+        assert len(child.parents) == 0
+        child.parents = [parent]
+
+        assert callable(child.parents)
+        assert type(child.parents()) is relations.Contains
+
+        child.parents().save()
+        assert len(child.parents) == 1
+
+    def test_Contains_works_with_multiple_instances(self):
+        self.DAGItem.parents = relations.contains(
+            self.DAGItem,
+            self.DAGItem,
+            'parent_ids',
+        )
+
+        parent1 = self.DAGItem.insert({'details': 'parent1'})
+        parent2 = self.DAGItem.insert({'details': 'parent2'})
+        child1 = self.DAGItem({'details': 'child1'})
+        child2 = self.DAGItem({'details': 'child2'})
+
+        child1.parents = [parent1]
+        assert child1.id is None
+        child1.parents().save()
+        assert child1.id is not None
+
+        child2.parents = [parent2]
+        child2.parents().save()
+
+        assert child1.relations != child2.relations
+        assert child1.parents() is not child2.parents()
+        assert child1.parents[0].data['id'] == parent1.data['id']
+        assert child2.parents[0].data['id'] == parent2.data['id']
+
+    def test_Contains_reload_raises_ValueError_for_empty_relation(self):
+        contains = relations.Contains(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+
+        with self.assertRaises(ValueError) as e:
+            contains.reload()
         assert str(e.exception) == 'cannot reload an empty relation'
 
     # e2e tests
