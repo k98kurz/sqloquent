@@ -30,8 +30,12 @@ from .relations import (
     AsyncHasMany,
     AsyncBelongsTo,
     AsyncBelongsToMany,
+    AsyncContains,
+    AsyncWithin,
     async_has_one,
     async_has_many,
     async_belongs_to,
-    async_belongs_to_many
+    async_belongs_to_many,
+    async_contains,
+    async_within,
 )

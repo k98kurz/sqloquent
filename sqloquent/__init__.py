@@ -33,10 +33,14 @@ from sqloquent.relations import (
     HasMany,
     BelongsTo,
     BelongsToMany,
+    Contains,
+    Within,
     has_one,
     has_many,
     belongs_to,
-    belongs_to_many
+    belongs_to_many,
+    contains,
+    within,
 )
 from sqloquent.migration import (
     Column,
