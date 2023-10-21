@@ -1352,6 +1352,253 @@ class TestRelations(unittest.TestCase):
             contains.reload()
         assert str(e.exception) == 'cannot reload an empty relation'
 
+    # Within tests
+    def test_Within_extends_Relation(self):
+        assert issubclass(relations.Within, relations.Relation)
+
+    def test_Within_initializes_properly(self):
+        within = relations.Within(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        assert isinstance(within, relations.Within)
+
+        with self.assertRaises(TypeError) as e:
+            relations.Within(
+                b'not a str',
+                'second_id'
+            )
+        assert str(e.exception) == 'foreign_id_column must be str', e.exception
+
+    def test_Within_sets_primary_and_secondary_correctly(self):
+        within = relations.Within(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        primary = self.DAGItem.insert({'details': '321ads'})
+        secondary = self.DAGItem({'details':'321'})
+
+        assert within.primary is None
+        within.primary = primary
+        assert within.primary is primary
+
+        with self.assertRaises(TypeError) as e:
+            within.secondary = self.OwnedModel()
+        assert str(e.exception) == 'must be a list of ModelProtocol', e.exception
+
+        with self.assertRaises(TypeError) as e:
+            within.secondary = [self.OwnedModel()]
+        assert str(e.exception) == 'secondary must be instance of DAGItem', e.exception
+
+        assert within.secondary is None
+        within.secondary = [secondary]
+        assert within.secondary == (secondary,)
+
+    def test_Within_get_cache_key_includes_foreign_id_column(self):
+        within = relations.Within(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        cache_key = within.get_cache_key()
+        assert cache_key == 'DAGItem_Within_DAGItem_parent_ids'
+
+    def test_Within_save_raises_error_for_incomplete_relation(self):
+        within = relations.Within(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+
+        with self.assertRaises(errors.UsageError) as e:
+            within.save()
+        assert str(e.exception) == 'cannot save incomplete Within', e.exception
+
+    def test_Within_save_changes_foreign_id_column_on_primary(self):
+        within = relations.Within(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        secondary = self.DAGItem({'details':'321'})
+        primary = self.DAGItem.insert({'details': '321ads'})
+
+        within.primary = primary
+        within.secondary = [secondary]
+
+        assert secondary.id is None
+        within.save()
+        assert secondary.id is not None
+        assert within.query().count() == 1
+        within.save()
+        assert within.query().count() == 1
+
+    def test_Within_save_unsets_change_tracking_properties(self):
+        within = relations.Within(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        primary = self.DAGItem.insert({'details': '321ads'})
+        primary2 = self.DAGItem.insert({'details': 'sdsdsd'})
+        secondary = self.DAGItem({'details':'321'})
+        secondary2 = self.DAGItem({'details':'321asds'})
+
+        within.primary = primary
+        within.secondary = [secondary]
+        within.save()
+        within.primary = primary2
+
+        assert within.primary_to_add is not None
+        assert within.primary_to_remove is not None
+        within.save()
+        assert within.primary_to_add is None
+        assert within.primary_to_remove is None
+
+        within.secondary = [secondary2]
+        assert len(within.secondary_to_add)
+        assert len(within.secondary_to_remove)
+        within.save()
+        assert not len(within.secondary_to_add)
+        assert not len(within.secondary_to_remove)
+
+    def test_Within_changing_primary_and_secondary_updates_models_correctly(self):
+        within = relations.Within(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        primary1 = self.DAGItem.insert({'details':'321'})
+        primary2 = self.DAGItem.insert({'details':'afgbfb'})
+        secondary1 = self.DAGItem({'details': '321ads'})
+        secondary2 = self.DAGItem({'details': '12332'})
+
+        assert secondary1.id is None
+        within.primary = primary1
+        within.secondary = [secondary1]
+        within.save()
+        assert secondary1.id is not None
+
+        assert secondary2.id is None
+        within.secondary = [secondary2]
+        within.save()
+        assert secondary2.id is not None
+
+        old_id = within.secondary[0].id
+        within.primary = primary2
+        within.save()
+        assert within.secondary[0].id != old_id
+
+    def test_Within_create_property_returns_property(self):
+        within = relations.Within(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        prop = within.create_property()
+
+        assert type(prop) is property
+
+    def test_Within_property_wraps_input_class(self):
+        within = relations.Within(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        self.DAGItem.children = within.create_property()
+
+        child = self.DAGItem({'details': '321'})
+        parent = self.DAGItem({'details': '123'})
+
+        assert not parent.children
+        parent.children = [child]
+        assert parent.children
+        assert isinstance(parent.children, tuple)
+        assert parent.children[0].data == child.data
+
+        assert callable(parent.children)
+        assert type(parent.children()) is relations.Within
+
+    def test_Within_save_changes_foreign_id_column_in_db(self):
+        within = relations.Within(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        self.DAGItem.children = within.create_property()
+
+        parent = self.DAGItem.insert({'details': '321'})
+        child = self.DAGItem({'details': '123', 'parent_ids': ''})
+        parent.children = []
+        assert parent.children().query().count() == 0
+        parent.children = [child]
+        parent.children[0].data['details'] = 'abc'
+        parent.children().save()
+
+        child.reload()
+        assert child.data['details'] == 'abc', child.data
+        assert child.id is not None
+        assert parent.children().query().count() == 1
+
+    def test_within_function_sets_property_from_Within(self):
+        self.DAGItem.children = relations.within(
+            self.DAGItem,
+            self.DAGItem,
+            'parent_ids',
+        )
+
+        assert type(self.DAGItem.children) is property
+
+        parent = self.DAGItem.insert({'details': '123'})
+        child = self.DAGItem({'details': '321'})
+        assert len(parent.children) == 0
+        parent.children = [child]
+
+        assert callable(parent.children)
+        assert type(parent.children()) is relations.Within
+
+        parent.children().save()
+        assert len(parent.children) == 1
+
+    def test_Within_works_with_multiple_instances(self):
+        self.DAGItem.children = relations.within(
+            self.DAGItem,
+            self.DAGItem,
+            'parent_ids',
+        )
+
+        parent1 = self.DAGItem.insert({'details': 'parent1'})
+        parent2 = self.DAGItem.insert({'details': 'parent2'})
+        child1 = self.DAGItem({'details': 'child1'})
+        child2 = self.DAGItem({'details': 'child2'})
+
+        parent1.children = [child1]
+        assert child1.id is None
+        parent1.children().save()
+        assert child1.id is not None
+
+        parent2.children = [child2]
+        parent2.children().save()
+
+        assert child1.relations != child2.relations
+        assert parent1.children() is not parent2.children()
+        assert parent1.children[0].data['id'] == child1.data['id']
+        assert parent2.children[0].data['id'] == child2.data['id']
+
+    def test_Within_reload_raises_ValueError_for_empty_relation(self):
+        within = relations.Within(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+
+        with self.assertRaises(ValueError) as e:
+            within.reload()
+        assert str(e.exception) == 'cannot reload an empty relation'
+
+
     # e2e tests
     def test_HasOne_BelongsTo_e2e(self):
         self.OwnerModel.__name__ = 'Owner'
