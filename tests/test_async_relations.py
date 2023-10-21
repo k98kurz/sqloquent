@@ -1,9 +1,9 @@
+from __future__ import annotations
 from asyncio import run
 from context import async_classes, errors, async_interfaces, async_relations
 from genericpath import isfile
 import aiosqlite
 import os
-import sqlite3
 import unittest
 
 
@@ -35,6 +35,9 @@ class TestRelations(unittest.TestCase):
         run(self.cursor.execute('create table pivot (id text, first_id text, second_id text)'))
         run(self.cursor.execute('create table owners (id text, details text)'))
         run(self.cursor.execute('create table owned (id text, owner_id text, details text)'))
+        run(self.cursor.execute('create table dag (id text, details text, parent_ids text)'))
+        run(self.cursor.execute('create table deleted_records (id text not null, ' +
+            'model_class text not null, record_id text not null, record blob not null)'))
 
         # rebuild test async_classes because properties will be changed in tests
         class OwnedModel(async_classes.AsyncSqlModel):
@@ -47,8 +50,22 @@ class TestRelations(unittest.TestCase):
             table: str = 'owners'
             columns: tuple = ('id', 'details')
 
+        class DAGItem(async_classes.AsyncHashedModel):
+            connection_info: str = DB_FILEPATH
+            table: str = 'dag'
+            columns: tuple = ('id', 'details', 'parent_ids')
+            parents: async_interfaces.AsyncRelatedCollection
+            children: async_interfaces.AsyncRelatedCollection
+
+            @classmethod
+            async def insert(cls, data: dict) -> DAGItem|None:
+                # """For better type hinting."""
+                return await super().insert(data)
+
         self.OwnedModel = OwnedModel
         self.OwnerModel = OwnerModel
+        self.DAGItem = DAGItem
+        async_classes.AsyncDeletedModel.connection_info = DB_FILEPATH
 
         return super().setUp()
 
@@ -1101,6 +1118,497 @@ class TestRelations(unittest.TestCase):
             run(belongstomany.reload())
         assert str(e.exception) == 'cannot reload an empty relation'
 
+    # AsyncContains tests
+    def test_AsyncContains_extends_Relation(self):
+        assert issubclass(async_relations.AsyncContains, async_relations.AsyncRelation)
+
+    def test_AsyncContains_initializes_properly(self):
+        contains = async_relations.AsyncContains(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        assert isinstance(contains, async_relations.AsyncContains)
+
+        with self.assertRaises(TypeError) as e:
+            async_relations.AsyncContains(
+                b'not a str',
+                'second_id'
+            )
+        assert str(e.exception) == 'foreign_id_column must be str', e.exception
+
+    def test_AsyncContains_sets_primary_and_secondary_correctly(self):
+        contains = async_relations.AsyncContains(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        secondary = run(self.DAGItem.insert({'details': '321ads'}))
+        primary = self.DAGItem({'details':'321'})
+
+        assert contains.primary is None
+        contains.primary = primary
+        assert contains.primary is primary
+
+        with self.assertRaises(TypeError) as e:
+            contains.secondary = secondary
+        assert str(e.exception) == 'must be a list of AsyncModelProtocol', e.exception
+
+        with self.assertRaises(TypeError) as e:
+            contains.secondary = [self.OwnedModel()]
+        assert str(e.exception) == 'secondary must be instance of DAGItem'
+
+        assert contains.secondary is None
+        contains.secondary = [secondary]
+        assert contains.secondary[0] == secondary
+
+    def test_AsyncContains_get_cache_key_includes_foreign_id_column(self):
+        contains = async_relations.AsyncContains(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        cache_key = contains.get_cache_key()
+        assert cache_key == 'DAGItem_AsyncContains_DAGItem_parent_ids'
+
+    def test_AsyncContains_save_raises_error_for_incomplete_relation(self):
+        contains = async_relations.AsyncContains(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+
+        with self.assertRaises(errors.UsageError) as e:
+            run(contains.save())
+        assert str(e.exception) == 'cannot save incomplete AsyncContains'
+
+    def test_AsyncContains_save_changes_foreign_id_column_on_primary(self):
+        contains = async_relations.AsyncContains(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        primary = self.DAGItem({'details':'321'})
+        secondary = run(self.DAGItem.insert({'details': '321ads'}))
+
+        contains.primary = primary
+        contains.secondary = [secondary]
+
+        assert primary.id is None
+        run(contains.save())
+        assert primary.id is not None
+        assert run(contains.query().count()) == 1
+        run(contains.save())
+        assert run(contains.query().count()) == 1
+
+    def test_AsyncContains_save_unsets_change_tracking_properties(self):
+        contains = async_relations.AsyncContains(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        primary = self.DAGItem({'details':'321'})
+        primary2 = self.DAGItem({'details':'321asds'})
+        secondary = run(self.DAGItem.insert({'details': '321ads'}))
+        secondary2 = run(self.DAGItem.insert({'details': 'sdsdsd'}))
+
+        contains.primary = primary
+        contains.secondary = [secondary]
+        run(contains.save())
+        contains.primary = primary2
+
+        assert contains.primary_to_add is not None
+        assert contains.primary_to_remove is not None
+        run(contains.save())
+        assert contains.primary_to_add is None
+        assert contains.primary_to_remove is None
+
+        contains.secondary = [secondary2]
+        assert len(contains.secondary_to_add)
+        assert len(contains.secondary_to_remove)
+        run(contains.save())
+        assert not len(contains.secondary_to_add)
+        assert not len(contains.secondary_to_remove)
+
+    def test_AsyncContains_changing_primary_and_secondary_updates_models_correctly(self):
+        contains = async_relations.AsyncContains(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        primary1 = self.DAGItem({'details': '321ads'})
+        primary2 = self.DAGItem({'details': '12332'})
+        secondary1 = run(self.DAGItem.insert({'details':'321'}))
+        secondary2 = run(self.DAGItem.insert({'details':'afgbfb'}))
+
+        assert primary1.id is None
+        contains.primary = primary1
+        contains.secondary = [secondary1]
+        run(contains.save())
+        assert primary1.id is not None
+
+        assert primary2.id is None
+        contains.primary = primary2
+        run(contains.save())
+        assert primary2.id is not None
+
+        old_id = contains.primary.id
+        contains.secondary = [secondary2]
+        run(contains.save())
+        assert contains.primary.id != old_id
+
+    def test_AsyncContains_create_property_returns_property(self):
+        contains = async_relations.AsyncContains(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        prop = contains.create_property()
+
+        assert type(prop) is property
+
+    def test_AsyncContains_property_wraps_input_class(self):
+        contains = async_relations.AsyncContains(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        self.DAGItem.parents = contains.create_property()
+
+        child = self.DAGItem({'details': '321'})
+        parent = self.DAGItem({'details': '123'})
+
+        assert not child.parents
+        child.parents = [parent]
+        assert child.parents
+        assert isinstance(child.parents, tuple)
+        assert child.parents[0].data == parent.data
+
+        assert callable(child.parents)
+        assert type(child.parents()) is async_relations.AsyncContains
+
+    def test_AsyncContains_save_changes_only_foreign_id_column_in_db(self):
+        contains = async_relations.AsyncContains(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        self.DAGItem.parents = contains.create_property()
+
+        parent = run(self.DAGItem.insert({'details': '321'}))
+        child = self.DAGItem({'details': '123', 'parent_ids': ''})
+        child.parents = []
+        assert run(child.parents().query().count()) == 0
+        child.parents = [parent]
+        child.parents[0].data['details'] = 'abc'
+        run(child.parents().save())
+
+        run(parent.reload())
+        assert parent.data['details'] == '321'
+        assert run(child.parents().query().count()) == 1
+
+    def test_contains_function_sets_property_from_AsyncContains(self):
+        self.DAGItem.parents = async_relations.async_contains(
+            self.DAGItem,
+            self.DAGItem,
+            'parent_ids',
+        )
+
+        assert type(self.DAGItem.parents) is property
+
+        parent = run(self.DAGItem.insert({'details': '123'}))
+        child = self.DAGItem({'details': '321'})
+        assert len(child.parents) == 0
+        child.parents = [parent]
+
+        assert callable(child.parents)
+        assert type(child.parents()) is async_relations.AsyncContains
+
+        run(child.parents().save())
+        assert len(child.parents) == 1
+
+    def test_AsyncContains_works_with_multiple_instances(self):
+        self.DAGItem.parents = async_relations.async_contains(
+            self.DAGItem,
+            self.DAGItem,
+            'parent_ids',
+        )
+
+        parent1 = run(self.DAGItem.insert({'details': 'parent1'}))
+        parent2 = run(self.DAGItem.insert({'details': 'parent2'}))
+        child1 = self.DAGItem({'details': 'child1'})
+        child2 = self.DAGItem({'details': 'child2'})
+
+        child1.parents = [parent1]
+        assert child1.id is None
+        run(child1.parents().save())
+        assert child1.id is not None
+
+        child2.parents = [parent2]
+        run(child2.parents().save())
+
+        assert child1.relations != child2.relations
+        assert child1.parents() is not child2.parents()
+        assert child1.parents[0].data['id'] == parent1.data['id']
+        assert child2.parents[0].data['id'] == parent2.data['id']
+
+    def test_AsyncContains_reload_raises_ValueError_for_empty_relation(self):
+        contains = async_relations.AsyncContains(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+
+        with self.assertRaises(ValueError) as e:
+            run(contains.reload())
+        assert str(e.exception) == 'cannot reload an empty relation'
+
+    # Within tests
+    def test_Within_extends_Relation(self):
+        assert issubclass(async_relations.AsyncWithin, async_relations.AsyncRelation)
+
+    def test_Within_initializes_properly(self):
+        within = async_relations.AsyncWithin(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        assert isinstance(within, async_relations.AsyncWithin)
+
+        with self.assertRaises(TypeError) as e:
+            async_relations.AsyncWithin(
+                b'not a str'
+            )
+        assert str(e.exception) == 'foreign_id_column must be str', e.exception
+
+    def test_Within_sets_primary_and_secondary_correctly(self):
+        within = async_relations.AsyncWithin(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        primary = run(self.DAGItem.insert({'details': '321ads'}))
+        secondary = self.DAGItem({'details':'321'})
+
+        assert within.primary is None
+        within.primary = primary
+        assert within.primary is primary
+
+        with self.assertRaises(TypeError) as e:
+            within.secondary = self.OwnedModel()
+        assert str(e.exception) == 'must be a list of AsyncModelProtocol', e.exception
+
+        with self.assertRaises(TypeError) as e:
+            within.secondary = [self.OwnedModel()]
+        assert str(e.exception) == 'secondary must be instance of DAGItem', e.exception
+
+        assert within.secondary is None
+        within.secondary = [secondary]
+        assert within.secondary == (secondary,)
+
+    def test_Within_get_cache_key_includes_foreign_id_column(self):
+        within = async_relations.AsyncWithin(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        cache_key = within.get_cache_key()
+        assert cache_key == 'DAGItem_AsyncWithin_DAGItem_parent_ids', cache_key
+
+    def test_Within_save_raises_error_for_incomplete_relation(self):
+        within = async_relations.AsyncWithin(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+
+        with self.assertRaises(errors.UsageError) as e:
+            run(within.save())
+        assert str(e.exception) == 'cannot save incomplete AsyncWithin', e.exception
+
+    def test_Within_save_changes_foreign_id_column_on_primary(self):
+        within = async_relations.AsyncWithin(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        secondary = self.DAGItem({'details':'321'})
+        primary = run(self.DAGItem.insert({'details': '321ads'}))
+
+        within.primary = primary
+        within.secondary = [secondary]
+
+        assert secondary.id is None
+        run(within.save())
+        assert secondary.id is not None
+        assert run(within.query().count()) == 1
+        run(within.save())
+        assert run(within.query().count()) == 1
+
+    def test_Within_save_unsets_change_tracking_properties(self):
+        within = async_relations.AsyncWithin(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        primary = run(self.DAGItem.insert({'details': '321ads'}))
+        primary2 = run(self.DAGItem.insert({'details': 'sdsdsd'}))
+        secondary = self.DAGItem({'details':'321'})
+        secondary2 = self.DAGItem({'details':'321asds'})
+
+        within.primary = primary
+        within.secondary = [secondary]
+        run(within.save())
+        within.primary = primary2
+
+        assert within.primary_to_add is not None
+        assert within.primary_to_remove is not None
+        run(within.save())
+        assert within.primary_to_add is None
+        assert within.primary_to_remove is None
+
+        within.secondary = [secondary2]
+        assert len(within.secondary_to_add)
+        assert len(within.secondary_to_remove)
+        run(within.save())
+        assert not len(within.secondary_to_add)
+        assert not len(within.secondary_to_remove)
+
+    def test_Within_changing_primary_and_secondary_updates_models_correctly(self):
+        within = async_relations.AsyncWithin(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        primary1 = run(self.DAGItem.insert({'details':'321'}))
+        primary2 = run(self.DAGItem.insert({'details':'afgbfb'}))
+        secondary1 = self.DAGItem({'details': '321ads'})
+        secondary2 = self.DAGItem({'details': '12332'})
+
+        assert secondary1.id is None
+        within.primary = primary1
+        within.secondary = [secondary1]
+        run(within.save())
+        assert secondary1.id is not None
+
+        assert secondary2.id is None
+        within.secondary = [secondary2]
+        run(within.save())
+        assert secondary2.id is not None
+
+        old_id = within.secondary[0].id
+        within.primary = primary2
+        run(within.save())
+        assert within.secondary[0].id != old_id
+
+    def test_Within_create_property_returns_property(self):
+        within = async_relations.AsyncWithin(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        prop = within.create_property()
+
+        assert type(prop) is property
+
+    def test_Within_property_wraps_input_class(self):
+        within = async_relations.AsyncWithin(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        self.DAGItem.children = within.create_property()
+
+        child = self.DAGItem({'details': '321'})
+        parent = self.DAGItem({'details': '123'})
+
+        assert not parent.children
+        parent.children = [child]
+        assert parent.children
+        assert isinstance(parent.children, tuple)
+        assert parent.children[0].data == child.data
+
+        assert callable(parent.children)
+        assert type(parent.children()) is async_relations.AsyncWithin
+
+    def test_Within_save_changes_foreign_id_column_in_db(self):
+        within = async_relations.AsyncWithin(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+        self.DAGItem.children = within.create_property()
+
+        parent = run(self.DAGItem.insert({'details': '321'}))
+        child = self.DAGItem({'details': '123', 'parent_ids': ''})
+        parent.children = []
+        assert run(parent.children().query().count()) == 0
+        parent.children = [child]
+        parent.children[0].data['details'] = 'abc'
+        run(parent.children().save())
+
+        run(child.reload())
+        assert child.data['details'] == 'abc', child.data
+        assert child.id is not None
+        assert run(parent.children().query().count()) == 1
+
+    def test_within_function_sets_property_from_Within(self):
+        self.DAGItem.children = async_relations.async_within(
+            self.DAGItem,
+            self.DAGItem,
+            'parent_ids',
+        )
+
+        assert type(self.DAGItem.children) is property
+
+        parent = run(self.DAGItem.insert({'details': '123'}))
+        child = self.DAGItem({'details': '321'})
+        assert len(parent.children) == 0
+        parent.children = [child]
+
+        assert callable(parent.children)
+        assert type(parent.children()) is async_relations.AsyncWithin
+
+        run(parent.children().save())
+        assert len(parent.children) == 1
+
+    def test_Within_works_with_multiple_instances(self):
+        self.DAGItem.children = async_relations.async_within(
+            self.DAGItem,
+            self.DAGItem,
+            'parent_ids',
+        )
+
+        parent1 = run(self.DAGItem.insert({'details': 'parent1'}))
+        parent2 = run(self.DAGItem.insert({'details': 'parent2'}))
+        child1 = self.DAGItem({'details': 'child1'})
+        child2 = self.DAGItem({'details': 'child2'})
+
+        parent1.children = [child1]
+        assert child1.id is None
+        run(parent1.children().save())
+        assert child1.id is not None
+
+        parent2.children = [child2]
+        run(parent2.children().save())
+
+        assert child1.relations != child2.relations
+        assert parent1.children() is not parent2.children()
+        assert parent1.children[0].data['id'] == child1.data['id']
+        assert parent2.children[0].data['id'] == child2.data['id']
+
+    def test_Within_reload_raises_ValueError_for_empty_relation(self):
+        within = async_relations.AsyncWithin(
+            'parent_ids',
+            primary_class=self.DAGItem,
+            secondary_class=self.DAGItem
+        )
+
+        with self.assertRaises(ValueError) as e:
+            run(within.reload())
+        assert str(e.exception) == 'cannot reload an empty relation'
+
+
     # e2e tests
     def test_AsyncHasOne_AsyncBelongsTo_e2e(self):
         self.OwnerModel.__name__ = 'Owner'
@@ -1245,6 +1753,41 @@ class TestRelations(unittest.TestCase):
         run(belongstomany.reload())
         assert belongstomany.primary
         assert belongstomany.primary == owned1
+
+    def test_AsyncContains_Within_e2e(self):
+        self.DAGItem.parents = async_relations.async_contains(
+            self.DAGItem,
+            self.DAGItem,
+            'parent_ids',
+        )
+        self.DAGItem.children = async_relations.async_within(
+            self.DAGItem,
+            self.DAGItem,
+            'parent_ids',
+        )
+
+        parent1 = run(self.DAGItem.insert({'details': 'Gen 1 item 1'}))
+        parent2 = run(self.DAGItem.insert({'details': 'Gen 1 item 2'}))
+        child1 = self.DAGItem({'details': 'Gen 2 item 1'})
+        child2 = self.DAGItem({'details': 'Gen 2 item 2'})
+
+        assert len(parent1.children) == 0
+        parent1.children = [child1, child2]
+        run(parent1.children().save())
+        run(parent1.children().reload())
+        assert len(parent1.children) == 2
+        assert child1 in parent1.children
+        assert child2 in parent1.children
+
+        assert len(child1.parents) == 0
+        run(child1.parents().reload())
+        assert child1.parents == (parent1,)
+        child1.parents = [parent1, parent2]
+        run(child1.parents().save())
+
+        assert len(parent2.children) == 0
+        run(parent2.children().reload())
+        assert len(parent2.children) == 1
 
 
 if __name__ == '__main__':

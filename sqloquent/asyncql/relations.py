@@ -1,5 +1,5 @@
 from __future__ import annotations
-from sqloquent.errors import tert, tressa
+from sqloquent.errors import tert, vert, tressa
 from sqloquent.asyncql.interfaces import (
     AsyncModelProtocol,
     AsyncQueryBuilderProtocol,
@@ -1037,6 +1037,288 @@ class AsyncBelongsToMany(AsyncRelation):
         return secondary
 
 
+class AsyncContains(AsyncHasMany):
+    """Class for encoding a relationship in which a model contains the
+        ID(s) for other models within a column:
+        primary.data[foreign_id_column] = ",".join(sorted([
+        s.data[id_column] for s in secondary])). Useful for DAGs using
+        HashedModel or something similar. IDs are sorted for
+        deterministic hashing via HashedModel.
+    """
+    secondary: tuple[AsyncModelProtocol]
+    _secondary: tuple[AsyncModelProtocol]
+
+    async def save(self) -> None:
+        """Persists the relation to the database. Raises UsageError if
+            the relation is incomplete.
+        """
+        tressa(self._primary is not None, 'cannot save incomplete AsyncContains')
+        tressa(self._secondary is not None, 'cannot save incomplete AsyncContains')
+
+        secondary = []
+        for s in self._secondary:
+            if not self.secondary_class.id_column in s.data:
+                s = await s.save()
+            secondary.append(s)
+        self._secondary = tuple(secondary)
+
+        ids = ",".join(sorted([
+            s.data[self.secondary_class.id_column]
+            for s in self._secondary
+        ]))
+
+        self.primary.data[self.foreign_id_column] = ids
+        self._primary = await self.primary.save()
+
+        if self.primary_to_remove is not None:
+            await self.primary_to_remove.update({
+                self.foreign_id_column: None
+            })
+
+        self.primary_to_add = None
+        self.primary_to_remove = None
+        self.secondary_to_add = []
+        self.secondary_to_remove = []
+
+    async def reload(self) -> AsyncContains:
+        """Reload the relation from the database. Return self in monad pattern."""
+        self.primary_to_add = None
+        self.primary_to_remove = None
+        self.secondary_to_add = []
+        self.secondary_to_remove = []
+
+        if self.primary and self.foreign_id_column in self.primary.data:
+            secondary_ids = self.primary.data[self.foreign_id_column].split(',')
+            self._secondary = await self.secondary_class.query().is_in(
+                self.secondary_class.id_column, secondary_ids).get()
+            return self
+
+        if self.secondary and all([
+            self.secondary_class.id_column in s.data for s in self.secondary
+        ]):
+            secondary_ids = ",".join(sorted([
+                s.data[self.secondary_class.id_column]
+                for s in self.secondary
+            ]))
+            self._primary = await self.primary_class.query({
+                self.foreign_id_column: secondary_ids
+            }).first()
+            return self
+
+        raise ValueError('cannot reload an empty relation')
+
+    def query(self) -> AsyncQueryBuilderProtocol|None:
+        """Creates the base query for the underlying relation."""
+        if self.primary and self.foreign_id_column in self.primary.data:
+            secondary_ids = self.primary.data[self.foreign_id_column] or ''
+            secondary_ids = secondary_ids.split(',')
+            return self.secondary_class.query().is_in(
+                self.secondary_class.id_column, secondary_ids
+            )
+        if self.secondary:
+            secondary_ids = [
+                s.data[self.secondary_class.id_column]
+                for s in self.secondary
+            ]
+            return self.secondary_class.query().is_in(
+                self.secondary_class.id_column, secondary_ids
+            )
+
+    def create_property(self) -> property:
+        """Creates a property that can be used to set relation properties
+            on models. Sets the relevant post-init hook to set up the
+            relation on newly created models. Setting the secondary
+            property on the instance will raise a TypeError if the
+            precondition check fails.
+        """
+        relation = self
+        cache_key = self.get_cache_key()
+
+
+        class ContainsTuple(tuple):
+            def __call__(self) -> AsyncContains:
+                return self.relation
+
+        ContainsTuple.__name__ = f'(AsyncContains){self.secondary_class.__name__}'
+
+        def setup_relation(self: AsyncModelProtocol):
+            """Sets up the AsyncContains relation during instance initialization."""
+            if not hasattr(self, 'relations'):
+                self.relations = {}
+            self.relations[cache_key] = deepcopy(relation)
+            self.relations[cache_key].primary = self
+
+        if not hasattr(self.primary_class, '_post_init_hooks'):
+            self.primary_class._post_init_hooks = {}
+        self.primary_class._post_init_hooks[cache_key] = setup_relation
+
+
+        @property
+        def secondary(self: AsyncModelProtocol) -> AsyncRelatedModel:
+            """The secondary model instance. Setting raises TypeError if
+                the precondition check fails.
+            """
+            if cache_key not in self.relations or \
+                self.relations[cache_key] is None or \
+                self.relations[cache_key].secondary is None:
+                empty = ContainsTuple()
+
+                if cache_key not in self.relations or self.relations[cache_key] is None:
+                    self.relations[cache_key] = deepcopy(relation)
+                    self.relations[cache_key].primary = self
+
+                empty.relation = self.relations[cache_key]
+                return empty
+
+            models = ContainsTuple(self.relations[cache_key].secondary)
+            models.relation = self.relations[cache_key]
+            return models
+
+        @secondary.setter
+        def secondary(self: AsyncModelProtocol, models: Optional[list[AsyncModelProtocol]]) -> None:
+            """Sets the secondary model instances."""
+            self.relations[cache_key].secondary = models
+
+        return secondary
+
+
+class AsyncWithin(AsyncHasMany):
+    """Class for encoding a relationship in which the model's ID is
+        contained within a column of another model: all([
+        primary.data[id_column] in s.data[foreign_id_column] for s in
+        secondary]). Useful for DAGs using HashedModel or something
+        similar. IDs are sorted for deterministic hashing via
+        HashedModel.
+    """
+    secondary: tuple[AsyncModelProtocol]
+
+    async def save(self) -> None:
+        """Persists the relation to the database. Raises UsageError if
+            the relation is incomplete.
+        """
+        tressa(self._primary is not None, 'cannot save incomplete AsyncWithin')
+        tressa(self._secondary is not None, 'cannot save incomplete AsyncWithin')
+
+        if self.primary.data[self.primary_class.id_column] is None:
+            await self.primary.save()
+
+        for s in self.secondary:
+            ids = s.data.get(self.foreign_id_column, '')
+            ids: list = ids.split(',')
+            if self.primary.data[self.primary_class.id_column] not in ids:
+                ids.append(self.primary.data[self.primary_class.id_column])
+
+            if self.primary_to_remove is not None:
+                if self.primary_to_remove.data.get(
+                    self.primary_class.id_column, None
+                ) in ids:
+                    ids.remove(self.primary_to_remove.data.get(
+                        self.primary_class.id_column, None
+                    ))
+
+            ids.sort()
+            s.data[self.foreign_id_column] = ",".join(ids)
+            await s.save()
+
+        self.primary_to_add = None
+        self.primary_to_remove = None
+        self.secondary_to_add = []
+        self.secondary_to_remove = []
+
+    async def reload(self) -> AsyncWithin:
+        """Reload the relation from the database. Return self in monad pattern."""
+        self.primary_to_add = None
+        self.primary_to_remove = None
+        self.secondary_to_add = []
+        self.secondary_to_remove = []
+
+        vert(self.secondary or self.primary, 'cannot reload an empty relation')
+
+        if not self.secondary:
+            self._secondary = tuple(await self.secondary_class.query().contains(
+                self.foreign_id_column, self.primary.data[self.primary_class.id_column]
+            ).get())
+            return self
+
+        for s in self.secondary:
+            if self.secondary_class.id_column in s.data:
+                await s.reload()
+
+        self._secondary = tuple([
+            s for s in self.secondary
+            if self.secondary_class.id_column in s.data
+        ])
+
+        return self
+
+    def query(self) -> AsyncQueryBuilderProtocol|None:
+        """Creates the base query for the underlying relation (i.e. to
+            query the secondary class).
+        """
+        if self.primary and self.primary_class.id_column in self.primary.data:
+            return self.secondary_class.query().contains(
+                self.foreign_id_column, self.primary.data[self.primary_class.id_column])
+
+    def create_property(self) -> property:
+        """Creates a property that can be used to set relation properties
+            on models. Sets the relevant post-init hook to set up the
+            relation on newly created models. Setting the secondary
+            property on the instance will raise a TypeError if the
+            precondition check fails.
+        """
+        relation = self
+        cache_key = self.get_cache_key()
+
+
+        class WithinTuple(tuple):
+            def __call__(self) -> AsyncWithin:
+                return self.relation
+
+        WithinTuple.__name__ = f'(AsyncWithin){self.secondary_class.__name__}'
+
+        def setup_relation(self: AsyncModelProtocol):
+            """Sets up the AsyncWithin relation during instance initialization."""
+            if not hasattr(self, 'relations'):
+                self.relations = {}
+            self.relations[cache_key] = deepcopy(relation)
+            self.relations[cache_key].primary = self
+
+        if not hasattr(self.primary_class, '_post_init_hooks'):
+            self.primary_class._post_init_hooks = {}
+        self.primary_class._post_init_hooks[cache_key] = setup_relation
+
+
+        @property
+        def secondary(self: AsyncModelProtocol) -> AsyncRelatedCollection:
+            """The secondary model instances. Setting raises TypeError
+                if a precondition check fails.
+            """
+            if cache_key not in self.relations or \
+                self.relations[cache_key] is None or \
+                self.relations[cache_key].secondary is None:
+                empty = WithinTuple()
+
+                if cache_key not in self.relations or self.relations[cache_key] is None:
+                    self.relations[cache_key] = deepcopy(relation)
+                    self.relations[cache_key].primary = self
+
+                empty.relation = self.relations[cache_key]
+                return empty
+
+            models = WithinTuple(self.relations[cache_key].secondary)
+            models.relation = self.relations[cache_key]
+            return models
+
+        @secondary.setter
+        def secondary(self: AsyncModelProtocol, models: Optional[list[AsyncModelProtocol]]) -> None:
+            """Sets the secondary model instances. Raises TypeError if
+                the precondition check fails.
+            """
+            self.relations[cache_key].secondary = models
+
+        return secondary
+
+
 def _get_id_column(cls: Type[AsyncModelProtocol]) -> str:
     return _pascalcase_to_snake_case(cls.__name__) + f'_{cls.id_column}'
 
@@ -1099,4 +1381,32 @@ def async_belongs_to_many(cls: Type[AsyncModelProtocol], other_model: Type[Async
 
     relation = AsyncBelongsToMany(pivot, primary_id_column, secondary_id_column,
                              primary_class=cls, secondary_class=other_model)
+    return relation.create_property()
+
+def async_contains(cls: Type[AsyncModelProtocol], other_model: Type[AsyncModelProtocol],
+             foreign_ids_column: str = None) -> property:
+    """Creates a Contains relation and returns the result of calling
+        create_property. Usage syntax is like `Item.parents = contains(
+        Item, Item)`. If the column containing the sorted list of ids is
+        not item_ids (i.e. other_model.__name__ -> snake_case + '_ids'),
+        it can be specified.
+    """
+    if foreign_ids_column is None:
+        foreign_ids_column = _get_id_column(other_model) + 's'
+    relation = AsyncContains(foreign_ids_column, primary_class=cls,
+                        secondary_class=other_model)
+    return relation.create_property()
+
+def async_within(cls: Type[AsyncModelProtocol], other_model: Type[AsyncModelProtocol],
+             foreign_ids_column: str = None) -> property:
+    """Creates a Within relation and returns the result of calling
+        create_property. Usage syntax is like `Item.children = within(
+        Item, Item)`. If the column containing the sorted list of ids is
+        not item_ids (i.e. cls.__name__ -> snake_case + '_ids'), it can
+        be specified.
+    """
+    if foreign_ids_column is None:
+        foreign_ids_column = _get_id_column(cls) + 's'
+    relation = AsyncWithin(foreign_ids_column, primary_class=cls,
+                        secondary_class=other_model)
     return relation.create_property()
