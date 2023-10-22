@@ -213,14 +213,18 @@ class TestIntegration(unittest.TestCase):
                 'amount': Decimal('420.69'),
             }),
         ]
-        assert len(aledger.transactions()) == 0
+        assert len(aledger.transactions) == 0
         txn = models.Transaction.insert({
             'ledger_ids': aledger.data['id'],
             'entry_ids': ','.join([e.data['id'] for e in entries]),
         })
-        assert len(aledger.transactions()) == 1
-        assert set([e.data['id'] for e in txn.entries()]) == set([e.data['id'] for e in entries])
-        assert entries[0].transaction().data['id'] == txn.data['id']
+        txn.entries().reload()
+        aledger.transactions().reload()
+        assert len(aledger.transactions) == 1
+        assert set([e.data['id'] for e in txn.entries]) == set([e.data['id'] for e in entries])
+        entries[0].transactions().reload()
+        assert len(entries[0].transactions) == 1
+        assert entries[0].transactions[0].data['id'] == txn.data['id']
 
         # create starting capital asset for Bob
         nonce = token_hex(4)
@@ -238,12 +242,14 @@ class TestIntegration(unittest.TestCase):
                 'amount': Decimal('420.69'),
             }),
         ]
-        assert len(bledger.transactions()) == 0
+        bledger.transactions().reload()
+        assert len(bledger.transactions) == 0
         models.Transaction.insert({
             'ledger_ids': bledger.data['id'],
             'entry_ids': ','.join([e.data['id'] for e in entries]),
         })
-        assert len(bledger.transactions()) == 1
+        bledger.transactions().reload()
+        assert len(bledger.transactions) == 1
 
         # create Transaction sending 69 from Alice to Bob
         nonce = token_hex(4)
@@ -273,16 +279,20 @@ class TestIntegration(unittest.TestCase):
                 'amount': Decimal(69),
             }),
         ]
-        assert len(aledger.transactions(True)) == 1
-        assert len(bledger.transactions(True)) == 1
+        assert len(aledger.transactions) == 1
+        assert len(bledger.transactions) == 1
         txn = models.Transaction.insert({
-            'ledger_ids': f"{aledger.data['id']},{bledger.data['id']}",
-            'entry_ids': ','.join([e.data['id'] for e in entries]),
+            'ledger_ids': ','.join(sorted([aledger.id, bledger.id])),
+            'entry_ids': ','.join(sorted([e.data['id'] for e in entries])),
         })
-        assert len(aledger.transactions(True)) == 2
-        assert len(bledger.transactions(True)) == 2
-        assert len(txn.ledgers(True)) == 2
-        assert len(txn.entries(True)) == 4
+        aledger.transactions().reload()
+        bledger.transactions().reload()
+        assert len(aledger.transactions) == 2
+        assert len(bledger.transactions) == 2
+        txn.ledgers().reload()
+        txn.entries().reload()
+        assert len(txn.ledgers) == 2
+        assert len(txn.entries) == 4
 
     def test_integration_e2e_models2(self):
         # generate migrations

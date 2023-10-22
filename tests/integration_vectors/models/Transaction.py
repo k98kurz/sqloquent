@@ -1,6 +1,5 @@
 from __future__ import annotations
-from sqloquent import HashedModel, ModelProtocol
-from typing import Callable
+from sqloquent import HashedModel, RelatedCollection
 
 
 class Transaction(HashedModel):
@@ -11,8 +10,8 @@ class Transaction(HashedModel):
     id: str
     entry_ids: str
     ledger_ids: str
-    entries: Callable[[Transaction, bool], list[ModelProtocol]]
-    ledgers: Callable[[Transaction, bool], list[ModelProtocol]]
+    entries: RelatedCollection
+    ledgers: RelatedCollection
 
     @classmethod
     def insert(cls, data: dict) -> Transaction | None:

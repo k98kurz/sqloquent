@@ -5,9 +5,8 @@ from sqloquent import (
     HashedModel,
     QueryBuilderProtocol,
     RelatedModel,
-    ModelProtocol,
+    RelatedCollection,
 )
-from typing import Callable
 
 
 class Entry(HashedModel):
@@ -21,7 +20,11 @@ class Entry(HashedModel):
     type: EntryType
     amount: Decimal
     account: RelatedModel
-    transaction: Callable[[Entry, bool], ModelProtocol]
+    transactions: RelatedCollection
+
+    def __hash__(self) -> int:
+        data = self.encode_value(self._encode(self.data))
+        return hash(bytes(data, 'utf-8'))
 
     @staticmethod
     def _encode(data: dict|None) -> dict|None:

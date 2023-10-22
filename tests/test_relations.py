@@ -1770,6 +1770,10 @@ class TestRelations(unittest.TestCase):
         child2 = self.DAGItem({'details': 'Gen 2 item 2'})
 
         assert len(parent1.children) == 0
+        parent1.children = [child1]
+        parent1.children().save()
+        parent1.children().reload()
+        assert len(parent1.children) == 1
         parent1.children = [child1, child2]
         parent1.children().save()
         parent1.children().reload()
