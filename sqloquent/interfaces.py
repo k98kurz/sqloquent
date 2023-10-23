@@ -3,7 +3,7 @@
     `RelatedModel` describe the properties created by the ORM. Any
     custom relations should implement the `RelationProtocol` and return
     either `RelatedModel` or `RelatedCollection` from the
-    create_property method. `CursorProtocol` and `DBContextProtocol`
+    `create_property` method. `CursorProtocol` and `DBContextProtocol`
     must be implemented to bind the library to a new SQL driver.
     `ColumnProtocol`, `TableProtocol`, and `MigrationProtocol` describe
     the schema migration system and can be implemented for custom schema
@@ -268,9 +268,13 @@ class QueryBuilderProtocol(Protocol):
         """Find a record by its id and return it."""
         ...
 
-    def join(self, model: Type[ModelProtocol]|list[Type[ModelProtocol]],
-             on: list[str], kind: str = "inner") -> QueryBuilderProtocol:
-        """Prepares the query for a join over multiple tables/models."""
+    def join(self, model_or_table: Type[ModelProtocol]|str, on: list[str],
+             kind: str = "inner", joined_table_columns: tuple[str] = (),
+             ) -> QueryBuilderProtocol:
+        """Prepares the query for a join over multiple tables/models.
+            Raises TypeError or ValueError for invalid model, on, or
+            kind.
+        """
         ...
 
     def select(self, columns: list[str]) -> QueryBuilderProtocol:

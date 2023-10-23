@@ -3,7 +3,7 @@
 The interfaces used by the package. `RelatedCollection` and `RelatedModel`
 describe the properties created by the ORM. Any custom relations should
 implement the `RelationProtocol` and return either `RelatedModel` or
-`RelatedCollection` from the create_property method. `CursorProtocol` and
+`RelatedCollection` from the `create_property` method. `CursorProtocol` and
 `DBContextProtocol` must be implemented to bind the library to a new SQL driver.
 `ColumnProtocol`, `TableProtocol`, and `MigrationProtocol` describe the schema
 migration system and can be implemented for custom schema migration
@@ -17,8 +17,6 @@ column types for the database.
 Interface showing how a DB cursor should function.
 
 #### Methods
-
-##### `_proto_hook():`
 
 ##### `execute(sql: str, parameters: list[str] = []) -> CursorProtocol:`
 
@@ -63,8 +61,6 @@ Enter the `with` block. Should return a cursor useful for making db calls.
 Exit the `with` block. Should commit any pending transactions and close the
 cursor and connection upon exiting the context.
 
-##### `_proto_hook():`
-
 ### `ModelProtocol(Protocol)`
 
 Interface showing how a model should function.
@@ -85,8 +81,6 @@ Allow inclusion in sets.
 ##### `__eq__() -> bool:`
 
 Return True if types and hashes are equal, else False.
-
-##### `_proto_hook():`
 
 ##### `@classmethod find(id: Any) -> Optional[ModelProtocol]:`
 
@@ -134,8 +128,6 @@ Interface for representations of JOIN query results.
 
 Initialize the instance.
 
-##### `_proto_hook():`
-
 ##### `@staticmethod parse_data(models: list[Type[ModelProtocol]], data: dict) -> dict:`
 
 Parse data of form {table.column:value} to {table:{column:value}}.
@@ -152,10 +144,6 @@ Interface for a generic row representation.
 
 - data: Returns the underlying row data.
 
-#### Methods
-
-##### `_proto_hook():`
-
 ### `QueryBuilderProtocol(Protocol)`
 
 Interface showing how a query builder should function.
@@ -171,8 +159,6 @@ Interface showing how a query builder should function.
 
 Initialize the instance. A class implementing ModelProtocol or the str name of a
 table must be provided.
-
-##### `_proto_hook():`
 
 ##### `equal(column: str, data: str) -> QueryBuilderProtocol:`
 
@@ -234,9 +220,10 @@ Insert a batch of records and return the number inserted.
 
 Find a record by its id and return it.
 
-##### `join(model: Type[ModelProtocol] | list[Type[ModelProtocol]], on: list[str], kind: str = 'inner') -> QueryBuilderProtocol:`
+##### `join(model_or_table: Type[ModelProtocol] | str, on: list[str], kind: str = 'inner', joined_table_columns: tuple[str] = ()) -> QueryBuilderProtocol:`
 
-Prepares the query for a join over multiple tables/models.
+Prepares the query for a join over multiple tables/models. Raises TypeError or
+ValueError for invalid model, on, or kind.
 
 ##### `select(columns: list[str]) -> QueryBuilderProtocol:`
 
@@ -300,8 +287,6 @@ Interface showing how a relation should function.
 
 The exact initialization will depend upon relation subtype.
 
-##### `_proto_hook():`
-
 ##### `@staticmethod single_model_precondition() -> None:`
 
 Checks preconditions for a model.
@@ -357,8 +342,6 @@ Return the underlying relation when the property is called as a method, e.g.
 `phone.owner()` will return the relation while `phone.owner` will access the
 related model.
 
-##### `_proto_hook():`
-
 ### `RelatedCollection(Protocol)`
 
 Interface showing what a related model returned from an ORM helper function or
@@ -381,8 +364,6 @@ Allow the collection to be iterated over, returning a model on each iteration.
 
 Return the related model at the given index.
 
-##### `_proto_hook():`
-
 ### `ColumnProtocol(Protocol)`
 
 Interface for a column class (for migrations).
@@ -393,8 +374,6 @@ Interface for a column class (for migrations).
 - is_nullable: Whether or not the column can be null.
 
 #### Methods
-
-##### `_proto_hook():`
 
 ##### `validate() -> None:`
 
@@ -433,8 +412,6 @@ Interface for a table class (for migrations).
 - name: The name of the table.
 
 #### Methods
-
-##### `_proto_hook():`
 
 ##### `@classmethod create(name: str) -> TableProtocol:`
 
@@ -498,8 +475,6 @@ database bindings, the connection information should be read from env and
 injected into the relevant DBContextManager.
 
 #### Methods
-
-##### `_proto_hook():`
 
 ##### `up(callback: Callable[[], list[TableProtocol]]) -> None:`
 

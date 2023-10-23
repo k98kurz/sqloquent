@@ -138,7 +138,7 @@ def dynamic_sqlmodel(connection_string: str|bytes, table_name: str = '',
 class SqlQueryBuilder:
     """Main query builder class. Extend with child class to bind to a
         specific database by supplying the context_manager param to a
-        call to super().__init__(). Default binding is to sqlite3.
+        call to `super().__init__()`. Default binding is to sqlite3.
     """
     model: Type[ModelProtocol]
     context_manager: Type[DBContextProtocol]
@@ -358,7 +358,10 @@ class SqlQueryBuilder:
 
     def reset(self) -> SqlQueryBuilder:
         """Returns a fresh instance using the configured model."""
-        return self.__class__(model=self.model)
+        return self.__class__(
+            model=self.model, context_manager=self.context_manager,
+            connection_info=self.connection_info
+        )
 
     def insert(self, data: dict) -> Optional[SqlModel|Row]:
         """Insert a record and return a model instance. Raises TypeError

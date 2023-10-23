@@ -28,6 +28,20 @@ General model for mapping a SQL row to an in-memory object.
 Initialize the instance. Raises TypeError or ValueError if _post_init_hooks is
 not dict[Any, callable].
 
+##### `__hash__() -> int:`
+
+Allow inclusion in sets. Raises TypeError for unencodable type within self.data
+(calls packify.pack).
+
+##### `__eq__() -> bool:`
+
+Allow comparisons. Raises TypeError on unencodable value in self.data or
+other.data (calls cls.__hash__ which calls packify.pack).
+
+##### `__repr__() -> str:`
+
+Pretty str representation.
+
 ##### `@staticmethod create_property() -> property:`
 
 Create a dynamic property for the column with the given name.
@@ -84,8 +98,8 @@ to the query_builder_class instead.
 ### `SqlQueryBuilder`
 
 Main query builder class. Extend with child class to bind to a specific database
-by supplying the context_manager param to a call to super().__init__(). Default
-binding is to sqlite3.
+by supplying the context_manager param to a call to `super().__init__()`.
+Default binding is to sqlite3.
 
 #### Annotations
 
@@ -246,20 +260,6 @@ Return the sql where clause from the clauses and params.
 
 Execute raw SQL against the database. Return rowcount and fetchall results.
 
-##### `_get_joined() -> list[JoinedModel]:`
-
-Run the query on the datastore and return a list of joined results. Used by the
-`get` method when appropriate. Do not call this method manually.
-
-##### `_get_normal() -> list[SqlModel | Row]:`
-
-Run the query on the datastore and return a list of results without joins. Used
-by the `get` method when appropriate. Do not call this method manually.
-
-##### `_chunk(number: int) -> Generator[list[SqlModel] | list[JoinedModel] | list[Row], None, None]:`
-
-Create the generator for chunking.
-
 ### `SqliteContext`
 
 Context manager for sqlite.
@@ -275,6 +275,15 @@ Context manager for sqlite.
 ##### `__init__(connection_info: str = '') -> None:`
 
 Initialize the instance. Raises TypeError for non-str table.
+
+##### `__enter__() -> CursorProtocol:`
+
+Enter the context block and return the cursor.
+
+##### `__exit__(_SqliteContext__exc_type: Optional[Type[BaseException]], _SqliteContext__exc_value: Optional[BaseException], _SqliteContext__traceback: Optional[TracebackType]) -> None:`
+
+Exit the context block. Commit or rollback as appropriate, then close the
+connection.
 
 ### `DeletedModel(SqlModel)`
 
@@ -406,6 +415,10 @@ Class for representing a row from a query when no better model exists.
 
 ##### `__init__(data: dict):`
 
+##### `__repr__():`
+
+##### `__eq__():`
+
 ### `JoinedModel`
 
 Class for representing the results of SQL JOIN queries.
@@ -420,6 +433,12 @@ Class for representing the results of SQL JOIN queries.
 ##### `__init__(models: list[Type[SqlModel]], data: dict) -> None:`
 
 Initialize the instance. Raises TypeError for invalid models or data.
+
+##### `__repr__() -> str:`
+
+Pretty str representation.
+
+##### `__eq__():`
 
 ##### `@staticmethod parse_data(models: list[Type[SqlModel]], data: dict) -> dict:`
 
@@ -448,6 +467,10 @@ Class for representing joins to be executed by a query builder.
 #### Methods
 
 ##### `__init__(kind: str, table_1: str, table_1_columns: list[str], column_1: str, comparison: str, table_2: str, table_2_columns: list[str], column_2: str):`
+
+##### `__repr__():`
+
+##### `__eq__():`
 
 ### `CursorProtocol(Protocol)`
 
@@ -489,6 +512,15 @@ recommend setting a class attribute with the default value taken from an
 environment variable, then use that class attribute within this method,
 overriding with the parameter only if it is not empty.
 
+##### `__enter__() -> CursorProtocol:`
+
+Enter the `with` block. Should return a cursor useful for making db calls.
+
+##### `__exit__(exc_type: Optional[Type[BaseException]], exc_value: Optional[BaseException], traceback: Optional[TracebackType]) -> None:`
+
+Exit the `with` block. Should commit any pending transactions and close the
+cursor and connection upon exiting the context.
+
 ### `ModelProtocol(Protocol)`
 
 Interface showing how a model should function.
@@ -501,6 +533,14 @@ Interface showing how a model should function.
 - data: Dict for storing model data.
 
 #### Methods
+
+##### `__hash__() -> int:`
+
+Allow inclusion in sets.
+
+##### `__eq__() -> bool:`
+
+Return True if types and hashes are equal, else False.
 
 ##### `@classmethod find(id: Any) -> Optional[ModelProtocol]:`
 
@@ -610,9 +650,10 @@ Insert a batch of records and return the number inserted.
 
 Find a record by its id and return it.
 
-##### `join(model: Type[ModelProtocol] | list[Type[ModelProtocol]], on: list[str], kind: str = 'inner') -> QueryBuilderProtocol:`
+##### `join(model_or_table: Type[ModelProtocol] | str, on: list[str], kind: str = 'inner', joined_table_columns: tuple[str] = ()) -> QueryBuilderProtocol:`
 
-Prepares the query for a join over multiple tables/models.
+Prepares the query for a join over multiple tables/models. Raises TypeError or
+ValueError for invalid model, on, or kind.
 
 ##### `select(columns: list[str]) -> QueryBuilderProtocol:`
 
@@ -753,11 +794,35 @@ Interface showing what a related model returned from an ORM helper function or
 RelationProtocol.create_property will behave. This is used for relations where
 the primary model is associated with a single secondary model.
 
+#### Methods
+
+##### `__call__() -> RelationProtocol:`
+
+Return the underlying relation when the property is called as a method, e.g.
+`phone.owner()` will return the relation while `phone.owner` will access the
+related model.
+
 ### `RelatedCollection(Protocol)`
 
 Interface showing what a related model returned from an ORM helper function or
 RelationProtocol.create_property will behave. This is used for relations where
 the primary model is associated with multiple secondary models.
+
+#### Methods
+
+##### `__call__() -> RelationProtocol:`
+
+Return the underlying relation when the property is called as a method, e.g.
+`fish.scales()` will return the relation while `fish.scales` will access the
+related models.
+
+##### `__iter__() -> ModelProtocol:`
+
+Allow the collection to be iterated over, returning a model on each iteration.
+
+##### `__getitem__() -> ModelProtocol:`
+
+Return the related model at the given index.
 
 ### `Relation`
 
@@ -1140,6 +1205,10 @@ Column class for creating migrations.
 
 ##### `__init__(name: str, datatype: str, table: TableProtocol, is_nullable: bool = True, new_name: str = None):`
 
+##### `__repr__():`
+
+##### `__eq__():`
+
 ##### `validate() -> None:`
 
 Validate the Column name. Raises TypeError or ValueError if the column name is
@@ -1190,9 +1259,11 @@ Table class for creating migrations.
 
 #### Methods
 
-##### `__init__(name: str, new_name: str = None, columns_to_add: list[Column] = <factory>, columns_to_drop: list[Column | str] = <factory>, columns_to_rename: list[Column | list[str]] = <factory>, indices_to_add: list[list[Column | str]] = <factory>, indices_to_drop: list[list[Column | str]] = <factory>, uniques_to_add: list[list[Column | str]] = <factory>, uniques_to_drop: list[list[Column | str]] = <factory>, is_create: bool = False, is_drop: bool = False, callback: Callable[[list[str]], list[str]] = <function Table.<lambda> at 0x7fb62c2e4400>):`
+##### `__init__(name: str, new_name: str = None, columns_to_add: list[Column] = <factory>, columns_to_drop: list[Column | str] = <factory>, columns_to_rename: list[Column | list[str]] = <factory>, indices_to_add: list[list[Column | str]] = <factory>, indices_to_drop: list[list[Column | str]] = <factory>, uniques_to_add: list[list[Column | str]] = <factory>, uniques_to_drop: list[list[Column | str]] = <factory>, is_create: bool = False, is_drop: bool = False, callback: Callable[[list[str]], list[str]] = <factory>):`
 
-##### `<lambda>():`
+##### `__repr__():`
+
+##### `__eq__():`
 
 ##### `@classmethod create(name: str) -> Table:`
 
@@ -1280,6 +1351,10 @@ Migration class for updating a database schema.
 #### Methods
 
 ##### `__init__(connection_info: str = '', context_manager: Type[DBContextProtocol] = SqliteContext, up_callbacks: list[Callable[[], list[TableProtocol]]] = <factory>, down_callbacks: list[Callable[[], list[TableProtocol]]] = <factory>):`
+
+##### `__repr__():`
+
+##### `__eq__():`
 
 ##### `up(callback: Callable[[], list[TableProtocol]]) -> None:`
 

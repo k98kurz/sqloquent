@@ -38,13 +38,13 @@ class AsyncSqliteContext:
         self.cursor = await self.connection.cursor().__aenter__()
         return self.cursor
 
-    async def __aexit__(self, __exc_type: Optional[Type[BaseException]],
-                __exc_value: Optional[BaseException],
-                __traceback: Optional[TracebackType]) -> None:
+    async def __aexit__(self, exc_type: Optional[Type[BaseException]],
+                exc_value: Optional[BaseException],
+                traceback: Optional[TracebackType]) -> None:
         """Exit the context block. Commit or rollback as appropriate,
             then close the connection.
         """
-        if __exc_type is not None:
+        if exc_type is not None:
             await self.connection.rollback()
         else:
             await self.connection.commit()
@@ -121,7 +121,7 @@ def async_dynamic_sqlmodel(connection_string: str|bytes, table_name: str = '',
 class AsyncSqlQueryBuilder:
     """Main query builder class. Extend with child class to bind to a
         specific database by supplying the context_manager param to a
-        call to super().__init__(). Default binding is to aiosqlite.
+        call to `super().__init__()`. Default binding is to aiosqlite.
     """
     model: Type[AsyncModelProtocol]
     context_manager: Type[AsyncDBContextProtocol]
@@ -341,7 +341,10 @@ class AsyncSqlQueryBuilder:
 
     def reset(self) -> AsyncSqlQueryBuilder:
         """Returns a fresh instance using the configured model."""
-        return self.__class__(model=self.model)
+        return self.__class__(
+            model=self.model, context_manager=self.context_manager,
+            connection_info=self.connection_info
+        )
 
     async def insert(self, data: dict) -> Optional[AsyncSqlModel|Row]:
         """Insert a record and return a model instance. Raises TypeError

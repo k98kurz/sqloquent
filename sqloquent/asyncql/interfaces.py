@@ -3,7 +3,7 @@
     `AsyncRelatedCollection` and `AsyncRelatedModel` describe the
     properties created by the ORM. Any custom relations should implement
     the `AsyncRelationProtocol` and return either `AsyncRelatedModel` or
-    `AsyncRelatedCollection` from the create_property method.
+    `AsyncRelatedCollection` from the `create_property` method.
     `AsyncCursorProtocol` and `AsyncDBContextProtocol` must be
     implemented to bind the library to a new SQL driver.
 """
@@ -257,9 +257,13 @@ class AsyncQueryBuilderProtocol(Protocol):
         """Find a record by its id and return it."""
         ...
 
-    def join(self, model: Type[AsyncModelProtocol]|list[Type[AsyncModelProtocol]],
-             on: list[str], kind: str = "inner") -> AsyncQueryBuilderProtocol:
-        """Prepares the query for a join over multiple tables/models."""
+    def join(self, model_or_table: Type[AsyncModelProtocol]|str, on: list[str],
+             kind: str = "inner", joined_table_columns: tuple[str] = (),
+             ) -> AsyncQueryBuilderProtocol:
+        """Prepares the query for a join over multiple tables/models.
+            Raises TypeError or ValueError for invalid model, on, or
+            kind.
+        """
         ...
 
     def select(self, columns: list[str]) -> AsyncQueryBuilderProtocol:

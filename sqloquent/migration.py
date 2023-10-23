@@ -85,7 +85,7 @@ class Table:
     uniques_to_drop: list[list[Column|str]] = field(default_factory=list)
     is_create: bool = field(default=False)
     is_drop: bool = field(default=False)
-    callback: Callable[[list[str]], list[str]] = field(default=lambda l: l)
+    callback: Callable[[list[str]], list[str]] = field(default_factory=lambda: (lambda l: l))
 
     @classmethod
     def create(cls, name: str) -> Table:

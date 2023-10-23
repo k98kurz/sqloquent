@@ -6,12 +6,16 @@ in particular Eloquent.
 ## Overview
 
 This package provides a set of interfaces and classes to make using a SQL
-database easier and simpler. (See section below for full list.)
+database easier and simpler, both through synchronously and using asyncio. (See
+section below for full list.)
 
-The primary features are the `SqlQueryBuilder` and `SqlModel` base classes. The
-`SqlQueryBuilder` uses a monad pattern to build a query from various clauses. The
-`SqlModel` handles encoding, persisting, reading, and decoding models that
-correspond to rows.
+The primary features are the `SqlQueryBuilder` and `SqlModel` base classes (or
+`AsyncSqlQueryBuilder` and `AsyncSqlModel` for use with asyncio). The
+`SqlQueryBuilder` uses a monad pattern to build and execute a query from various
+clauses. The `SqlModel` handles encoding, persisting, reading, and decoding
+models that correspond to rows. The query builder can be used without a model,
+in which case a dynamic model will be created. Any grouping will result in `get`
+returning `Row`s, and joining will result in `get` returning `JoinedModel`s.
 
 ```python
 from sqloquent import SqlQueryBuilder
@@ -30,6 +34,30 @@ for chunk in sqb.chunk(1000):
 
 # or just get them all
 results = sqb.get()
+```
+
+Or for asyncio:
+
+```python
+from asyncio import run
+from sqloquent.asyncql import AsyncSqlQueryBuilder
+
+sqb = AsyncSqlQueryBuilder(
+    'some_table', columns=['id', 'etc'], connection_info='temp.db'
+).join('some_other_table', columns=['id', 'some_id', 'data'])
+
+# count the number of matches
+count = run(sqb.count())
+
+# chunk through them 1000 at a time
+async def chunk_it(sqb):
+    async for chunk in sqb.chunk(1000):
+        for joined_model in chunk:
+            ...
+run(chunk_it(sqb))
+
+# or just get them all
+results = run(sqb.get())
 ```
 
 These base classes have a default binding to sqlite3 via the `SqliteContext`
@@ -57,9 +85,10 @@ migrations, as well as track, apply, rollback, and refresh migrations.
 - [x] Schema migration system
 - [x] Decent documentation
 - [x] Added `--columns name=type,etc` param for model generator
-- [ ] Add support for all SQL types in migration system.
+- [x] Add asyncio compatibility
+- [x] `Contains` and `Within` relations (+ helper functions and async versions)
+- [ ] Add support for all SQL types in migration system
 - [ ] Make `make migration --model ...` compute alter from diff with existing schema
-- [ ] Add asyncio compatibility
 
 Currently, only the basic sqlite3 types (affinities) of text, blob, integer,
 real, and numeric are supported by the migration system.
@@ -74,11 +103,20 @@ Requires Python 3.10+. This has not been tested with older Python versions.
 pip install sqloquent
 ```
 
+To use the async version, instead install with the following:
+
+```bash
+pip install sqloquent[async]
+```
+
 ### Usage
 
-There are two primary ways to use this package: either with the bundled sqlite3
+There are two primary ways to use this package: either with a bundled sqlite3
 coupling or with a custom coupling to an arbitrary SQL database client. The
 cryptographic audit trail features can be used with any SQL database coupling.
+
+Note that if you create a custom async DB coupling, you will also need to create
+a non-async coupling to use the migration system.
 
 #### Connection Information
 
@@ -103,6 +141,10 @@ first can be found
 [here](https://github.com/k98kurz/sqloquent/tree/master/tests/integration_vectors/models),
 and the test itself is
 [here](https://github.com/k98kurz/sqloquent/blob/master/tests/test_integration.py#L61).
+
+The async versions can be found here:
+- [models](https://github.com/k98kurz/sqloquent/tree/master/tests/integration_vectors/asyncmodels)
+- [test](https://github.com/k98kurz/sqloquent/blob/master/tests/test_async_integration.py#L62)
 
 The models were scaffolded using the CLI tool, then the details filled out in
 each. The relations were set up in the `__init__.py` file. The integration test
@@ -238,9 +280,47 @@ below:
 
 Additionally, set up any relevant relations using the ORM helper methods.
 
+The CLI tool will produce a scaffold for a model. For example, running
+`sqloquent make model Thing --hashed --columns "id,name,stuff=str|None"` will
+produce the following:
+
+```python
+from sqloquent import HashedModel
+
+
+class stuff(HashedModel):
+    connection_info: str = ''
+    table: str = 'stuffs'
+    id_column: str = 'id'
+    columns: tuple[str] = ('id', 'name', 'stuff')
+    id: str
+    name: str
+    stuff: str|None
+```
+
+Specify `--async` to use an async model. For example, running
+`sqloquent make model Person --columns id,name --async` will produce the
+following:
+
+```python
+from sqloquent.asyncql import AsyncSqlModel
+
+
+class Person(AsyncSqlModel):
+    connection_info: str = ''
+    table: str = 'persons'
+    id_column: str = 'id'
+    columns: tuple[str] = ('id', 'name')
+    id: str
+    name: str
+```
+
+Below is a more complex example with relations.
+
 ```python
 from __future__ import annotations
 from sqloquent import SqlModel, has_many, belongs_to, RelatedModel, RelatedCollection
+import json
 
 connection_string = ''
 
@@ -396,29 +476,36 @@ class ModelB(SqlModel):
 
 To couple to a SQL database client, complete the following steps.
 
-##### 0. Implement the `CursorProtocol`
+##### 0. Implement the `CursorProtocol` or `AsyncCursorProtocol`
 
 If the database client does not include a cursor that implements the
-`CursorProtocol`, one must be implemented. Besides the methods `execute`,
-`executemany`, `executescript`, `fetchone`, and `fetchall`, an int `rowcount`
-attribute should be available and updated after calling `execute`.
+`CursorProtocol` or `AsyncCursorProtocol`, one must be implemented. Besides the
+methods `execute`, `executemany`, `executescript`, `fetchone`, and `fetchall`,
+an int `rowcount` attribute should be available and updated after calling
+`execute`.
 
 If a `rowcount` attribute is not available, then the following methods of the
-base `SqlQueryBuilder` will need to be overridden in step 2:
+base `SqlQueryBuilder`/`AsyncSqlQueryBuilder` will need to be overridden in step
+2:
 
 - `insert_many`: returns the number of rows inserted
 - `update`: returns the number of rows updated
 - `delete`: returns the number of rows deleted
 
-##### 1. Implement the `DBContextProtocol`
+##### 1. Implement the `DBContextProtocol` or `AsyncDBContextProtocol`
 
-See the `SqliteContext` class for an example of how to implement this interface.
-This is a standard context manager that accepts connection_info string and
-returns a cursor to be used within the context block:
+See the `SqliteContext` and `AsyncSqliteContext` classes for examples of how to
+implement these interfaces. This is a standard context manager that accepts
+connection_info string and returns a cursor to be used within the context block:
 
 ```python
 with SomeDBContextImplementation('some optional connection string') as cursor:
     cursor.execute('...')
+# or for async
+async def wrap():
+    async with SomeAsyncContextImplementation('some connection string') as cursor:
+        await cursor.execute('...')
+asyncio.run(wrap())
 ```
 
 Note that the connection information should be bound or injected here in the
@@ -427,32 +514,42 @@ setting the `connection_info` attribute on the context manager class (e.g.
 `SqliteContext.connection_info = 'temp.db'`) or the `SqlQueryBuilder` class
 (e.g. `SqlQueryBuilder.connection_info = 'temp.db'`).
 
-##### 2. Extend `SqlQueryBuilder`
+##### 2. Extend `SqlQueryBuilder` or `AsyncSqlQueryBuilder`
 
-Extend `SqlQueryBuilder` and supply the class from step 1 as the
-second parameter to `super().__init__()`. Example:
+Extend `SqlQueryBuilder` or `AsyncSqlQueryBuilder` and supply the class from
+step 1 as the second parameter to `super().__init__()`. Example:
 
 ```python
 class SomeDBQueryBuilder(SqlQueryBuilder):
     def __init__(self, model: type, *args, **kwargs) -> None:
-        super().__init__(model, SomeDBContext, *args, **kwargs)
+        super().__init__(model, SomeDBContextImplementation, *args, **kwargs)
+# or for async
+class SomeAsyncQueryBuilder(AsyncSqlQueryBuilder):
+    def __init__(self, model: type, *args, **kwargs) -> None:
+        super().__init__(model, SomeAsyncContextImplementation, *args, **kwargs)
 ```
 
 Additionally, since the `SqlQueryBuilder` was modeled on sqlite3, any difference
 in the SQL implementation of the database or db client will need to be reflected
-by overriding the relevant method(s).
+by overriding the relevant method(s). Same applies for `AsyncSqlQueryBuilder`,
+with the caveat that it uses the `aiosqlite` package.
 
-##### 3. Extend `SqlModel`
+##### 3. Extend `SqlModel` or `AsyncSqlModel`
 
-Extend `SqlModel` to include whatever class or instance information is required
-and inject the class from step 2 into the class attribute `query_builder_class`.
-Example:
+Extend `SqlModel` or `AsyncSqlModel` to include whatever class or instance
+information is required and inject the class from step 2 into the class
+attribute `query_builder_class`. Example:
 
 ```python
 class SomeDBModel(SqlModel):
     """Model for interacting with SomeDB database."""
     some_config_key: str = 'some_config_value'
     query_builder_class: QueryBuilderProtocol = SomeDBQueryBuilder
+# or for async
+class SomeAsyncModel(AsyncSqlModel):
+    """Model for interacting with SomeDB database."""
+    some_config_key: str = 'some_config_value'
+    query_builder_class: AsyncQueryBuilderProtocol = SomeAsyncQueryBuilder
 ```
 
 ##### 4. Extend Class from Step 3
@@ -479,7 +576,7 @@ encoded to comply with the database client, e.g. by using `json.dumps` for
 databases that lack a native JSON data type or for clients that require encoding
 before making the query.
 
-##### 5. `SqlQueryBuilder` Features
+##### 5. `SqlQueryBuilder`/`AsyncSqlQueryBuilder` Features
 
 A few quick notes about `QueryBuilderProtocol` implementations, including the
 bundled `SqlQueryBuilder`:
@@ -502,6 +599,21 @@ SQL functions can also be selected in this way, e.g. `select["count(*)"]`.
 or `join('another_table', [table1_col, table2_col], columns=['id', 'etc])`. Note
 that if a table name is specified, then columns for the table must be provided.
 
+The `AsyncSqlQueryBuilder` implementation of the `AsyncQueryBuilderProtocol` is
+similar, but the following methods are async and must be awaited:
+
+- `insert`
+- `insert_many`
+- `find`
+- `get`
+- `count`
+- `take`
+- `chunk`
+- `first`
+- `update`
+- `delete`
+- `execute_raw`
+
 #### Using the Cryptographic Features
 
 If a cryptographic audit trail is desirable, use an inheritance pattern to
@@ -509,16 +621,16 @@ couple the supplied classes to the desired `ModelProtocol` implementation, or
 simply change the connection_info attribute to use with sqlite3.
 
 ```python
-from .dbcxm import SomeDBContextManager
+from .dbcxm import SomeDBContextImplementation
 from sqloquent import HashedModel, DeletedModel, Attachment, SqlQueryBuilder
 
 env_db_file_path = 'some_file.db'
-env_connstring = 'user=admin,password=admin'
+env_connstring = 'host=localhost,port=69,user=admin,password=admin'
 
 # option 1: inheritance
 class CustomQueryBuilder(SqlQueryBuilder):
     def __init__(self, model_or_table, **kwargs,):
-        return super().__init__(model_or_table, SomeDBContextManager, **kwargs)
+        return super().__init__(model_or_table, SomeDBContextImplementation, **kwargs)
 
 class NewModel(HashedModel, SomeDBModel):
     connection_info = env_connstring
@@ -526,8 +638,11 @@ class NewModel(HashedModel, SomeDBModel):
 
 # option 2: bind the classes
 HashedModel.connection_info = env_db_file_path
+HashedModel.query_builder_class = CustomQueryBuilder
 DeletedModel.connection_info = env_db_file_path
+DeletedModel.query_builder_class = CustomQueryBuilder
 Attachment.connection_info = env_db_file_path
+Attachment.query_builder_class = CustomQueryBuilder
 ```
 
 The latter must be done exactly once. The value supplied for `connection_info`
@@ -536,14 +651,15 @@ poorly mocked.
 
 #### Using the ORM
 
-The ORM is comprised of 4 classes inheriting from `Relation` and implementing
-the `RelationProtocol`: `HasOne`, `HasMany`, `BelongsTo`, and `BelongsToMany`.
+The ORM is comprised of 6 classes inheriting from `Relation` and implementing
+the `RelationProtocol`: `HasOne`, `HasMany`, `BelongsTo`, `BelongsToMany`,
+`Contains`, and `Within`. The async version is equivalent with `Async` prefixes.
 
 Each `Relation` child class instance has a method `create_property` that returns
 a property that can be set on a model class:
 
 ```python
-from sqloquent import HasOne, BelongsTo
+from sqloquent import SqlModel, HashedModel, HasOne, BelongsTo, Contains, Within
 
 class User(SqlModel):
     ...
@@ -553,12 +669,19 @@ class Avatar(SqlModel):
 
 User.avatar = HasOne('user_id', User, Avatar).create_property()
 Avatar.user = BelongsTo('user_id', Avatar, User).create_property()
+
+class DAGItem(HashedModel):
+    columns = ('id', 'details', 'parent_ids')
+
+DAGItem.parents = Contains('parent_ids', DAGItem, DAGItem).create_property()
+DAGItem.children = Within('parent_ids', DAGItem, DAGItem).create_property()
 ```
 
-There are also four helper functions for setting up relations between models:
-`has_one`, `has_many`, `belongs_to`, and `belongs_to_many`. These simplify and
-are the intended way for setting up relation between models. Far friendlier way
-to use the ORM.
+There are also six helper functions for setting up relations between models:
+`has_one`, `has_many`, `belongs_to`, `belongs_to_many`, `contains`, and `within`.
+These simplify and are the intended way for setting up relation between models.
+Far friendlier way to use the ORM. (Same applies for async, but with `async_`
+prefixes.)
 
 ```python
 from __future__ import annotations
@@ -667,12 +790,64 @@ The above is included in the second integration test:
 NB: polymorphic relations are not supported. See the `Attachment` class for an
 example of how to implement polymorphism if necessary.
 
+Below is an example of the Contains and Within relations:
+
+```python
+from sqloquent import (
+    HashedModel, RelatedCollection, RelatedModel, contains, within,
+)
+
+class DAGItem(HashedModel):
+    table = 'dag'
+    columns = ('id', 'details', 'parent_ids')
+    parents: RelatedCollection
+    children: RelatedCollection
+
+    @classmethod
+    def insert(cls, data: dict) -> DAGItem|None:
+        # """For better type hinting."""
+        return super().insert(data)
+
+    @classmethod
+    def insert_many(cls, items: list[dict]) -> int:
+        # """For better type hinting."""
+        return super().insert_many(items)
+
+DAGItem.parents = contains(DAGItem, DAGItem, 'parent_ids')
+DAGItem.children = within(DAGItem, DAGItem, 'parent_ids')
+```
+
+Which can be used as follows:
+
+```python
+# create parents
+parent1 = DAGItem.insert({'details': 'parent 1'})
+parent2 = DAGItem.insert({'details': 'parent 2'})
+
+# create children
+child1 = DAGItem({'details': 'child 1'})
+child1.parents = [parent1, parent2]
+child1.parents().save()
+
+child2 = DAGItem({'details': 'child 2'})
+child2.parents = [parent1]
+child2.parents().save()
+
+# reload relation
+parent1.children().reload()
+parent2.children().reload()
+assert len(parent1.children) == 2
+assert len(parent2.children) == 1
+```
+
 ## Interfaces, Classes, Functions, and Tools
 
 Below is a list of interfaces, classes, errors, and functions. See the
 [dox.md](https://github.com/k98kurz/sqloquent/blob/master/dox.md) file generated
 by [autodox](https://pypi.org/project/autodox) for full documentation, or read
 [interfaces.md](https://github.com/k98kurz/sqloquent/blob/master/interfaces.md)
+and
+[async_interfaces.md](https://github.com/k98kurz/sqloquent/blob/master/async_interfaces.md)
 for documentation on just the interfaces or
 [tools.md](https://github.com/k98kurz/sqloquent/blob/master/tools.md) for
 information about the bundled tools.
@@ -710,9 +885,25 @@ Classes implement the protocols or extend the classes indicated.
 - HasMany(HasOne)
 - BelongsTo(HasOne)
 - BelongsToMany(Relation)
+- Contains(HasMany)
+- Within(HasMany)
 - Column(ColumnProtocol)
 - Table(TableProtocol)
 - Migration(MigrationProtocol)
+- AsyncSqlModel(AsyncModelProtocol)
+- AsyncSqlQueryBuilder(AsyncQueryBuilderProtocol)
+- AsyncSqliteContext(AsyncDBContextProtocol)
+- AsyncDeletedModel(AsyncSqlModel)
+- AsyncHashedModel(AsyncSqlModel)
+- AsyncAttachment(AsyncHashedModel)
+- AsyncJoinedModel(AsyncJoinedModelProtocol)
+- AsyncRelation(AsyncRelationProtocol)
+- AsyncHasOne(AsyncRelation)
+- AsyncHasMany(AsyncHasOne)
+- AsyncBelongsTo(AsyncHasOne)
+- AsyncBelongsToMany(AsyncRelation)
+- AsyncContains(AsyncHasMany)
+- AsyncWithin(AsyncHasMany)
 
 ### Functions
 
@@ -724,7 +915,16 @@ other useful functions.
 - has_many
 - belongs_to
 - belongs_to_many
+- contains
+- within
 - get_index_name
+- async_dynamic_sqlmodel
+- async_has_one
+- async_has_many
+- async_belongs_to
+- async_belongs_to_many
+- async_contains
+- async_within
 
 ### Tools
 
@@ -754,17 +954,20 @@ python tests/test_relations.py
 python tests/test_migration.py
 python tests/test_tools.py
 python tests/test_integration.py
+python tests/test_async_classes.py
+python tests/test_async_relations.py
+python tests/test_async_integration.py
 ```
 
 The tests demonstrate the intended (and actual) behavior of the classes, as
 well as some contrived examples of how they are used. Perusing the tests will be
 informative to anyone seeking to use/break this package, especially the
-integration test which demonstrates the full package. There are currently 183
-unit tests + 2 e2e integration tests.
+integration test which demonstrates the full package. There are currently 401
+unit tests + 4 e2e integration tests.
 
 ## ISC License
 
-Copyleft (c) 2023 k98kurz
+Copyleft (c) 2023 Jonathan Voss (k98kurz)
 
 Permission to use, copy, modify, and/or distribute this software
 for any purpose with or without fee is hereby granted, provided
