@@ -106,7 +106,7 @@ pip install sqloquent
 To use the async version, instead install with the following:
 
 ```bash
-pip install sqloquent[async]
+pip install sqloquent[asyncql]
 ```
 
 ### Usage
