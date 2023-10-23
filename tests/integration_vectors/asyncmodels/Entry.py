@@ -5,9 +5,8 @@ from sqloquent.asyncql import (
     AsyncHashedModel,
     AsyncQueryBuilderProtocol,
     AsyncRelatedModel,
-    AsyncModelProtocol,
+    AsyncRelatedCollection,
 )
-from typing import Callable
 
 
 class Entry(AsyncHashedModel):
@@ -21,7 +20,11 @@ class Entry(AsyncHashedModel):
     type: EntryType
     amount: Decimal
     account: AsyncRelatedModel
-    transaction: Callable[[Entry, bool], AsyncModelProtocol]
+    transactions: AsyncRelatedCollection
+
+    def __hash__(self) -> int:
+        data = self.encode_value(self._encode(self.data))
+        return hash(bytes(data, 'utf-8'))
 
     @staticmethod
     def _encode(data: dict|None) -> dict|None:

@@ -8,7 +8,8 @@ from .Entry import Entry
 from .EntryType import EntryType
 from .Transaction import Transaction
 from sqloquent.asyncql import (
-    async_belongs_to, async_has_many, async_has_one, async_belongs_to_many
+    async_belongs_to, async_has_many, async_has_one, async_belongs_to_many,
+    async_contains, async_within,
 )
 
 
@@ -35,29 +36,32 @@ Account.entries = async_has_many(Account, Entry)
 Entry.account = async_belongs_to(Entry, Account)
 
 
-async def entry_transaction(self: Entry, reload: bool = False) -> Transaction|None:
-    if reload or not hasattr(self, '_transaction') or not self._transaction:
-        self._transaction = await Transaction.query().contains('entry_ids', self.data['id']).first()
-    return self._transaction
-Entry.transaction = entry_transaction
+# async def entry_transaction(self: Entry, reload: bool = False) -> Transaction|None:
+#     if reload or not hasattr(self, '_transaction') or not self._transaction:
+#         self._transaction = await Transaction.query().contains('entry_ids', self.data['id']).first()
+#     return self._transaction
+# Entry.transaction = entry_transaction
+Entry.transactions = async_within(Entry, Transaction, 'entry_ids')
 
-async def transaction_entries(self: Transaction, reload: bool = False) -> list[Entry]:
-    if reload or not hasattr(self, '_entries') or not self._entries:
-        entry_ids = self.data['entry_ids'].split(',')
-        self._entries = await Entry.query().is_in('id', entry_ids).get()
-    return self._entries
-Transaction.entries = transaction_entries
+# async def transaction_entries(self: Transaction, reload: bool = False) -> list[Entry]:
+#     if reload or not hasattr(self, '_entries') or not self._entries:
+#         entry_ids = self.data['entry_ids'].split(',')
+#         self._entries = await Entry.query().is_in('id', entry_ids).get()
+#     return self._entries
+# Transaction.entries = transaction_entries
+Transaction.entries = async_contains(Transaction, Entry, 'entry_ids')
 
+# async def ledger_transactions(self: Ledger, reload: bool = False) -> list[Transaction]:
+#     if reload or not hasattr(self, '_transactions') or not self._transactions:
+#         self._transactions = await Transaction.query().contains('ledger_ids', self.data['id']).get()
+#     return self._transactions
+# Ledger.transactions = ledger_transactions
+Ledger.transactions = async_within(Ledger, Transaction, 'ledger_ids')
 
-async def ledger_transactions(self: Ledger, reload: bool = False) -> list[Transaction]:
-    if reload or not hasattr(self, '_transactions') or not self._transactions:
-        self._transactions = await Transaction.query().contains('ledger_ids', self.data['id']).get()
-    return self._transactions
-Ledger.transactions = ledger_transactions
-
-async def transaction_ledgers(self: Transaction, reload: bool = False) -> list[Ledger]:
-    if reload or not hasattr(self, '_ledgers') or not self._ledgers:
-        ledger_ids = self.data['ledger_ids'].split(',')
-        self._ledgers = await Ledger.query().is_in('id', ledger_ids).get()
-    return self._ledgers
-Transaction.ledgers = transaction_ledgers
+# async def transaction_ledgers(self: Transaction, reload: bool = False) -> list[Ledger]:
+#     if reload or not hasattr(self, '_ledgers') or not self._ledgers:
+#         ledger_ids = self.data['ledger_ids'].split(',')
+#         self._ledgers = await Ledger.query().is_in('id', ledger_ids).get()
+#     return self._ledgers
+# Transaction.ledgers = transaction_ledgers
+Transaction.ledgers = async_contains(Transaction, Ledger, 'ledger_ids')

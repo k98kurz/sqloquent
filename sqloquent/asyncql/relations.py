@@ -1208,10 +1208,9 @@ class AsyncWithin(AsyncHasMany):
             if self.primary.data[self.primary_class.id_column] not in ids:
                 ids.append(self.primary.data[self.primary_class.id_column])
 
-            if self.primary_to_remove is not None:
-                if self.primary_to_remove.data.get(
-                    self.primary_class.id_column, None
-                ) in ids:
+            if self.primary_to_remove is not None and \
+            self.primary_class.id_column in self.primary_to_remove.data:
+                if self.primary_to_remove.data[self.primary_class.id_column] in ids:
                     ids.remove(self.primary_to_remove.data.get(
                         self.primary_class.id_column, None
                     ))
@@ -1232,23 +1231,11 @@ class AsyncWithin(AsyncHasMany):
         self.secondary_to_add = []
         self.secondary_to_remove = []
 
-        vert(self.secondary or self.primary, 'cannot reload an empty relation')
+        vert(self.primary, 'cannot reload an empty relation')
 
-        if not self.secondary:
-            self._secondary = tuple(await self.secondary_class.query().contains(
-                self.foreign_id_column, self.primary.data[self.primary_class.id_column]
-            ).get())
-            return self
-
-        for s in self.secondary:
-            if self.secondary_class.id_column in s.data:
-                await s.reload()
-
-        self._secondary = tuple([
-            s for s in self.secondary
-            if self.secondary_class.id_column in s.data
-        ])
-
+        self._secondary = tuple(await self.secondary_class.query().contains(
+            self.foreign_id_column, self.primary.data[self.primary_class.id_column]
+        ).get())
         return self
 
     def query(self) -> AsyncQueryBuilderProtocol|None:

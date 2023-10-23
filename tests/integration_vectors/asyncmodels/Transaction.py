@@ -1,6 +1,5 @@
 from __future__ import annotations
-from sqloquent.asyncql import AsyncHashedModel, AsyncModelProtocol
-from typing import Callable
+from sqloquent.asyncql import AsyncHashedModel, AsyncRelatedCollection
 
 
 class Transaction(AsyncHashedModel):
@@ -11,8 +10,8 @@ class Transaction(AsyncHashedModel):
     id: str
     entry_ids: str
     ledger_ids: str
-    entries: Callable[[Transaction, bool], list[AsyncModelProtocol]]
-    ledgers: Callable[[Transaction, bool], list[AsyncModelProtocol]]
+    entries: AsyncRelatedCollection
+    ledgers: AsyncRelatedCollection
 
     @classmethod
     async def insert(cls, data: dict) -> Transaction | None:
