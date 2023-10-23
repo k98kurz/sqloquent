@@ -1,13 +1,14 @@
 # sqloquent.interfaces
 
-The interfaces used by the package. RelatedCollection and RelatedModel describe
-the properties created by the ORM. Any custom relations should implement the
-RelationProtocol and return either RelatedCollection or RelatedModel from the
-create_property method. CursorProtocol and DBContextProtocol must be implemented
-to bind the library to a new SQL driver. ColumnProtocol, TableProtocol, and
-MigrationProtocol describe the schema migration system and can be implemented
-for custom schema migration functionality, e.g. a new ColumnProtocol
-implementation to handle specific column types for the database.
+The interfaces used by the package. `RelatedCollection` and `RelatedModel`
+describe the properties created by the ORM. Any custom relations should
+implement the `RelationProtocol` and return either `RelatedModel` or
+`RelatedCollection` from the create_property method. `CursorProtocol` and
+`DBContextProtocol` must be implemented to bind the library to a new SQL driver.
+`ColumnProtocol`, `TableProtocol`, and `MigrationProtocol` describe the schema
+migration system and can be implemented for custom schema migration
+functionality, e.g. a new `ColumnProtocol` implementation to handle specific
+column types for the database.
 
 ## Classes
 
@@ -16,6 +17,8 @@ implementation to handle specific column types for the database.
 Interface showing how a DB cursor should function.
 
 #### Methods
+
+##### `_proto_hook():`
 
 ##### `execute(sql: str, parameters: list[str] = []) -> CursorProtocol:`
 
@@ -37,10 +40,6 @@ Get one record returned by the previous query.
 
 Get all records returned by the previous query.
 
-##### `_proto_hook():`
-
-##### `_no_init_or_replace_init():`
-
 ### `DBContextProtocol(Protocol)`
 
 Interface showing how a context manager for connecting to a database should
@@ -48,13 +47,18 @@ behave.
 
 #### Methods
 
-##### `_no_init_or_replace_init():`
+##### `__init__(connection_info: str = '') -> None:`
+
+Using the connection_info parameter is optional but should be supported. I
+recommend setting a class attribute with the default value taken from an
+environment variable, then use that class attribute within this method,
+overriding with the parameter only if it is not empty.
 
 ##### `__enter__() -> CursorProtocol:`
 
 Enter the `with` block. Should return a cursor useful for making db calls.
 
-##### `__exit__(_DBContextProtocol__exc_type: Optional[Type[BaseException]], _DBContextProtocol__exc_value: Optional[BaseException], _DBContextProtocol__traceback: Optional[TracebackType]) -> None:`
+##### `__exit__(exc_type: Optional[Type[BaseException]], exc_value: Optional[BaseException], traceback: Optional[TracebackType]) -> None:`
 
 Exit the `with` block. Should commit any pending transactions and close the
 cursor and connection upon exiting the context.
@@ -73,6 +77,16 @@ Interface showing how a model should function.
 - data: Dict for storing model data.
 
 #### Methods
+
+##### `__hash__() -> int:`
+
+Allow inclusion in sets.
+
+##### `__eq__() -> bool:`
+
+Return True if types and hashes are equal, else False.
+
+##### `_proto_hook():`
 
 ##### `@classmethod find(id: Any) -> Optional[ModelProtocol]:`
 
@@ -106,18 +120,6 @@ Reload values from datastore. Return self in monad pattern.
 
 Return a QueryBuilderProtocol for the model.
 
-##### `__hash__() -> int:`
-
-Allow inclusion in sets.
-
-##### `__eq__() -> bool:`
-
-Return True if types and hashes are equal, else False.
-
-##### `_proto_hook():`
-
-##### `_no_init_or_replace_init():`
-
 ### `JoinedModelProtocol(Protocol)`
 
 Interface for representations of JOIN query results.
@@ -128,6 +130,12 @@ Interface for representations of JOIN query results.
 
 #### Methods
 
+##### `__init__(models: list[Type[ModelProtocol]], data: dict) -> None:`
+
+Initialize the instance.
+
+##### `_proto_hook():`
+
 ##### `@staticmethod parse_data(models: list[Type[ModelProtocol]], data: dict) -> dict:`
 
 Parse data of form {table.column:value} to {table:{column:value}}.
@@ -135,10 +143,6 @@ Parse data of form {table.column:value} to {table:{column:value}}.
 ##### `get_models() -> list[ModelProtocol]:`
 
 Returns the underlying models.
-
-##### `_no_init_or_replace_init():`
-
-##### `_proto_hook():`
 
 ### `RowProtocol(Protocol)`
 
@@ -152,8 +156,6 @@ Interface for a generic row representation.
 
 ##### `_proto_hook():`
 
-##### `_no_init_or_replace_init():`
-
 ### `QueryBuilderProtocol(Protocol)`
 
 Interface showing how a query builder should function.
@@ -164,6 +166,13 @@ Interface showing how a query builder should function.
 - model: The class of the relevant model.
 
 #### Methods
+
+##### `__init__(model_or_table: Type[ModelProtocol] | str, context_manager: Type[DBContextProtocol], connection_info: str = '', model: Type[ModelProtocol] = None, table: str = None) -> None:`
+
+Initialize the instance. A class implementing ModelProtocol or the str name of a
+table must be provided.
+
+##### `_proto_hook():`
 
 ##### `equal(column: str, data: str) -> QueryBuilderProtocol:`
 
@@ -276,10 +285,6 @@ Return the sql where clause from the clauses and params.
 
 Execute raw SQL against the database. Return rowcount and fetchall results.
 
-##### `_no_init_or_replace_init():`
-
-##### `_proto_hook():`
-
 ### `RelationProtocol(Protocol)`
 
 Interface showing how a relation should function.
@@ -290,6 +295,12 @@ Interface showing how a relation should function.
 - secondary: Property that accesses the secondary instance(s).
 
 #### Methods
+
+##### `__init__() -> None:`
+
+The exact initialization will depend upon relation subtype.
+
+##### `_proto_hook():`
 
 ##### `@staticmethod single_model_precondition() -> None:`
 
@@ -332,10 +343,6 @@ Get the cache key for the relation.
 Produces a property to be set on a model, allowing it to access the related
 model through the relation.
 
-##### `_no_init_or_replace_init():`
-
-##### `_proto_hook():`
-
 ### `RelatedModel(ModelProtocol)`
 
 Interface showing what a related model returned from an ORM helper function or
@@ -351,8 +358,6 @@ Return the underlying relation when the property is called as a method, e.g.
 related model.
 
 ##### `_proto_hook():`
-
-##### `_no_init_or_replace_init():`
 
 ### `RelatedCollection(Protocol)`
 
@@ -378,8 +383,6 @@ Return the related model at the given index.
 
 ##### `_proto_hook():`
 
-##### `_no_init_or_replace_init():`
-
 ### `ColumnProtocol(Protocol)`
 
 Interface for a column class (for migrations).
@@ -390,6 +393,8 @@ Interface for a column class (for migrations).
 - is_nullable: Whether or not the column can be null.
 
 #### Methods
+
+##### `_proto_hook():`
 
 ##### `validate() -> None:`
 
@@ -419,10 +424,6 @@ Should drop the column from the table.
 
 Should rename the column.
 
-##### `_proto_hook():`
-
-##### `_no_init_or_replace_init():`
-
 ### `TableProtocol(Protocol)`
 
 Interface for a table class (for migrations).
@@ -432,6 +433,8 @@ Interface for a table class (for migrations).
 - name: The name of the table.
 
 #### Methods
+
+##### `_proto_hook():`
 
 ##### `@classmethod create(name: str) -> TableProtocol:`
 
@@ -483,10 +486,6 @@ SQL while still using the migration system. Return self in monad pattern.
 
 Return the SQL for the table structure changes.
 
-##### `_proto_hook():`
-
-##### `_no_init_or_replace_init():`
-
 ### `MigrationProtocol(Protocol)`
 
 Interface for a migration class.
@@ -499,6 +498,8 @@ database bindings, the connection information should be read from env and
 injected into the relevant DBContextManager.
 
 #### Methods
+
+##### `_proto_hook():`
 
 ##### `up(callback: Callable[[], list[TableProtocol]]) -> None:`
 
@@ -527,9 +528,5 @@ callbacks and result in unexpected behavior.
 ##### `undo() -> None:`
 
 Apply the backward migration.
-
-##### `_proto_hook():`
-
-##### `_no_init_or_replace_init():`
 
 

@@ -1,14 +1,14 @@
 """
-    The interfaces used by the package. RelatedCollection and
-    RelatedModel describe the properties created by the ORM. Any custom
-    relations should implement the RelationProtocol and return either
-    RelatedCollection or RelatedModel from the create_property method.
-    CursorProtocol and DBContextProtocol must be implemented to bind the
-    library to a new SQL driver. ColumnProtocol, TableProtocol, and
-    MigrationProtocol describe the schema migration system and can be
-    implemented for custom schema migration functionality, e.g. a new
-    ColumnProtocol implementation to handle specific column types for
-    the database.
+    The interfaces used by the package. `RelatedCollection` and
+    `RelatedModel` describe the properties created by the ORM. Any
+    custom relations should implement the `RelationProtocol` and return
+    either `RelatedModel` or `RelatedCollection` from the
+    create_property method. `CursorProtocol` and `DBContextProtocol`
+    must be implemented to bind the library to a new SQL driver.
+    `ColumnProtocol`, `TableProtocol`, and `MigrationProtocol` describe
+    the schema migration system and can be implemented for custom schema
+    migration functionality, e.g. a new `ColumnProtocol` implementation
+    to handle specific column types for the database.
 """
 
 
@@ -74,9 +74,9 @@ class DBContextProtocol(Protocol):
         """
         ...
 
-    def __exit__(self, __exc_type: Optional[Type[BaseException]],
-                __exc_value: Optional[BaseException],
-                __traceback: Optional[TracebackType]) -> None:
+    def __exit__(self, exc_type: Optional[Type[BaseException]],
+                exc_value: Optional[BaseException],
+                traceback: Optional[TracebackType]) -> None:
         """Exit the `with` block. Should commit any pending transactions
             and close the cursor and connection upon exiting the context.
         """

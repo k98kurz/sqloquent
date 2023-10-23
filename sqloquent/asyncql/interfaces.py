@@ -1,10 +1,11 @@
 """
-    The interfaces used by the package. AsyncRelatedCollection and
-    AsyncRelatedModel describe the properties created by the ORM. Any custom
-    relations should implement the AsyncRelationProtocol and return either
-    AsyncRelatedCollection or AsyncRelatedModel from the create_property method.
-    AsyncCursorProtocol and AsyncDBContextProtocol must be implemented to bind
-    the library to a new SQL driver.
+    The interfaces used by the package async features.
+    `AsyncRelatedCollection` and `AsyncRelatedModel` describe the
+    properties created by the ORM. Any custom relations should implement
+    the `AsyncRelationProtocol` and return either `AsyncRelatedModel` or
+    `AsyncRelatedCollection` from the create_property method.
+    `AsyncCursorProtocol` and `AsyncDBContextProtocol` must be
+    implemented to bind the library to a new SQL driver.
 """
 
 
@@ -70,9 +71,9 @@ class AsyncDBContextProtocol(Protocol):
         """
         ...
 
-    async def __aexit__(self, __exc_type: Optional[Type[BaseException]],
-                __exc_value: Optional[BaseException],
-                __traceback: Optional[TracebackType]) -> None:
+    async def __aexit__(self, exc_type: Optional[Type[BaseException]],
+                exc_value: Optional[BaseException],
+                traceback: Optional[TracebackType]) -> None:
         """Exit the `async with` block. Should commit any pending
             transactions and close the cursor and connection upon
             exiting the context.

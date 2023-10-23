@@ -2,31 +2,32 @@
 
 ## Functions
 
-### `make_migration_create(name: str, connection_string: str = '') -> str:`
+### `make_migration_create(name: str, connection_string: str = '', ctx: tuple = None) -> str:`
 
 Generate a migration scaffold from a table name to create a table.
 
-### `make_migration_alter(name: str, connection_string: str = '') -> str:`
+### `make_migration_alter(name: str, connection_string: str = '', ctx: tuple = None) -> str:`
 
 Generate a migration scaffold from a table name to alter a table.
 
-### `make_migration_drop(name: str, connection_string: str = '') -> str:`
+### `make_migration_drop(name: str, connection_string: str = '', ctx: tuple = None) -> str:`
 
 Generate a migration scaffold from a table name to drop a table.
 
-### `make_migration_from_model(model_name: str, model_path: str, connection_string: str = '') -> str:`
+### `make_migration_from_model(model_name: str, model_path: str, connection_string: str = '', ctx: tuple = None) -> str:`
 
 Generate a migration scaffold from a model.
 
-### `publish_migrations(path: str, connection_string: str = ''):`
+### `publish_migrations(path: str, connection_string: str = '', ctx: tuple = None):`
 
-Publish the migrations for the DeletedModel and Attachment.
+Publish the migrations for the DeletedModel, HashedModel, and Attachment.
 
-### `make_model(name: str, base: str = 'SqlModel', columns: dict = None, connection_string: str = '') -> str:`
+### `make_model(name: str, base: str = 'SqlModel', columns: dict = None, connection_string: str = '', sqb: tuple = None) -> str:`
 
 Generate a model scaffold with the given name, columns, and connection_string.
 The columns parameter must be a dict mapping names to type annotation strings,
-which should each be one of ('str', 'int', 'float', 'bytes).
+which should each be one of ('str', 'int', 'float', 'bytes', 'str|None',
+'int|None', 'float|None', 'bytes|None').
 
 ### `migrate(path: str, connection_string: str = ''):`
 

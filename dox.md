@@ -1,8 +1,8 @@
 # sqloquent
 
 The majority of useful features are exposed from the root level of the package,
-and the rest from either sqloquent.tools or from invoking the tools through the
-CLI.
+and the rest from sqloquent.asyncql, sqloquent.tools, or from invoking the tools
+through the CLI.
 
 ## Classes
 
@@ -22,6 +22,11 @@ General model for mapping a SQL row to an in-memory object.
 - data: dict
 
 #### Methods
+
+##### `__init__(data: dict = {}) -> None:`
+
+Initialize the instance. Raises TypeError or ValueError if _post_init_hooks is
+not dict[Any, callable].
 
 ##### `@staticmethod create_property() -> property:`
 
@@ -105,6 +110,8 @@ TypeError if supplied something other than a subclass of SqlModel.
 something other than a str.
 
 #### Methods
+
+##### `__init__(model_or_table: Type[SqlModel] | str = None, context_manager: Type[DBContextProtocol] = SqliteContext, connection_info: str = '', model: Type[SqlModel] = None, table: str = '', columns: list[str] = []) -> None:`
 
 ##### `equal(column: str, data: Any) -> SqlQueryBuilder:`
 
@@ -263,6 +270,12 @@ Context manager for sqlite.
 - cursor: sqlite3.Cursor
 - connection_info: str
 
+#### Methods
+
+##### `__init__(connection_info: str = '') -> None:`
+
+Initialize the instance. Raises TypeError for non-str table.
+
 ### `DeletedModel(SqlModel)`
 
 Model for preserving and restoring deleted HashedModel records.
@@ -270,8 +283,13 @@ Model for preserving and restoring deleted HashedModel records.
 #### Annotations
 
 - table: str
+- id_column: str
 - columns: tuple
 - id: str
+- name: str
+- query_builder_class: Type[QueryBuilderProtocol]
+- connection_info: str
+- data: dict
 - model_class: str
 - record_id: str
 - record: bytes
@@ -292,8 +310,13 @@ Model for interacting with sql database using hash for id.
 #### Annotations
 
 - table: str
+- id_column: str
 - columns: tuple
 - id: str
+- name: str
+- query_builder_class: Type[QueryBuilderProtocol]
+- connection_info: str
+- data: dict
 - details: bytes
 
 #### Methods
@@ -318,8 +341,9 @@ calls packify.pack).
 ##### `update(updates: dict) -> HashedModel:`
 
 Persist the specified changes to the datastore, creating a new record in the
-process. Return new record in monad pattern. Raises TypeError or ValueError for
-invalid updates.
+process. Update and return self in monad pattern. Raises TypeError or ValueError
+for invalid updates. Did not need to overwrite the save method because save
+calls update or insert.
 
 ##### `delete() -> DeletedModel:`
 
@@ -333,11 +357,16 @@ Class for attaching immutable details to a record.
 #### Annotations
 
 - table: str
+- id_column: str
 - columns: tuple
 - id: str
+- name: str
+- query_builder_class: Type[QueryBuilderProtocol]
+- connection_info: str
+- data: dict
+- details: bytes | None
 - related_model: str
 - related_id: str
-- details: bytes | None
 - _related: SqlModel
 - _details: packify.SerializableType
 
@@ -373,6 +402,10 @@ Class for representing a row from a query when no better model exists.
 
 - data: dict
 
+#### Methods
+
+##### `__init__(data: dict):`
+
 ### `JoinedModel`
 
 Class for representing the results of SQL JOIN queries.
@@ -383,6 +416,10 @@ Class for representing the results of SQL JOIN queries.
 - data: dict
 
 #### Methods
+
+##### `__init__(models: list[Type[SqlModel]], data: dict) -> None:`
+
+Initialize the instance. Raises TypeError for invalid models or data.
 
 ##### `@staticmethod parse_data(models: list[Type[SqlModel]], data: dict) -> dict:`
 
@@ -407,6 +444,10 @@ Class for representing joins to be executed by a query builder.
 - table_2: str
 - table_2_columns: list[str]
 - column_2: str
+
+#### Methods
+
+##### `__init__(kind: str, table_1: str, table_1_columns: list[str], column_1: str, comparison: str, table_2: str, table_2_columns: list[str], column_2: str):`
 
 ### `CursorProtocol(Protocol)`
 
@@ -438,6 +479,15 @@ Get all records returned by the previous query.
 
 Interface showing how a context manager for connecting to a database should
 behave.
+
+#### Methods
+
+##### `__init__(connection_info: str = '') -> None:`
+
+Using the connection_info parameter is optional but should be supported. I
+recommend setting a class attribute with the default value taken from an
+environment variable, then use that class attribute within this method,
+overriding with the parameter only if it is not empty.
 
 ### `ModelProtocol(Protocol)`
 
@@ -494,6 +544,11 @@ Interface showing how a query builder should function.
 - model: The class of the relevant model.
 
 #### Methods
+
+##### `__init__(model_or_table: Type[ModelProtocol] | str, context_manager: Type[DBContextProtocol], connection_info: str = '', model: Type[ModelProtocol] = None, table: str = None) -> None:`
+
+Initialize the instance. A class implementing ModelProtocol or the str name of a
+table must be provided.
 
 ##### `equal(column: str, data: str) -> QueryBuilderProtocol:`
 
@@ -616,6 +671,10 @@ Interface for representations of JOIN query results.
 
 #### Methods
 
+##### `__init__(models: list[Type[ModelProtocol]], data: dict) -> None:`
+
+Initialize the instance.
+
 ##### `@staticmethod parse_data(models: list[Type[ModelProtocol]], data: dict) -> dict:`
 
 Parse data of form {table.column:value} to {table:{column:value}}.
@@ -642,6 +701,10 @@ Interface showing how a relation should function.
 - secondary: Property that accesses the secondary instance(s).
 
 #### Methods
+
+##### `__init__() -> None:`
+
+The exact initialization will depend upon relation subtype.
 
 ##### `@staticmethod single_model_precondition() -> None:`
 
@@ -721,6 +784,8 @@ precondition check fails.
 
 #### Methods
 
+##### `__init__(primary_class: Type[ModelProtocol], secondary_class: Type[ModelProtocol], primary_to_add: ModelProtocol = None, primary_to_remove: ModelProtocol = None, secondary_to_add: list[ModelProtocol] = [], secondary_to_remove: list[ModelProtocol] = [], primary: ModelProtocol = None, secondary: ModelProtocol | tuple[ModelProtocol] = None) -> None:`
+
 ##### `@staticmethod single_model_precondition() -> None:`
 
 Precondition check for a single model. Raises TypeError if the check fails.
@@ -772,6 +837,16 @@ secondary.data[foreign_id_column]. An owner model.
 
 #### Annotations
 
+- primary_class: Type[ModelProtocol]
+- secondary_class: Type[ModelProtocol]
+- primary_to_add: ModelProtocol
+- primary_to_remove: ModelProtocol
+- secondary_to_add: list[ModelProtocol]
+- secondary_to_remove: list[ModelProtocol]
+- primary: ModelProtocol
+- secondary: ModelProtocol | tuple[ModelProtocol]
+- _primary: Optional[ModelProtocol]
+- _secondary: Optional[ModelProtocol]
 - foreign_id_column: str
 
 #### Properties
@@ -780,6 +855,11 @@ secondary.data[foreign_id_column]. An owner model.
 precondition check fails.
 
 #### Methods
+
+##### `__init__(foreign_id_column: str) -> None:`
+
+Set the foreign_id_column attribute, then let the Relation init handle the rest.
+Raises TypeError if foreign_id_column is not a str.
 
 ##### `save() -> None:`
 
@@ -811,6 +891,20 @@ precondition check fails.
 Class for the relation where primary owns multiple secondary models:
 model.data[foreign_id_column] = primary.data[id_column] instance of this class
 is set on the owner model.
+
+#### Annotations
+
+- primary_class: Type[ModelProtocol]
+- secondary_class: Type[ModelProtocol]
+- primary_to_add: ModelProtocol
+- primary_to_remove: ModelProtocol
+- secondary_to_add: list[ModelProtocol]
+- secondary_to_remove: list[ModelProtocol]
+- primary: ModelProtocol
+- secondary: ModelProtocol | tuple[ModelProtocol]
+- _primary: Optional[ModelProtocol]
+- _secondary: Optional[ModelProtocol]
+- foreign_id_column: str
 
 #### Properties
 
@@ -845,6 +939,20 @@ Class for the relation where primary belongs to a secondary:
 primary.data[foreign_id_column] = secondary.data[id_column]. Inverse of HasOne
 and HasMany. An instance of this class is set on the owned model.
 
+#### Annotations
+
+- primary_class: Type[ModelProtocol]
+- secondary_class: Type[ModelProtocol]
+- primary_to_add: ModelProtocol
+- primary_to_remove: ModelProtocol
+- secondary_to_add: list[ModelProtocol]
+- secondary_to_remove: list[ModelProtocol]
+- primary: ModelProtocol
+- secondary: ModelProtocol | tuple[ModelProtocol]
+- _primary: Optional[ModelProtocol]
+- _secondary: Optional[ModelProtocol]
+- foreign_id_column: str
+
 #### Methods
 
 ##### `save() -> None:`
@@ -875,6 +983,16 @@ This requires the use of a pivot.
 
 #### Annotations
 
+- primary_class: Type[ModelProtocol]
+- secondary_class: Type[ModelProtocol]
+- primary_to_add: ModelProtocol
+- primary_to_remove: ModelProtocol
+- secondary_to_add: list[ModelProtocol]
+- secondary_to_remove: list[ModelProtocol]
+- primary: ModelProtocol
+- secondary: ModelProtocol | tuple[ModelProtocol]
+- _primary: Optional[ModelProtocol]
+- _secondary: Optional[ModelProtocol]
 - pivot: Type[ModelProtocol]
 - primary_id_column: str
 - secondary_id_column: str
@@ -886,6 +1004,12 @@ precondition check fails.
 - pivot
 
 #### Methods
+
+##### `__init__(pivot: Type[ModelProtocol], primary_id_column: str, secondary_id_column: str) -> None:`
+
+Set the pivot and query_builder_pivot attributes, then let the Relation class
+handle the rest. Raises TypeError if either primary_id_column or
+secondary_id_column is not a str.
 
 ##### `save() -> None:`
 
@@ -912,6 +1036,94 @@ the relevant post-init hook to set up the relation on newly created models.
 Setting the secondary property on the instance will raise a TypeError if the
 precondition check fails.
 
+### `Contains(HasMany)`
+
+Class for encoding a relationship in which a model contains the ID(s) for other
+models within a column: primary.data[foreign_id_column] = ",".join(sorted([
+s.data[id_column] for s in secondary])). Useful for DAGs using HashedModel or
+something similar. IDs are sorted for deterministic hashing via HashedModel.
+
+#### Annotations
+
+- primary_class: Type[ModelProtocol]
+- secondary_class: Type[ModelProtocol]
+- primary_to_add: ModelProtocol
+- primary_to_remove: ModelProtocol
+- secondary_to_add: list[ModelProtocol]
+- secondary_to_remove: list[ModelProtocol]
+- primary: ModelProtocol
+- secondary: tuple[ModelProtocol]
+- _primary: Optional[ModelProtocol]
+- _secondary: tuple[ModelProtocol]
+- foreign_id_column: str
+
+#### Methods
+
+##### `save() -> None:`
+
+Persists the relation to the database. Raises UsageError if the relation is
+incomplete.
+
+##### `reload() -> Contains:`
+
+Reload the relation from the database. Return self in monad pattern.
+
+##### `query() -> QueryBuilderProtocol | None:`
+
+Creates the base query for the underlying relation.
+
+##### `create_property() -> property:`
+
+Creates a property that can be used to set relation properties on models. Sets
+the relevant post-init hook to set up the relation on newly created models.
+Setting the secondary property on the instance will raise a TypeError if the
+precondition check fails.
+
+### `Within(HasMany)`
+
+Class for encoding a relationship in which the model's ID is contained within a
+column of another model: all([ primary.data[id_column] in
+s.data[foreign_id_column] for s in secondary]). Useful for DAGs using
+HashedModel or something similar. IDs are sorted for deterministic hashing via
+HashedModel.
+
+#### Annotations
+
+- primary_class: Type[ModelProtocol]
+- secondary_class: Type[ModelProtocol]
+- primary_to_add: ModelProtocol
+- primary_to_remove: ModelProtocol
+- secondary_to_add: list[ModelProtocol]
+- secondary_to_remove: list[ModelProtocol]
+- primary: ModelProtocol
+- secondary: tuple[ModelProtocol]
+- _primary: Optional[ModelProtocol]
+- _secondary: Optional[ModelProtocol]
+- foreign_id_column: str
+
+#### Methods
+
+##### `save() -> None:`
+
+Persists the relation to the database. Raises UsageError if the relation is
+incomplete.
+
+##### `reload() -> Within:`
+
+Reload the relation from the database. Return self in monad pattern.
+
+##### `query() -> QueryBuilderProtocol | None:`
+
+Creates the base query for the underlying relation (i.e. to query the secondary
+class).
+
+##### `create_property() -> property:`
+
+Creates a property that can be used to set relation properties on models. Sets
+the relevant post-init hook to set up the relation on newly created models.
+Setting the secondary property on the instance will raise a TypeError if the
+precondition check fails.
+
 ### `Column`
 
 Column class for creating migrations.
@@ -925,6 +1137,8 @@ Column class for creating migrations.
 - new_name: str
 
 #### Methods
+
+##### `__init__(name: str, datatype: str, table: TableProtocol, is_nullable: bool = True, new_name: str = None):`
 
 ##### `validate() -> None:`
 
@@ -975,6 +1189,8 @@ Table class for creating migrations.
 - callback: Callable[[list[str]], list[str]]
 
 #### Methods
+
+##### `__init__(name: str, new_name: str = None, columns_to_add: list[Column] = <factory>, columns_to_drop: list[Column | str] = <factory>, columns_to_rename: list[Column | list[str]] = <factory>, indices_to_add: list[list[Column | str]] = <factory>, indices_to_drop: list[list[Column | str]] = <factory>, uniques_to_add: list[list[Column | str]] = <factory>, uniques_to_drop: list[list[Column | str]] = <factory>, is_create: bool = False, is_drop: bool = False, callback: Callable[[list[str]], list[str]] = <function Table.<lambda> at 0x7fb62c2e4400>):`
 
 ##### `<lambda>():`
 
@@ -1063,6 +1279,8 @@ Migration class for updating a database schema.
 
 #### Methods
 
+##### `__init__(connection_info: str = '', context_manager: Type[DBContextProtocol] = SqliteContext, up_callbacks: list[Callable[[], list[TableProtocol]]] = <factory>, down_callbacks: list[Callable[[], list[TableProtocol]]] = <factory>):`
+
 ##### `up(callback: Callable[[], list[TableProtocol]]) -> None:`
 
 Specify the forward migration. May be called multiple times for multi-step
@@ -1123,9 +1341,23 @@ on the Post.table table is not user_id (cls.__name__ PascalCase -> snake_case +
 
 Creates a BelongsToMany relation and returns the result of create_property.
 Usage syntax is like `User.liked_posts = belongs_to_many(User, Post, LikedPost)`.
-If the foriegn id columns on LikedPost are not user_id and post_id (cls.__name__
+If the foreign id columns on LikedPost are not user_id and post_id (cls.__name__
 or other_model.__name__ PascalCase -> snake_case + "_id"), then they can be
 specified.
+
+### `contains(cls: Type[ModelProtocol], other_model: Type[ModelProtocol], foreign_ids_column: str = None) -> property:`
+
+Creates a Contains relation and returns the result of calling create_property.
+Usage syntax is like `Item.parents = contains( Item, Item)`. If the column
+containing the sorted list of ids is not item_ids (i.e. other_model.__name__ ->
+snake_case + '_ids'), it can be specified.
+
+### `within(cls: Type[ModelProtocol], other_model: Type[ModelProtocol], foreign_ids_column: str = None) -> property:`
+
+Creates a Within relation and returns the result of calling create_property.
+Usage syntax is like `Item.children = within( Item, Item)`. If the column
+containing the sorted list of ids is not item_ids (i.e. cls.__name__ ->
+snake_case + '_ids'), it can be specified.
 
 ### `get_index_name(table: TableProtocol, columns: list[Column | str], is_unique: bool = False) -> str:`
 
