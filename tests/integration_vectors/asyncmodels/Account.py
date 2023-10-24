@@ -9,7 +9,6 @@ from .AccountType import AccountType
 
 
 class Account(AsyncHashedModel):
-    file_path: str = 'temp.db'
     table: str = 'accounts'
     id_column: str = 'id'
     columns: tuple[str] = ('id', 'name', 'ledger_id', 'type')

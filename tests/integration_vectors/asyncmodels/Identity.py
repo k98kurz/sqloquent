@@ -7,7 +7,6 @@ from sqloquent.asyncql import (
 
 
 class Identity(AsyncHashedModel):
-    file_path: str = 'temp.db'
     table: str = 'identities'
     id_column: str = 'id'
     columns: tuple[str] = ('id', 'name', 'seed')

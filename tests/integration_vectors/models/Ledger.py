@@ -3,7 +3,6 @@ from sqloquent import HashedModel, RelatedCollection, RelatedModel
 
 
 class Ledger(HashedModel):
-    file_path: str = 'temp.db'
     table: str = 'ledgers'
     id_column: str = 'id'
     columns: tuple[str] = ('id', 'name', 'identity_id')

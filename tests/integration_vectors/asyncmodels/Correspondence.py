@@ -3,7 +3,6 @@ from sqloquent.asyncql import AsyncHashedModel, AsyncRelatedModel
 
 
 class Correspondence(AsyncHashedModel):
-    file_path: str = 'temp.db'
     table: str = 'correspondences'
     id_column: str = 'id'
     columns: tuple[str] = ('id', 'first_id', 'second_id', 'details')

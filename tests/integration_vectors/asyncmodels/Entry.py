@@ -10,7 +10,6 @@ from sqloquent.asyncql import (
 
 
 class Entry(AsyncHashedModel):
-    file_path: str = 'temp.db'
     table: str = 'entries'
     id_column: str = 'id'
     columns: tuple[str] = ('id', 'account_id', 'nonce', 'type', 'amount')

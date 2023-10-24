@@ -7,7 +7,6 @@ from sqloquent.asyncql import (
 
 
 class Ledger(AsyncHashedModel):
-    file_path: str = 'temp.db'
     table: str = 'ledgers'
     id_column: str = 'id'
     columns: tuple[str] = ('id', 'name', 'identity_id')
