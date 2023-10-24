@@ -11,7 +11,6 @@ assignees: k98kurz
 A clear and concise description of the documentation issue.
 
 **Documentation Files and Sections**
-Files and sections:
 - readme.md: "Usage"
 - dox.md: "Classes > SqlQueryBuilder"
 
