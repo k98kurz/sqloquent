@@ -501,8 +501,8 @@ def run_cli() -> None:
                     columns_list = columns_str.split(',')
                     for s in columns_list:
                         if len(s.split('=')) > 1:
-                            name, datatype = s.split('=')
-                            columns[name] = datatype
+                            colname, datatype = s.split('=')
+                            columns[colname] = datatype
                         else:
                             columns[s] = 'str'
             if "--hashed" in argv:
