@@ -211,7 +211,8 @@ def publish_migrations(path: str, connection_string: str = '', ctx: tuple = None
 
 
 def make_model(name: str, base: str = 'SqlModel', columns: dict[str, str] = None,
-               connection_string: str = '', sqb: tuple[str] = None) -> str:
+               connection_string: str = '', sqb: tuple[str] = None,
+               table: str = None) -> str:
     """Generate a model scaffold with the given name, columns, and
         connection_string. The columns parameter must be a dict mapping
         names to type annotation strings, which should each be one of
@@ -233,8 +234,15 @@ def make_model(name: str, base: str = 'SqlModel', columns: dict[str, str] = None
         'str', 'int', 'float', 'bytes',
         'str|None', 'int|None', 'float|None', 'bytes|None',
     )
-    table_name = _pascalcase_to_snake_case(name)
-    table_name = f'{table_name}s' if table_name[-1:] != 'y' else f'{table_name[:-1]}ies'
+    table_name = table
+    if not table_name:
+        table_name = _pascalcase_to_snake_case(name)
+        if table_name[-1:] == 's':
+            table_name = f'{table_name}es'
+        elif table_name[-1:] == 'y':
+            table_name = f'{table_name[:-1]}ies'
+        else:
+            table_name = f'{table_name}s'
     if "Async" in base:
         src = f"from sqloquent.asyncql import {base}\n\n\n"
     else:
@@ -400,7 +408,7 @@ def help_cli(name: str) -> str:
     {name} make migration --alter name [--ctx name [--from package_name]]
     {name} make migration --drop name [--ctx name [--from package_name]]
     {name} make migration --model name path/to/model/file [--ctx name [--from package_name]]
-    {name} make model name [--hashed] [--columns name1=type,name2,etc] [--async] [--sqb name [--from package_name]]
+    {name} make model name [--hashed] [--columns name1=type,name2,etc] [--async] [--sqb name [--from package_name]] [--table table_name]
     {name} migrate path/to/migration/file
     {name} rollback path/to/migration/file
     {name} refresh path/to/migration/file
@@ -440,6 +448,7 @@ def run_cli() -> None:
                     use_connstring_for_make = l[20:-1].lower() not in ('false', '0')
     connection_string = connection_string or 'temp.db'
     connstring_for_make = connection_string if use_connstring_for_make else ''
+    table = None
 
     mode = argv[1]
     if mode == "make":
@@ -512,9 +521,15 @@ def run_cli() -> None:
                         print(help_cli(argv[0]))
                         exit(1)
                     sqb.append(argv[argi + 1])
+            if "--table" in argv:
+                argi = argv.index("--table")
+                if len(argv) < argi + 2:
+                    print(help_cli(argv[0]))
+                    exit(1)
+                table = argv[argi + 1]
 
             return print(make_model(name, base, connection_string=connstring_for_make,
-                                    columns=columns, sqb=sqb))
+                                    columns=columns, sqb=sqb, table=table))
         else:
             print(f"unrecognized make kind: {kind}")
             exit(1)

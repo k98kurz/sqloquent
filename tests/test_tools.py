@@ -192,6 +192,14 @@ class TestIntegration(unittest.TestCase):
         result = tools.make_model(name, sqb=('AsyncSqlQueryBuilder', 'sqloquent.asyncql'))
         assert 'from sqloquent.asyncql import AsyncSqlQueryBuilder' in result
 
+    def test_make_model_sets_table(self):
+        name = "TestClass"
+        table_name = token_hex(8)
+        result = tools.make_model(name)
+        assert table_name not in result
+        result = tools.make_model(name, table=table_name)
+        assert f"table: str = '{table_name}'" in result, result
+
     def test_publish_migrations_creates_attachments_and_deleted_model_migrations(self):
         list_files = lambda: [f for f in os.listdir(MIGRATIONS_PATH) if f[-3:] == '.py']
         assert len(list_files()) == 0

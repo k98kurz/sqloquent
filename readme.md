@@ -964,7 +964,7 @@ python tests/test_async_integration.py
 The tests demonstrate the intended (and actual) behavior of the classes, as
 well as some contrived examples of how they are used. Perusing the tests will be
 informative to anyone seeking to use/break this package, especially the
-integration test which demonstrates the full package. There are currently 401
+integration test which demonstrates the full package. There are currently 402
 unit tests + 4 e2e integration tests.
 
 ## ISC License
