@@ -87,6 +87,7 @@ migrations, as well as track, apply, rollback, and refresh migrations.
 - [x] Added `--columns name=type,etc` param for model generator
 - [x] Add asyncio compatibility
 - [x] `Contains` and `Within` relations (+ helper functions and async versions)
+- [ ] Option for eager loading relations on `get`, `find`, or `insert`.
 - [ ] Add support for all SQL types in migration system
 - [ ] Make `make migration --model ...` compute alter from diff with existing schema
 
