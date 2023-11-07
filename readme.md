@@ -957,7 +957,7 @@ mkdir tests/temp
 mkdir tests/temp/migrations
 python -m venv venv
 source venv/bin/activate
-pip -r requirements.txt
+pip install -r requirements.txt
 python tests/test_classes.py
 python tests/test_relations.py
 python tests/test_migration.py
