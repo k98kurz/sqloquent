@@ -24,7 +24,7 @@ class TestIntegration(unittest.TestCase):
         self.db = sqlite3.connect(DB_FILEPATH)
         self.cursor = self.db.cursor()
         if not isdir(MIGRATIONS_PATH):
-            os.mkdir(MIGRATIONS_PATH)
+            os.makedirs(MIGRATIONS_PATH, exist_ok=True)
         for file in os.listdir(MIGRATIONS_PATH):
             if 'migration' in file and file[-3:] == '.py':
                 os.remove(f"{MIGRATIONS_PATH}/{file}")
@@ -32,9 +32,21 @@ class TestIntegration(unittest.TestCase):
 
     def tearDown(self):
         """Close cursor and delete test database."""
+        q = "select name from sqlite_master where type='table'"
+        self.cursor.execute(q)
+        results = self.cursor.fetchall()
+        for result in results:
+            q = f"drop table if exists {result[0]};"
+            try:
+                self.cursor.execute(q)
+            except BaseException as e:
+                print(e)
         self.cursor.close()
         self.db.close()
-        os.remove(DB_FILEPATH)
+        try:
+            os.remove(DB_FILEPATH)
+        except:
+            ...
         for file in os.listdir(MIGRATIONS_PATH):
             if 'migration' in file and file[-3:] == '.py':
                 os.remove(f"{MIGRATIONS_PATH}/{file}")

@@ -71,9 +71,21 @@ class TestRelations(unittest.TestCase):
 
     def tearDown(self) -> None:
         """Close cursor and delete test database."""
+        q = "select name from sqlite_master where type='table'"
+        run(self.cursor.execute(q))
+        results = run(self.cursor.fetchall())
+        for result in results:
+            q = f"drop table if exists {result[0]};"
+            try:
+                run(self.cursor.execute(q))
+            except BaseException as e:
+                print(e)
         run(self.cursor.close())
         run(self.db.close())
-        os.remove(DB_FILEPATH)
+        try:
+            os.remove(DB_FILEPATH)
+        except:
+            ...
         return super().tearDown()
 
     # Relation tests
