@@ -953,6 +953,9 @@ The package includes a set of tools with a CLI invocation script.
 Open a terminal in the root directory and run the following:
 
 ```
+python -m venv venv
+source venv/bin/activate
+pip -r requirements.txt
 python tests/test_classes.py
 python tests/test_relations.py
 python tests/test_migration.py
