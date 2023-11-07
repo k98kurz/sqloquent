@@ -84,9 +84,11 @@ migrations, as well as track, apply, rollback, and refresh migrations.
 - [x] Code scaffold tools + CLI
 - [x] Schema migration system
 - [x] Decent documentation
-- [x] Added `--columns name=type,etc` param for model generator
+- [x] Add `--columns name=type,etc` param for model generator
 - [x] Add asyncio compatibility
 - [x] `Contains` and `Within` relations (+ helper functions and async versions)
+- [ ] Add `does_not_start_with`, `does_not_end_with`, `like`, and `not_like` to SQB
+- [ ] Make parameter interpolation optional in SQB `to_sql` method.
 - [ ] Option for eager loading relations on `get`, `find`, or `insert`
 - [ ] Add automatic timestamps to `DeletedModel`
 - [ ] Add support for all SQL types in migration system
@@ -950,22 +952,35 @@ The package includes a set of tools with a CLI invocation script.
 
 ## Tests
 
-Open a terminal in the root directory and run the following:
+Open a terminal in the root directory and run the following to set up:
 
-```
-mkdir tests/temp
-mkdir tests/temp/migrations
+```bash
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+```
+
+For Windows, replace `source venv/bin/activate` with
+`source venv/Scripts/activate` if using a POSIX-compliant shell or
+`venv\Scripts\activate.bat` for command prompt.
+
+Then run the tests with the following for Unix:
+
+```bash
+find tests -name test_*.py -exec {} \;
+```
+
+Or for Windows:
+
+```
+python tests/test_async_classes.py
+python tests/test_async_integration.py
+python tests/test_async_relations.py
 python tests/test_classes.py
 python tests/test_relations.py
+python tests/test_integration.py
 python tests/test_migration.py
 python tests/test_tools.py
-python tests/test_integration.py
-python tests/test_async_classes.py
-python tests/test_async_relations.py
-python tests/test_async_integration.py
 ```
 
 The tests demonstrate the intended (and actual) behavior of the classes, as
