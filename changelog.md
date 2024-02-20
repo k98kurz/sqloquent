@@ -1,3 +1,9 @@
+## 0.3.4
+
+- Fixed some type hints
+- Reintroduced the disable_column_property_mapping feature
+- Added `is_null` and `not_null` to the query builders
+
 ## 0.3.3
 
 - Hotfix for CLI tool.

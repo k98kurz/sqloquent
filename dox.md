@@ -127,6 +127,16 @@ something other than a str.
 
 ##### `__init__(model_or_table: Type[SqlModel] | str = None, context_manager: Type[DBContextProtocol] = SqliteContext, connection_info: str = '', model: Type[SqlModel] = None, table: str = '', columns: list[str] = []) -> None:`
 
+##### `is_null(column: str) -> SqlQueryBuilder:`
+
+Save the 'column is null' clause, then return self. Raises TypeError for invalid
+column.
+
+##### `not_null(column: str) -> SqlQueryBuilder:`
+
+Save the 'column is not null' clause, then return self. Raises TypeError for
+invalid column.
+
 ##### `equal(column: str, data: Any) -> SqlQueryBuilder:`
 
 Save the 'column = data' clause and param, then return self. Raises TypeError
@@ -589,6 +599,16 @@ Interface showing how a query builder should function.
 
 Initialize the instance. A class implementing ModelProtocol or the str name of a
 table must be provided.
+
+##### `is_null(column: str) -> QueryBuilderProtocol:`
+
+Save the 'column is null' clause, then return self. Raises TypeError for invalid
+column.
+
+##### `not_null(column: str) -> QueryBuilderProtocol:`
+
+Save the 'column is not null' clause, then return self. Raises TypeError for
+invalid column.
 
 ##### `equal(column: str, data: str) -> QueryBuilderProtocol:`
 

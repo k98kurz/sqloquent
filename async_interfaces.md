@@ -149,6 +149,16 @@ Interface showing how a query builder should function.
 Initialize the instance. A class implementing AsyncModelProtocol or the str name
 of a table must be provided.
 
+##### `is_null(column: str) -> AsyncQueryBuilderProtocol:`
+
+Save the 'column is null' clause, then return self. Raises TypeError for invalid
+column.
+
+##### `not_null(column: str) -> AsyncQueryBuilderProtocol:`
+
+Save the 'column is not null' clause, then return self. Raises TypeError for
+invalid column.
+
 ##### `equal(column: str, data: str) -> AsyncQueryBuilderProtocol:`
 
 Save the 'column = data' clause and param, then return self.

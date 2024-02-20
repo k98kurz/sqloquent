@@ -87,6 +87,7 @@ migrations, as well as track, apply, rollback, and refresh migrations.
 - [x] Add `--columns name=type,etc` param for model generator
 - [x] Add asyncio compatibility
 - [x] `Contains` and `Within` relations (+ helper functions and async versions)
+- [x] Added [change log](https://github.com/k98kurz/sqloquent/blob/master/changelog.md)
 - [ ] Add `does_not_start_with`, `does_not_end_with`, `like`, and `not_like` to SQB
 - [ ] Make parameter interpolation optional in SQB `to_sql` method.
 - [ ] Option for eager loading relations on `get`, `find`, or `insert`
