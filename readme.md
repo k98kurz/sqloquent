@@ -968,7 +968,7 @@ For Windows, replace `source venv/bin/activate` with
 Then run the tests with the following for Unix:
 
 ```bash
-find tests -name test_*.py -exec {} \;
+find tests -name test_*.py -exec python {} \;
 ```
 
 Or for Windows:
