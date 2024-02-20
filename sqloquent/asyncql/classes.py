@@ -114,7 +114,7 @@ def async_dynamic_sqlmodel(connection_string: str|bytes, table_name: str = '',
     class DynamicModel(AsyncSqlModel):
         connection_info: str = connection_string
         table: str = table_name
-        columns: tuple(str) = column_names
+        columns: tuple[str] = column_names
     return DynamicModel
 
 
@@ -201,6 +201,22 @@ class AsyncSqlQueryBuilder:
     def table(self, name: str) -> None:
         tert(type(name) is str, 'name must be str')
         self._table = name
+
+    def is_null(self, column: str) -> AsyncSqlQueryBuilder:
+        """Save the 'column is null' clause, then return self. Raises
+            TypeError for invalid column.
+        """
+        tert(type(column) is str, 'column must be str')
+        self.clauses.append(f'{column} is null')
+        return self
+
+    def not_null(self, column: str) -> AsyncSqlQueryBuilder:
+        """Save the 'column is not null' clause, then return self.
+            Raises TypeError for invalid column.
+        """
+        tert(type(column) is str, 'column must be str')
+        self.clauses.append(f'{column} is not null')
+        return self
 
     def equal(self, column: str, data: Any) -> AsyncSqlQueryBuilder:
         """Save the 'column = data' clause and param, then return self.
@@ -759,10 +775,11 @@ class AsyncSqlModel:
         """
         self.data = {}
 
-        names = dir(self)
-        for column in self.columns:
-            if column not in names:
-                setattr(self.__class__, column, self.create_property(column))
+        if not hasattr(self.__class__, 'disable_column_property_mapping'):
+            names = dir(self)
+            for column in self.columns:
+                if column not in names:
+                    setattr(self.__class__, column, self.create_property(column))
 
         for key in data:
             if key in self.columns and type(key) is str:

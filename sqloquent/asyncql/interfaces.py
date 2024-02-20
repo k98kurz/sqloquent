@@ -197,6 +197,18 @@ class AsyncQueryBuilderProtocol(Protocol):
         """The class of the relevant model."""
         ...
 
+    def is_null(self, column: str) -> AsyncQueryBuilderProtocol:
+        """Save the 'column is null' clause, then return self. Raises
+            TypeError for invalid column.
+        """
+        ...
+
+    def not_null(self, column: str) -> AsyncQueryBuilderProtocol:
+        """Save the 'column is not null' clause, then return self.
+            Raises TypeError for invalid column.
+        """
+        ...
+
     def equal(self, column: str, data: str) -> AsyncQueryBuilderProtocol:
         """Save the 'column = data' clause and param, then return self."""
         ...

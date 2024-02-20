@@ -333,7 +333,7 @@ def automigrate(path: str, connection_string: str = '') -> None:
     files.sort()
     m = _import_migration(f"{path}/{files[0]}", connection_string)
     MigrationModel = _get_migration_model(connection_string)
-    done: list[MigrationModel] = []
+    done: list[SqlModel] = []
     with m.context_manager(connection_string) as cursor:
         q = "select name from sqlite_master where type='table' and name='migrations'"
         if len(cursor.execute(q).fetchall()) == 0:
@@ -363,7 +363,7 @@ def autorollback(path: str, connection_string: str = '', all: bool = False) -> N
     files.sort()
     m = _import_migration(f"{path}/{files[0]}", connection_string)
     MigrationModel = _get_migration_model(connection_string)
-    done: list[MigrationModel] = []
+    done: list[SqlModel] = []
     with m.context_manager(connection_string) as cursor:
         q = "select name from sqlite_master where type='table' and name='migrations'"
         if len(cursor.execute(q).fetchall()) == 0:

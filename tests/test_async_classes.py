@@ -292,6 +292,32 @@ class TestClasses(unittest.TestCase):
         with self.assertRaises(TypeError) as e:
             sqb = async_classes.AsyncSqlQueryBuilder(model='ssds')
 
+    def test_AsyncSqlQueryBuilder_is_null_raises_TypeError_for_nonstr_column(self):
+        with self.assertRaises(TypeError) as e:
+            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).is_null(b'not a str', '')
+
+    def test_AsyncSqlQueryBuilder_is_null_adds_correct_clause(self):
+        sqb = async_classes.AsyncSqlQueryBuilder(model=async_classes.AsyncSqlModel)
+        assert len(sqb.clauses) == 0, 'clauses must start at 0 len'
+        assert len(sqb.params) == 0, 'params must start at 0 len'
+        sqb.is_null('name')
+        assert len(sqb.clauses) == 1, 'equal() must append to clauses'
+        assert len(sqb.params) == 0, 'equal() must not append to params'
+        assert sqb.clauses[0] == 'name is null'
+
+    def test_AsyncSqlQueryBuilder_not_null_raises_TypeError_for_nonstr_column(self):
+        with self.assertRaises(TypeError) as e:
+            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).not_null(b'not a str', '')
+
+    def test_AsyncSqlQueryBuilder_not_null_adds_correct_clause(self):
+        sqb = async_classes.AsyncSqlQueryBuilder(model=async_classes.AsyncSqlModel)
+        assert len(sqb.clauses) == 0, 'clauses must start at 0 len'
+        assert len(sqb.params) == 0, 'params must start at 0 len'
+        sqb.not_null('name')
+        assert len(sqb.clauses) == 1, 'equal() must append to clauses'
+        assert len(sqb.params) == 0, 'equal() must not append to params'
+        assert sqb.clauses[0] == 'name is not null'
+
     def test_AsyncSqlQueryBuilder_equal_raises_TypeError_for_nonstr_column(self):
         with self.assertRaises(TypeError) as e:
             async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).equal(b'not a str', '')

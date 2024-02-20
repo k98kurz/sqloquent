@@ -326,6 +326,32 @@ class TestClasses(unittest.TestCase):
         with self.assertRaises(TypeError) as e:
             sqb = classes.SqlQueryBuilder(model='ssds')
 
+    def test_SqlQueryBuilder_is_null_raises_TypeError_for_nonstr_column(self):
+        with self.assertRaises(TypeError) as e:
+            classes.SqlQueryBuilder(classes.SqlModel).is_null(b'not a str', '')
+
+    def test_SqlQueryBuilder_is_null_adds_correct_clause(self):
+        sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
+        assert len(sqb.clauses) == 0, 'clauses must start at 0 len'
+        assert len(sqb.params) == 0, 'params must start at 0 len'
+        sqb.is_null('name')
+        assert len(sqb.clauses) == 1, 'equal() must append to clauses'
+        assert len(sqb.params) == 0, 'equal() must not append to params'
+        assert sqb.clauses[0] == 'name is null'
+
+    def test_SqlQueryBuilder_not_null_raises_TypeError_for_nonstr_column(self):
+        with self.assertRaises(TypeError) as e:
+            classes.SqlQueryBuilder(classes.SqlModel).not_null(b'not a str', '')
+
+    def test_SqlQueryBuilder_not_null_adds_correct_clause(self):
+        sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
+        assert len(sqb.clauses) == 0, 'clauses must start at 0 len'
+        assert len(sqb.params) == 0, 'params must start at 0 len'
+        sqb.not_null('name')
+        assert len(sqb.clauses) == 1, 'equal() must append to clauses'
+        assert len(sqb.params) == 0, 'equal() must not append to params'
+        assert sqb.clauses[0] == 'name is not null'
+
     def test_SqlQueryBuilder_equal_raises_TypeError_for_nonstr_column(self):
         with self.assertRaises(TypeError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).equal(b'not a str', '')
