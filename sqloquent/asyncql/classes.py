@@ -255,57 +255,77 @@ class AsyncSqlQueryBuilder:
         self.params.append(data)
         return self
 
+    def like(self, column: str, pattern: str, data: str) -> AsyncSqlQueryBuilder:
+        """Save the 'column like {pattern.replace(?, data)}' clause and
+            param, then return self. Raises TypeError or ValueError for
+            invalid column, pattern, or data.
+        """
+        tert(type(column) is str, 'column must be str')
+        tert(type(pattern) is str, 'pattern must be str')
+        tert(type(data) is str, 'data must be str')
+        vert(len(column), 'column cannot be empty')
+        vert(len(pattern), 'pattern cannot be empty')
+        vert(len(data), 'data cannot be empty')
+        self.clauses.append(f'{column} like ?')
+        self.params.append(pattern.replace('?', data))
+        return self
+
+    def not_like(self, column: str, pattern: str, data: str) -> AsyncSqlQueryBuilder:
+        """Save the 'column not like {pattern.replace(?, data)}' clause
+            and param, then return self. Raises TypeError or ValueError
+            for invalid column, pattern, or data.
+        """
+        tert(type(column) is str, 'column must be str')
+        tert(type(pattern) is str, 'pattern must be str')
+        tert(type(data) is str, 'data must be str')
+        vert(len(column), 'column cannot be empty')
+        vert(len(pattern), 'pattern cannot be empty')
+        vert(len(data), 'data cannot be empty')
+        self.clauses.append(f'{column} not like ?')
+        self.params.append(pattern.replace('?', data))
+        return self
+
     def starts_with(self, column: str, data: str) -> AsyncSqlQueryBuilder:
         """Save the 'column like data%' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data.
         """
-        tert(type(column) is str, 'column must be str')
-        tert(type(data) is str, 'data must be str')
-        vert(len(column), 'column cannot be empty')
-        vert(len(data), 'data cannot be empty')
-        self.clauses.append(f'{column} like ?')
-        self.params.append(f'{data}%')
-        return self
+        return self.like(column, '?%', data)
+
+    def does_not_start_with(self, column: str, data: str) -> AsyncSqlQueryBuilder:
+        """Save the 'column like data%' clause and param, then return
+            self. Raises TypeError or ValueError for invalid column or
+            data.
+        """
+        return self.not_like(column, '?%', data)
 
     def contains(self, column: str, data: str) -> AsyncSqlQueryBuilder:
         """Save the 'column like %data%' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data.
         """
-        tert(type(column) is str, 'column must be str')
-        tert(type(data) is str, 'data must be str')
-        vert(len(column), 'column cannot be empty')
-        vert(len(data), 'data cannot be empty')
-        self.clauses.append(f'{column} like ?')
-        self.params.append(f'%{data}%')
-        return self
+        return self.like(column, '%?%', data)
 
     def excludes(self, column: str, data: str) -> AsyncSqlQueryBuilder:
         """Save the 'column not like %data%' clause and param, then
             return self. Raises TypeError or ValueError for invalid
             column or data.
         """
-        tert(type(column) is str, 'column must be str')
-        tert(type(data) is str, 'data must be str')
-        vert(len(column), 'column cannot be empty')
-        vert(len(data), 'data cannot be empty')
-        self.clauses.append(f'{column} not like ?')
-        self.params.append(f'%{data}%')
-        return self
+        return self.not_like(column, '%?%', data)
 
     def ends_with(self, column: str, data: str) -> AsyncSqlQueryBuilder:
         """Save the 'column like %data' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data.
         """
-        tert(type(column) is str, 'column must be str')
-        tert(type(data) is str, 'data must be str')
-        vert(len(column), 'column cannot be empty')
-        vert(len(data), 'data cannot be empty')
-        self.clauses.append(f'{column} like ?')
-        self.params.append(f'%{data}')
-        return self
+        return self.like(column, '%?', data)
+
+    def does_not_end_with(self, column: str, data: str) -> AsyncSqlQueryBuilder:
+        """Save the 'column like %data' clause and param, then return
+            self. Raises TypeError or ValueError for invalid column or
+            data.
+        """
+        return self.not_like(column, '%?', data)
 
     def is_in(self, column: str, data: Union[tuple, list]) -> AsyncSqlQueryBuilder:
         """Save the 'column in data' clause and param, then return self.
