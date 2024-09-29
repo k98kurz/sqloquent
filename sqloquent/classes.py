@@ -8,6 +8,7 @@ from .interfaces import (
 )
 from dataclasses import dataclass, field
 from hashlib import sha256
+from time import time
 from types import TracebackType
 from typing import Any, Generator, Optional, Type, Union
 from uuid import uuid4
@@ -967,11 +968,23 @@ class SqlModel:
 class DeletedModel(SqlModel):
     """Model for preserving and restoring deleted HashedModel records."""
     table: str = 'deleted_records'
-    columns: tuple = ('id', 'model_class', 'record_id', 'record')
+    columns: tuple = ('id', 'model_class', 'record_id', 'record', 'timestamp')
     id: str
     model_class: str
     record_id: str
     record: bytes
+    timestamp: str
+
+    def __init__(self, data: dict = {}) -> None:
+        if 'timestamp' not in data:
+            data['timestamp'] = str(int(time()))
+        super().__init__(data)
+
+    @classmethod
+    def insert(cls, data: dict) -> SqlModel | None:
+        if 'timestamp' not in data:
+            data['timestamp'] = str(int(time()))
+        return super().insert(data)
 
     def restore(self, inject: dict = {}) -> SqlModel:
         """Restore a deleted record, remove from deleted_records, and
@@ -1103,7 +1116,7 @@ class Attachment(HashedModel):
         """Return the related record."""
         if self._related is None or reload:
             vert(self.data['related_model'] in globals(), 'model_class must be accessible')
-            model_class = globals()[self.data['related_model']]
+            model_class: type[SqlModel] = globals()[self.data['related_model']]
             tert(issubclass(model_class, SqlModel),
                 'related_model must inherit from SqlModel')
             self._related = model_class.find(self.data['related_id'])

@@ -30,7 +30,8 @@ class TestClasses(unittest.TestCase):
         self.db = run(connect(DB_FILEPATH))
         self.cursor = run(self.db.cursor())
         run(self.cursor.execute('create table deleted_records (id text not null, ' +
-            'model_class text not null, record_id text not null, record blob not null)'))
+            'model_class text not null, record_id text not null, ' +
+            'record blob not null, timestamp text not null)'))
         run(self.cursor.execute('create table example (id text, name text)'))
         run(self.cursor.execute('create table hashed_records (id text, details text)'))
         run(self.cursor.execute('create table attachments (id text, ' +
@@ -1096,7 +1097,8 @@ class TestClasses(unittest.TestCase):
             'id': async_classes.AsyncDeletedModel.generate_id(),
             'model_class': 'sdskdj',
             'record_id': 'dsdisjd',
-            'record': 'codework'
+            'record': 'codework',
+            'timestamp': 123,
         }))
 
         with self.assertRaises(ValueError) as e:
@@ -1107,7 +1109,8 @@ class TestClasses(unittest.TestCase):
             'id': async_classes.AsyncDeletedModel.generate_id(),
             'model_class': NotValidClass.__name__,
             'record_id': 'dsdisjd',
-            'record': '{"January": "is a decent song"}'
+            'record': '{"January": "is a decent song"}',
+            'timestamp': 123,
         }))
 
         with self.assertRaises(TypeError) as e:

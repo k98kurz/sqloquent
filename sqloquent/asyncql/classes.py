@@ -9,6 +9,7 @@ from sqloquent.asyncql.interfaces import (
 from sqloquent.classes import JoinSpec, Row
 from dataclasses import dataclass
 from hashlib import sha256
+from time import time
 from types import TracebackType
 from typing import Any, AsyncGenerator, Optional, Type, Union
 from uuid import uuid4
@@ -950,11 +951,23 @@ class AsyncSqlModel:
 class AsyncDeletedModel(AsyncSqlModel):
     """Model for preserving and restoring deleted AsyncHashedModel records."""
     table: str = 'deleted_records'
-    columns: tuple = ('id', 'model_class', 'record_id', 'record')
+    columns: tuple = ('id', 'model_class', 'record_id', 'record', 'timestamp')
     id: str
     model_class: str
     record_id: str
     record: bytes
+    timestamp: str
+
+    def __init__(self, data: dict = {}) -> None:
+        if 'timestamp' not in data:
+            data['timestamp'] = str(int(time()))
+        super().__init__(data)
+
+    @classmethod
+    async def insert(cls, data: dict) -> AsyncSqlModel | None:
+        if 'timestamp' not in data:
+            data['timestamp'] = str(int(time()))
+        return await super().insert(data)
 
     async def restore(self, inject: dict = {}) -> AsyncSqlModel:
         """Restore a deleted record, remove from deleted_records, and

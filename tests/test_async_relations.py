@@ -37,7 +37,8 @@ class TestRelations(unittest.TestCase):
         run(self.cursor.execute('create table owned (id text, owner_id text, details text)'))
         run(self.cursor.execute('create table dag (id text, details text, parent_ids text)'))
         run(self.cursor.execute('create table deleted_records (id text not null, ' +
-            'model_class text not null, record_id text not null, record blob not null)'))
+            'model_class text not null, record_id text not null, ' +
+            'record blob not null, timestamp text not null)'))
 
         # rebuild test async_classes because properties will be changed in tests
         class OwnedModel(async_classes.AsyncSqlModel):
