@@ -1,4 +1,4 @@
-from context import tools
+from context import tools, classes
 from genericpath import isdir, isfile
 from secrets import token_hex
 import os
@@ -93,9 +93,24 @@ class TestIntegration(unittest.TestCase):
         assert 'def migration' in result
         assert DB_FILEPATH in result
 
-    def test_make_migration_from_model_returns_str_with_correct_content(self):
+    def test_make_migration_from_model_path_returns_str_with_correct_content(self):
         name = 'Attachment'
-        result = tools.make_migration_from_model(name, 'sqloquent/classes.py', DB_FILEPATH)
+        result = tools.make_migration_from_model_path(name, 'sqloquent/classes.py', DB_FILEPATH)
+        assert type(result) is str
+        assert name.lower() in result, "table name should be in migration"
+        assert 'Table.drop' in result
+        assert 'Table.create' in result
+        assert 'Migration' in result
+        assert 'Table' in result
+        assert 'up' in result
+        assert 'down' in result
+        assert 'def migration' in result
+        assert DB_FILEPATH in result
+
+    def test_make_migration_from_model_returns_str_with_correct_content(self):
+        model = classes.Attachment
+        name = model.__name__
+        result = tools.make_migration_from_model(model, name, connection_string=DB_FILEPATH)
         assert type(result) is str
         assert name.lower() in result, "table name should be in migration"
         assert 'Table.drop' in result
@@ -109,7 +124,7 @@ class TestIntegration(unittest.TestCase):
 
     def test_make_migration_from_async_model_returns_str_with_correct_content(self):
         name = 'AsyncAttachment'
-        result = tools.make_migration_from_model(name, 'sqloquent/asyncql/classes.py', DB_FILEPATH)
+        result = tools.make_migration_from_model_path(name, 'sqloquent/asyncql/classes.py', DB_FILEPATH)
         assert type(result) is str
         assert name.replace('Async', '').lower() in result, "table name should be in migration"
         assert 'Table.drop' in result
@@ -156,11 +171,11 @@ class TestIntegration(unittest.TestCase):
 
     def test_make_miration_from_model_sets_context_manager(self):
         name = 'Attachment'
-        result = tools.make_migration_from_model(name, 'sqloquent/classes.py', DB_FILEPATH)
+        result = tools.make_migration_from_model_path(name, 'sqloquent/classes.py', DB_FILEPATH)
         assert 'SqliteContext' not in result
         assert 'Migration(connection_string, SqliteContext)' not in result
         assert 'Migration(connection_string)' in result
-        result = tools.make_migration_from_model(
+        result = tools.make_migration_from_model_path(
             name, 'sqloquent/classes.py', DB_FILEPATH, ('SqliteContext', 'sqloquent'))
         assert 'from sqloquent import SqliteContext' in result
         assert 'Migration(connection_string, SqliteContext)' in result

@@ -103,17 +103,17 @@ def make_migration_drop(name: str, connection_string: str = '',
     src += f"    return migration"
     return src
 
-def make_migration_from_model(model_name: str, model_path: str,
+def make_migration_from_model_path(model_name: str, model_path: str,
                               connection_string: str = '',
                               ctx: tuple = None) -> str:
-    """Generate a migration scaffold from a model."""
+    """Generate a migration from a model name and path."""
     module = _import(model_path)
     tressa(hasattr(module, model_name),
             "module at given path does not have the specified model")
     model: ModelProtocol = getattr(module, model_name)
     tert(isinstance(model(), ModelProtocol),
             "specified model is invalid; must implement ModelProtocol")
-    return _make_migration_from_model(model, model_name, connection_string, ctx)
+    return make_migration_from_model(model, model_name, connection_string, ctx)
 
 def _get_column_type_from_annotation(annotation: Any) -> tuple[str, bool]:
     nullable = False
@@ -149,9 +149,10 @@ def _get_column_type_from_annotation(annotation: Any) -> tuple[str, bool]:
             return ('real', nullable)
         return ('text', nullable)
 
-def _make_migration_from_model(model: ModelProtocol, model_name: str,
+def make_migration_from_model(model: ModelProtocol, model_name: str = None,
                                connection_string: str = '', ctx: tuple = None) -> str:
-    table_name = model.table or _pascalcase_to_snake_case(model_name)
+    """Generate a migration from a model."""
+    table_name = model.table or _pascalcase_to_snake_case(model_name or model.__name__)
     types: dict[str, tuple[Type, bool]] = {}
     if model.__annotations__:
         for column in model.columns:
@@ -187,17 +188,17 @@ def publish_migrations(path: str, connection_string: str = '', ctx: tuple = None
     tert(type(path) is str, 'path must be str')
     tressa(isdir(path), 'path must be valid path to an existing directory')
 
-    deleted_model_src = _make_migration_from_model(
+    deleted_model_src = make_migration_from_model(
         DeletedModel, 'DeletedModel', connection_string, ctx)
     deleted_model_src = deleted_model_src.replace("t.text('record').index()", "t.blob('record')")
     deleted_model_src = deleted_model_src.replace('    ...\n', '')
 
-    attachment_src = _make_migration_from_model(
+    attachment_src = make_migration_from_model(
         Attachment, 'Attachment', connection_string, ctx)
     attachment_src = attachment_src.replace("t.text('details').index()", "t.blob('details')")
     attachment_src = attachment_src.replace('    ...\n', '')
 
-    hashed_model_src = _make_migration_from_model(
+    hashed_model_src = make_migration_from_model(
         HashedModel, 'HashedModel', connection_string, ctx)
     hashed_model_src = hashed_model_src.replace("t.text('details').index()", "t.blob('details')")
     hashed_model_src = hashed_model_src.replace('    ...\n', '')
@@ -484,7 +485,7 @@ def run_cli() -> None:
                     print(f"error: `make migration --model {name}` missing path parameter")
                     print(help_cli(argv[0]))
                     exit(1)
-                return print(make_migration_from_model(name, argv[5], connstring_for_make, ctx))
+                return print(make_migration_from_model_path(name, argv[5], connstring_for_make, ctx))
         elif kind == "model":
             if len(argv) < 4:
                 print("make model missing parameter: name")

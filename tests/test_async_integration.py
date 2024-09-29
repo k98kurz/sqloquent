@@ -75,7 +75,7 @@ class TestIntegration(unittest.TestCase):
         # generate migrations
         names = ['Account', 'Correspondence', 'Entry', 'Identity', 'Ledger', 'Transaction']
         for name in names:
-            src = tools.make_migration_from_model(name, f"{MODELS_PATH}/{name}.py")
+            src = tools.make_migration_from_model_path(name, f"{MODELS_PATH}/{name}.py")
             with open(f"{MIGRATIONS_PATH}/{name}_migration.py", 'w') as f:
                 f.write(src)
 
@@ -311,7 +311,7 @@ class TestIntegration(unittest.TestCase):
         # generate migrations
         names = ['User', 'Avatar', 'Post', 'Friendship']
         for name in names:
-            src = tools.make_migration_from_model(name, f"{MODELS_PATH}2.py")
+            src = tools.make_migration_from_model_path(name, f"{MODELS_PATH}2.py")
             with open(f"{MIGRATIONS_PATH}/{name}_migration.py", 'w') as f:
                 f.write(src)
 
