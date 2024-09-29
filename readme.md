@@ -926,6 +926,7 @@ The package includes a set of tools with a CLI invocation script.
 - make_migration_alter
 - make_migration_drop
 - make_migration_from_model
+- make_migration_from_model_path
 - publish_migrations
 - make_model
 - migrate
