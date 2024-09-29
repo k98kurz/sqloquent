@@ -297,6 +297,19 @@ class AsyncSqlQueryBuilder:
         self.params.append(f'{data}%')
         return self
 
+    def does_not_start_with(self, column: str, data: str) -> AsyncSqlQueryBuilder:
+        """Save the 'column like data%' clause and param, then return
+            self. Raises TypeError or ValueError for invalid column or
+            data.
+        """
+        tert(type(column) is str, 'column must be str')
+        tert(type(data) is str, 'data must be str')
+        vert(len(column), 'column cannot be empty')
+        vert(len(data), 'data cannot be empty')
+        self.clauses.append(f'{column} not like ?')
+        self.params.append(f'{data}%')
+        return self
+
     def contains(self, column: str, data: str) -> AsyncSqlQueryBuilder:
         """Save the 'column like %data%' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
