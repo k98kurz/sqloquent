@@ -818,6 +818,40 @@ class TestClasses(unittest.TestCase):
         sqb.skip(3)
         assert sqb.to_sql() == ' where name = foo order by id desc limit 5 offset 3'
 
+    def test_SqlQueryBuilder_to_sql_without_interpolate_params_returns_str_and_list(self):
+        sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
+        assert type(sqb.to_sql(interpolate_params=False)) is tuple, \
+            'to_sql(interpolate_params=False) must return tuple(str, list)'
+        assert len(sqb.to_sql(interpolate_params=False)) == 2, \
+            'to_sql(interpolate_params=False) must return tuple(str, list)'
+        assert type(sqb.to_sql(interpolate_params=False)[0]) is str, \
+            'to_sql(interpolate_params=False) must return tuple(str, list)'
+        assert type(sqb.to_sql(interpolate_params=False)[1]) is list, \
+            'to_sql(interpolate_params=False) must return tuple(str, list)'
+        assert sqb.to_sql(interpolate_params=False)[0] == ' where '
+
+        sqb.equal('name', 'foo')
+        assert sqb.to_sql(interpolate_params=False)[0] == ' where name = ?'
+        assert sqb.to_sql(interpolate_params=False)[1] == ['foo']
+
+        sqb.order_by('id')
+        assert sqb.to_sql(interpolate_params=False)[0] == ' where name = ? order by id desc', \
+            sqb.to_sql(interpolate_params=False)[0]
+        assert sqb.to_sql(interpolate_params=False)[1] == ['foo']
+
+        sqb.skip(3)
+        assert sqb.to_sql(interpolate_params=False)[0] == ' where name = ? order by id desc'
+        assert sqb.to_sql(interpolate_params=False)[1] == ['foo']
+
+        sqb.offset = None
+        sqb.limit = 5
+        assert sqb.to_sql(interpolate_params=False)[0] == ' where name = ? order by id desc limit 5'
+        assert sqb.to_sql(interpolate_params=False)[1] == ['foo']
+
+        sqb.skip(3)
+        assert sqb.to_sql(interpolate_params=False)[0] == ' where name = ? order by id desc limit 5 offset 3'
+        assert sqb.to_sql(interpolate_params=False)[1] == ['foo']
+
     def test_SqlQueryBuilder_reset_returns_fresh_instance(self):
         sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
         sql1 = sqb.to_sql()

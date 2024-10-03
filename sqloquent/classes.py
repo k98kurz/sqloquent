@@ -763,17 +763,26 @@ class SqlQueryBuilder:
         with self.context_manager(self.connection_info) as cursor:
             return cursor.execute(sql, self.params).rowcount
 
-    def to_sql(self) -> str:
-        """Return the sql where clause from the clauses and params."""
-        bindings = []
+    def to_sql(self, interpolate_params: bool = True) -> str|tuple[str, list]:
+        """Return the sql where clause from the clauses and params. If
+            interpolate_params is True, the parameters will be
+            interpolated into the SQL str and a single str result will
+            be returned. If interpolate_params is False, the parameters
+            will not be interpolated into the SQL str, instead including
+            question marks, and an additional list of params will be
+            returned along with the SQL str.
+        """
+        sql = f' where {" and ".join(self.clauses)}'
 
-        for clause, param in zip(self.clauses, self.params):
-            if type(param) in (tuple, list):
-                bindings.append(clause.replace('?', f'[{",".join(param)}]'))
-            else:
-                bindings.append(clause.replace('?', param))
+        if interpolate_params:
+            bindings = []
+            for clause, param in zip(self.clauses, self.params):
+                if type(param) in (tuple, list):
+                    bindings.append(clause.replace('?', f'[{",".join(param)}]'))
+                else:
+                    bindings.append(clause.replace('?', param))
 
-        sql = f' where {" and ".join(bindings)}'
+            sql = f' where {" and ".join(bindings)}'
 
         if self.order_column is not None:
             sql += f' order by {self.order_column} {self.order_dir}'
@@ -784,7 +793,7 @@ class SqlQueryBuilder:
             if type(self.offset) is int and self.offset > 0:
                 sql += f' offset {self.offset}'
 
-        return sql
+        return sql if interpolate_params else (sql, self.params)
 
     def execute_raw(self, sql: str) -> tuple[int, list[tuple[Any]]]:
         """Execute raw SQL against the database. Return rowcount and
