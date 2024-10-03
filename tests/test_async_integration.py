@@ -14,7 +14,7 @@ MIGRATIONS_PATH = 'tests/integration_vectors/migrations'
 MODELS_PATH = 'tests/integration_vectors/asyncmodels'
 
 
-class TestIntegration(unittest.TestCase):
+class TestAsyncIntegration(unittest.TestCase):
     db: sqlite3.Connection = None
     cursor: sqlite3.Cursor = None
 
@@ -173,8 +173,6 @@ class TestIntegration(unittest.TestCase):
             'ledger_id': aledger.data['id'],
             'type': asyncmodels.AccountType.EQUITY,
         }))
-        assert len(aledger.accounts) == 0
-        run(aledger.accounts().reload())
         assert len(aledger.accounts) == 4
         assert hasattr(aledger.accounts[0], 'data') and type(aledger.accounts[0].data) is dict
         assert hasattr(aledger.accounts[0], 'id') and type(aledger.accounts[0].id) is str
@@ -206,8 +204,6 @@ class TestIntegration(unittest.TestCase):
             'ledger_id': bledger.data['id'],
             'type': asyncmodels.AccountType.ASSET,
         }))
-        assert len(bledger.accounts) == 0
-        run(bledger.accounts().reload())
         assert len(bledger.accounts) == 4
 
         # create starting capital asset for Alice
@@ -308,11 +304,6 @@ class TestIntegration(unittest.TestCase):
         assert len(txn.entries) == 4
 
         # test accessing BelongsTo through a BelongsTo: case 1
-        assert not bvostro.ledger.owner.id
-        run(bvostro.ledger().reload())
-        ledger = bvostro.ledger
-        run(ledger.owner().reload())
-        assert ledger.owner.id
         assert bvostro.ledger.owner.id
 
         # test accessing BelongsTo through a BelongsTo: case 2
@@ -323,35 +314,23 @@ class TestIntegration(unittest.TestCase):
 
         # test accessing HasMany through a HasOne
         alice: asyncmodels.Identity = run(asyncmodels.Identity.find(alice.id))
-        assert not alice.ledger.id
-        run(alice.ledger().reload())
         assert alice.ledger.id
-        assert not len(alice.ledger.accounts), alice.ledger.accounts
-        run(alice.ledger.accounts().reload())
         assert len(alice.ledger.accounts), alice.ledger.accounts
 
         # test accessing HasMany through a HasMany
         run(aledger.accounts().reload())
         acct = [a for a in aledger.accounts if a.name == 'Alice Equity'][0]
-        assert not len(acct.entries)
-        run(acct.entries().reload())
         assert len(acct.entries)
 
         # test accessing BelongsTo through a Contains
         txn: asyncmodels.Transaction = run(asyncmodels.Transaction.query().first())
-        assert not len(txn.entries)
-        run(txn.entries().reload())
         assert len(txn.entries)
         entry: asyncmodels.Entry = txn.entries[0]
-        assert not entry.account
-        run(entry.account().reload())
         assert entry.account
 
         # test accessing Within through a HasMany
         run(bequity.entries().reload())
         entry: asyncmodels.Entry = bequity.entries[0]
-        assert not len(entry.transactions)
-        run(entry.transactions().reload())
         assert len(entry.transactions) == 1
 
     def test_integration_e2e_models2(self):

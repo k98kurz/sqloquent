@@ -172,8 +172,6 @@ class TestIntegration(unittest.TestCase):
             'ledger_id': aledger.data['id'],
             'type': models.AccountType.EQUITY,
         })
-        assert len(aledger.accounts) == 0
-        aledger.accounts().reload()
         assert len(aledger.accounts) == 4
         assert hasattr(aledger.accounts[0], 'data') and type(aledger.accounts[0].data) is dict
         assert hasattr(aledger.accounts[0], 'id') and type(aledger.accounts[0].id) is str
@@ -205,8 +203,6 @@ class TestIntegration(unittest.TestCase):
             'ledger_id': bledger.data['id'],
             'type': models.AccountType.ASSET,
         })
-        assert len(bledger.accounts) == 0
-        bledger.accounts().reload()
         assert len(bledger.accounts) == 4
 
         # create starting capital asset for Alice
@@ -307,50 +303,31 @@ class TestIntegration(unittest.TestCase):
         assert len(txn.entries) == 4
 
         # test accessing BelongsTo through a BelongsTo: case 1
-        assert not bvostro.ledger.owner.id
-        bvostro.ledger().reload()
-        ledger = bvostro.ledger
-        ledger.owner().reload()
-        assert ledger.owner.id
         assert bvostro.ledger.owner.id
 
         # test accessing BelongsTo through a BelongsTo: case 2
         bvostro = models.Account.find(bvostro.id)
-        bvostro.ledger().reload()
-        bvostro.ledger.owner().reload()
         assert bvostro.ledger.owner.id
 
         # test accessing HasMany through a HasOne
         alice: models.Identity = models.Identity.find(alice.id)
-        assert not alice.ledger.id
-        alice.ledger().reload()
         assert alice.ledger.id
-        assert not len(alice.ledger.accounts), alice.ledger.accounts
-        alice.ledger.accounts().reload()
         assert len(alice.ledger.accounts), alice.ledger.accounts
 
         # test accessing HasMany through a HasMany
         aledger.accounts().reload()
         acct = [a for a in aledger.accounts if a.name == 'Alice Equity'][0]
-        assert not len(acct.entries)
-        acct.entries().reload()
         assert len(acct.entries)
 
         # test accessing BelongsTo through a Contains
         txn: models.Transaction = models.Transaction.query().first()
-        assert not len(txn.entries)
-        txn.entries().reload()
         assert len(txn.entries)
         entry: models.Entry = txn.entries[0]
-        assert not entry.account
-        entry.account().reload()
         assert entry.account
 
         # test accessing Within through a HasMany
         bequity.entries().reload()
         entry: models.Entry = bequity.entries[0]
-        assert not len(entry.transactions)
-        entry.transactions().reload()
         assert len(entry.transactions) == 1
 
     def test_integration_e2e_models2(self):

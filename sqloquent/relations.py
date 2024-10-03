@@ -372,14 +372,20 @@ class HasOne(Relation):
                 the precondition check fails.
             """
             if cache_key not in self.relations or \
-                self.relations[cache_key] is None or \
-                self.relations[cache_key].secondary is None:
-                empty = HasOneWrapped()
+                self.relations[cache_key] is None:
 
                 if cache_key not in self.relations or self.relations[cache_key] is None:
                     self.relations[cache_key] = deepcopy(relation)
                     self.relations[cache_key].primary = self
 
+            if self.relations[cache_key].secondary is None:
+                try:
+                    self.relations[cache_key].reload()
+                except ValueError:
+                    pass
+
+            if self.relations[cache_key].secondary is None:
+                empty = HasOneWrapped()
                 empty.relations = {}
                 empty.relations[cache_key] = self.relations[cache_key]
                 return empty
@@ -603,14 +609,20 @@ class HasMany(HasOne):
                 the precondition check fails.
             """
             if cache_key not in self.relations or \
-                self.relations[cache_key] is None or \
-                self.relations[cache_key].secondary is None:
-                empty = HasManyTuple()
+                self.relations[cache_key] is None:
 
                 if cache_key not in self.relations or self.relations[cache_key] is None:
                     self.relations[cache_key] = deepcopy(relation)
                     self.relations[cache_key].primary = self
 
+            if self.relations[cache_key].secondary is None:
+                try:
+                    self.relations[cache_key].reload()
+                except ValueError:
+                    pass
+
+            if self.relations[cache_key].secondary is None:
+                empty = HasManyTuple()
                 empty.relation = self.relations[cache_key]
                 return empty
 
@@ -737,14 +749,20 @@ class BelongsTo(HasOne):
                 the precondition check fails.
             """
             if cache_key not in self.relations or \
-                self.relations[cache_key] is None or \
-                self.relations[cache_key].secondary is None:
-                empty = BelongsToWrapped()
+                self.relations[cache_key] is None:
 
                 if cache_key not in self.relations or self.relations[cache_key] is None:
                     self.relations[cache_key] = deepcopy(relation)
                     self.relations[cache_key].primary = self
 
+            if self.relations[cache_key].secondary is None:
+                try:
+                    self.relations[cache_key].reload()
+                except ValueError:
+                    pass
+
+            if self.relations[cache_key].secondary is None:
+                empty = BelongsToWrapped()
                 empty.relations = {}
                 empty.relations[f'{cache_key}'] = self.relations[cache_key]
                 return empty
@@ -1043,14 +1061,20 @@ class BelongsToMany(Relation):
                 if a precondition check fails.
             """
             if cache_key not in self.relations or \
-                self.relations[cache_key] is None or \
-                self.relations[cache_key].secondary is None:
-                empty = BelongsToManyTuple()
+                self.relations[cache_key] is None:
 
                 if cache_key not in self.relations or self.relations[cache_key] is None:
                     self.relations[cache_key] = deepcopy(relation)
                     self.relations[cache_key].primary = self
 
+            if self.relations[cache_key].secondary is None:
+                try:
+                    self.relations[cache_key].reload()
+                except ValueError:
+                    pass
+
+            if self.relations[cache_key].secondary is None:
+                empty = BelongsToManyTuple()
                 empty.relation = self.relations[cache_key]
                 return empty
 
@@ -1190,14 +1214,20 @@ class Contains(HasMany):
                 the precondition check fails.
             """
             if cache_key not in self.relations or \
-                self.relations[cache_key] is None or \
-                self.relations[cache_key].secondary is None:
-                empty = ContainsTuple()
+                self.relations[cache_key] is None:
 
                 if cache_key not in self.relations or self.relations[cache_key] is None:
                     self.relations[cache_key] = deepcopy(relation)
                     self.relations[cache_key].primary = self
 
+            if self.relations[cache_key].secondary is None:
+                try:
+                    self.relations[cache_key].reload()
+                except ValueError:
+                    pass
+
+            if self.relations[cache_key].secondary is None:
+                empty = ContainsTuple()
                 empty.relation = self.relations[cache_key]
                 return empty
 
@@ -1312,14 +1342,22 @@ class Within(HasMany):
                 if a precondition check fails.
             """
             if cache_key not in self.relations or \
-                self.relations[cache_key] is None or \
-                self.relations[cache_key].secondary is None:
-                empty = WithinTuple()
+                self.relations[cache_key] is None:
 
                 if cache_key not in self.relations or self.relations[cache_key] is None:
                     self.relations[cache_key] = deepcopy(relation)
                     self.relations[cache_key].primary = self
 
+            if self.relations[cache_key].secondary is None:
+                try:
+                    self.relations[cache_key].reload()
+                except ValueError:
+                    pass
+                except KeyError:
+                    pass
+
+            if self.relations[cache_key].secondary is None:
+                empty = WithinTuple()
                 empty.relation = self.relations[cache_key]
                 return empty
 

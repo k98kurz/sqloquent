@@ -362,14 +362,20 @@ class AsyncHasOne(AsyncRelation):
                 the precondition check fails.
             """
             if cache_key not in self.relations or \
-                self.relations[cache_key] is None or \
-                self.relations[cache_key].secondary is None:
-                empty = HasOneWrapped()
+                self.relations[cache_key] is None:
 
                 if cache_key not in self.relations or self.relations[cache_key] is None:
                     self.relations[cache_key] = deepcopy(relation)
                     self.relations[cache_key].primary = self
 
+            if self.relations[cache_key].secondary is None:
+                try:
+                    asyncio.run(self.relations[cache_key].reload())
+                except ValueError:
+                    pass
+
+            if self.relations[cache_key].secondary is None:
+                empty = HasOneWrapped()
                 empty.relations = {}
                 empty.relations[cache_key] = self.relations[cache_key]
                 return empty
@@ -515,8 +521,6 @@ class AsyncHasMany(AsyncHasOne):
         self.secondary_to_add = []
         self.secondary_to_remove = []
 
-
-
     async def reload(self) -> AsyncHasMany:
         """Reload the relation from the database. Return self in monad pattern."""
         self.primary_to_add = None
@@ -595,14 +599,20 @@ class AsyncHasMany(AsyncHasOne):
                 the precondition check fails.
             """
             if cache_key not in self.relations or \
-                self.relations[cache_key] is None or \
-                self.relations[cache_key].secondary is None:
-                empty = HasManyTuple()
+                self.relations[cache_key] is None:
 
                 if cache_key not in self.relations or self.relations[cache_key] is None:
                     self.relations[cache_key] = deepcopy(relation)
                     self.relations[cache_key].primary = self
 
+            if self.relations[cache_key].secondary is None:
+                try:
+                    asyncio.run(self.relations[cache_key].reload())
+                except ValueError:
+                    pass
+
+            if self.relations[cache_key].secondary is None:
+                empty = HasManyTuple()
                 empty.relation = self.relations[cache_key]
                 return empty
 
@@ -729,14 +739,20 @@ class AsyncBelongsTo(AsyncHasOne):
                 the precondition check fails.
             """
             if cache_key not in self.relations or \
-                self.relations[cache_key] is None or \
-                self.relations[cache_key].secondary is None:
-                empty = BelongsToWrapped()
+                self.relations[cache_key] is None:
 
                 if cache_key not in self.relations or self.relations[cache_key] is None:
                     self.relations[cache_key] = deepcopy(relation)
                     self.relations[cache_key].primary = self
 
+            if self.relations[cache_key].secondary is None:
+                try:
+                    asyncio.run(self.relations[cache_key].reload())
+                except ValueError:
+                    pass
+
+            if self.relations[cache_key].secondary is None:
+                empty = BelongsToWrapped()
                 empty.relations = {}
                 empty.relations[f'{cache_key}'] = self.relations[cache_key]
                 return empty
@@ -1035,14 +1051,20 @@ class AsyncBelongsToMany(AsyncRelation):
                 if a precondition check fails.
             """
             if cache_key not in self.relations or \
-                self.relations[cache_key] is None or \
-                self.relations[cache_key].secondary is None:
-                empty = BelongsToManyTuple()
+                self.relations[cache_key] is None:
 
                 if cache_key not in self.relations or self.relations[cache_key] is None:
                     self.relations[cache_key] = deepcopy(relation)
                     self.relations[cache_key].primary = self
 
+            if self.relations[cache_key].secondary is None:
+                try:
+                    asyncio.run(self.relations[cache_key].reload())
+                except ValueError:
+                    pass
+
+            if self.relations[cache_key].secondary is None:
+                empty = BelongsToManyTuple()
                 empty.relation = self.relations[cache_key]
                 return empty
 
@@ -1182,14 +1204,20 @@ class AsyncContains(AsyncHasMany):
                 the precondition check fails.
             """
             if cache_key not in self.relations or \
-                self.relations[cache_key] is None or \
-                self.relations[cache_key].secondary is None:
-                empty = ContainsTuple()
+                self.relations[cache_key] is None:
 
                 if cache_key not in self.relations or self.relations[cache_key] is None:
                     self.relations[cache_key] = deepcopy(relation)
                     self.relations[cache_key].primary = self
 
+            if self.relations[cache_key].secondary is None:
+                try:
+                    asyncio.run(self.relations[cache_key].reload())
+                except ValueError:
+                    pass
+
+            if self.relations[cache_key].secondary is None:
+                empty = ContainsTuple()
                 empty.relation = self.relations[cache_key]
                 return empty
 
@@ -1304,14 +1332,22 @@ class AsyncWithin(AsyncHasMany):
                 if a precondition check fails.
             """
             if cache_key not in self.relations or \
-                self.relations[cache_key] is None or \
-                self.relations[cache_key].secondary is None:
-                empty = WithinTuple()
+                self.relations[cache_key] is None:
 
                 if cache_key not in self.relations or self.relations[cache_key] is None:
                     self.relations[cache_key] = deepcopy(relation)
                     self.relations[cache_key].primary = self
 
+            if self.relations[cache_key].secondary is None:
+                try:
+                    asyncio.run(self.relations[cache_key].reload())
+                except ValueError:
+                    pass
+                except KeyError:
+                    pass
+
+            if self.relations[cache_key].secondary is None:
+                empty = WithinTuple()
                 empty.relation = self.relations[cache_key]
                 return empty
 

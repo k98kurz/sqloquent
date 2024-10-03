@@ -388,6 +388,21 @@ class TestRelations(unittest.TestCase):
             run(Asynchasone.reload())
         assert str(e.exception) == 'cannot reload an empty relation'
 
+    def test_async_has_one_related_property_loads_on_first_read(self):
+        self.OwnerModel.owned = async_relations.async_has_one(
+            self.OwnerModel,
+            self.OwnedModel,
+            'owner_id'
+        )
+
+        owner = run(self.OwnerModel.insert({'details': '321'}))
+        owned = run(self.OwnedModel.insert({
+            'details': '321',
+            'owner_id': owner.id,
+        }))
+        assert owner.owned
+        assert owner.owned.id == owned.id
+
     # AsyncHasMany tests
     def test_AsyncHasMany_extends_Relation(self):
         assert issubclass(async_relations.AsyncHasMany, async_relations.AsyncRelation)
@@ -626,6 +641,22 @@ class TestRelations(unittest.TestCase):
             run(hasmany.reload())
         assert str(e.exception) == 'cannot reload an empty relation'
 
+    def test_async_has_many_related_property_loads_on_first_read(self):
+        self.OwnerModel.owned = async_relations.async_has_many(
+            self.OwnerModel,
+            self.OwnedModel,
+            'owner_id'
+        )
+
+        owner = run(self.OwnerModel.insert({'details': '321'}))
+        owned = run(self.OwnedModel.insert({
+            'details': '321',
+            'owner_id': owner.id,
+        }))
+
+        assert len(owner.owned) == 1
+        assert owner.owned[0].id == owned.id
+
     # AsyncBelongsTo tests
     def test_AsyncBelongsTo_extends_Relation(self):
         assert issubclass(async_relations.AsyncBelongsTo, async_relations.AsyncRelation)
@@ -858,6 +889,22 @@ class TestRelations(unittest.TestCase):
         with self.assertRaises(ValueError) as e:
             run(belongsto.reload())
         assert str(e.exception) == 'cannot reload an empty relation'
+
+    def test_async_belongs_to_related_property_loads_on_first_read(self):
+        self.OwnedModel.owner = async_relations.async_belongs_to(
+            self.OwnedModel,
+            self.OwnerModel,
+            'owner_id'
+        )
+
+        owner = run(self.OwnerModel.insert({'details': '123'}))
+        owned = run(self.OwnedModel.insert({
+            'details': '321',
+            'owner_id': owner.id,
+        }))
+
+        assert owned.owner
+        assert owned.owner.id == owner.id
 
     # AsyncBelongsToMany tests
     def test_AsyncBelongsToMany_extends_Relation(self):
@@ -1131,6 +1178,24 @@ class TestRelations(unittest.TestCase):
             run(belongstomany.reload())
         assert str(e.exception) == 'cannot reload an empty relation'
 
+    def test_async_belongs_to_many_related_property_loads_on_first_read(self):
+        self.OwnedModel.owners = async_relations.async_belongs_to_many(
+            self.OwnedModel,
+            self.OwnerModel,
+            Pivot,
+            'first_id',
+            'second_id',
+        )
+
+        owned = run(self.OwnedModel.insert({'details': '321'}))
+        owner = run(self.OwnerModel.insert({'details': '123'}))
+        run(Pivot.insert({
+            'first_id': owned.id,
+            'second_id': owner.id,
+        }))
+        assert len(owned.owners) == 1
+        assert owned.owners[0].id == owner.id
+
     # AsyncContains tests
     def test_AsyncContains_extends_Relation(self):
         assert issubclass(async_relations.AsyncContains, async_relations.AsyncRelation)
@@ -1375,6 +1440,21 @@ class TestRelations(unittest.TestCase):
         with self.assertRaises(ValueError) as e:
             run(contains.reload())
         assert str(e.exception) == 'cannot reload an empty relation'
+
+    def test_async_contains_related_property_loads_on_first_read(self):
+        self.DAGItem.parents = async_relations.async_contains(
+            self.DAGItem,
+            self.DAGItem,
+            'parent_ids',
+        )
+
+        parent = run(self.DAGItem.insert({'details': '123'}))
+        child = run(self.DAGItem.insert({
+            'details': '321',
+            'parent_ids': parent.id,
+        }))
+        assert len(child.parents) == 1
+        assert child.parents[0].id == parent.id
 
     # Within tests
     def test_Within_extends_Relation(self):
@@ -1621,6 +1701,20 @@ class TestRelations(unittest.TestCase):
             run(within.reload())
         assert str(e.exception) == 'cannot reload an empty relation'
 
+    def test_within_related_property_loads_on_first_read(self):
+        self.DAGItem.children = async_relations.async_within(
+            self.DAGItem,
+            self.DAGItem,
+            'parent_ids',
+        )
+
+        parent = run(self.DAGItem.insert({'details': '123'}))
+        child = run(self.DAGItem.insert({
+            'details': '321',
+            'parent_ids': parent.id,
+        }))
+        assert len(parent.children) == 1
+        assert parent.children[0].id == child.id
 
     # e2e tests
     def test_AsyncHasOne_AsyncBelongsTo_e2e(self):
@@ -1792,14 +1886,10 @@ class TestRelations(unittest.TestCase):
         assert child1 in parent1.children
         assert child2 in parent1.children
 
-        assert len(child1.parents) == 0
-        run(child1.parents().reload())
         assert child1.parents == (parent1,)
         child1.parents = [parent1, parent2]
         run(child1.parents().save())
 
-        assert len(parent2.children) == 0
-        run(parent2.children().reload())
         assert len(parent2.children) == 1
 
 
