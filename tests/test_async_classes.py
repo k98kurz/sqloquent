@@ -1317,10 +1317,10 @@ class TestClasses(unittest.TestCase):
 
 
     # AsyncAttachment tests
-    def test_Attachment_issubclass_of_HashedModel(self):
+    def test_AsyncAttachment_issubclass_of_HashedModel(self):
         assert issubclass(async_classes.AsyncAttachment, async_classes.AsyncHashedModel)
 
-    def test_Attachment_attach_to_raises_TypeError_for_invalid_input(self):
+    def test_AsyncAttachment_attach_to_raises_TypeError_for_invalid_input(self):
         class NotValidClass:
             ...
 
@@ -1328,7 +1328,7 @@ class TestClasses(unittest.TestCase):
             async_classes.AsyncAttachment({'details': 'should fail'}).attach_to(NotValidClass())
         assert str(e.exception) == 'related must inherit from AsyncSqlModel'
 
-    def test_Attachment_attach_to_sets_related_model_and_related_id(self):
+    def test_AsyncAttachment_attach_to_sets_related_model_and_related_id(self):
         data = { 'data': token_bytes(8).hex() }
         hashedmodel = run(async_classes.AsyncHashedModel.insert(data))
         attachment = async_classes.AsyncAttachment()
@@ -1339,7 +1339,7 @@ class TestClasses(unittest.TestCase):
         assert 'related_id' in attachment.data
         assert attachment.data['related_id'] == hashedmodel.data['id']
 
-    def test_Attachment_set_details_packs_and_details_unpacks(self):
+    def test_AsyncAttachment_set_details_packs_and_details_unpacks(self):
         details = {'123': 'some information'}
         attachment = async_classes.AsyncAttachment()
 
@@ -1352,7 +1352,7 @@ class TestClasses(unittest.TestCase):
         assert type(attachment.get_details()) is dict
         assert attachment.get_details(True) == details
 
-    def test_Attachment_related_raises_TypeError_for_invalid_related_model(self):
+    def test_AsyncAttachment_related_raises_TypeError_for_invalid_related_model(self):
         class NotValidClass:
             ...
 
@@ -1376,7 +1376,7 @@ class TestClasses(unittest.TestCase):
             run(attachment.related())
         assert str(e.exception) == 'related_model must inherit from AsyncSqlModel'
 
-    def test_Attachment_related_returns_SqlModel_instance(self):
+    def test_AsyncAttachment_related_returns_SqlModel_instance(self):
         data = { 'data': token_bytes(8).hex() }
         hashedmodel = run(async_classes.AsyncHashedModel.insert(data))
         details = {'123': 'some information'}

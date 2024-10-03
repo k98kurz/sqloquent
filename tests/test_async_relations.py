@@ -1457,10 +1457,10 @@ class TestRelations(unittest.TestCase):
         assert child.parents[0].id == parent.id
 
     # Within tests
-    def test_Within_extends_Relation(self):
+    def test_AsyncWithin_extends_Relation(self):
         assert issubclass(async_relations.AsyncWithin, async_relations.AsyncRelation)
 
-    def test_Within_initializes_properly(self):
+    def test_AsyncWithin_initializes_properly(self):
         within = async_relations.AsyncWithin(
             'parent_ids',
             primary_class=self.DAGItem,
@@ -1474,7 +1474,7 @@ class TestRelations(unittest.TestCase):
             )
         assert str(e.exception) == 'foreign_id_column must be str', e.exception
 
-    def test_Within_sets_primary_and_secondary_correctly(self):
+    def test_AsyncWithin_sets_primary_and_secondary_correctly(self):
         within = async_relations.AsyncWithin(
             'parent_ids',
             primary_class=self.DAGItem,
@@ -1499,7 +1499,7 @@ class TestRelations(unittest.TestCase):
         within.secondary = [secondary]
         assert within.secondary == (secondary,)
 
-    def test_Within_get_cache_key_includes_foreign_id_column(self):
+    def test_AsyncWithin_get_cache_key_includes_foreign_id_column(self):
         within = async_relations.AsyncWithin(
             'parent_ids',
             primary_class=self.DAGItem,
@@ -1508,7 +1508,7 @@ class TestRelations(unittest.TestCase):
         cache_key = within.get_cache_key()
         assert cache_key == 'DAGItem_AsyncWithin_DAGItem_parent_ids', cache_key
 
-    def test_Within_save_raises_error_for_incomplete_relation(self):
+    def test_AsyncWithin_save_raises_error_for_incomplete_relation(self):
         within = async_relations.AsyncWithin(
             'parent_ids',
             primary_class=self.DAGItem,
@@ -1519,7 +1519,7 @@ class TestRelations(unittest.TestCase):
             run(within.save())
         assert str(e.exception) == 'cannot save incomplete AsyncWithin', e.exception
 
-    def test_Within_save_changes_foreign_id_column_on_primary(self):
+    def test_AsyncWithin_save_changes_foreign_id_column_on_primary(self):
         within = async_relations.AsyncWithin(
             'parent_ids',
             primary_class=self.DAGItem,
@@ -1538,7 +1538,7 @@ class TestRelations(unittest.TestCase):
         run(within.save())
         assert run(within.query().count()) == 1
 
-    def test_Within_save_unsets_change_tracking_properties(self):
+    def test_AsyncWithin_save_unsets_change_tracking_properties(self):
         within = async_relations.AsyncWithin(
             'parent_ids',
             primary_class=self.DAGItem,
@@ -1567,7 +1567,7 @@ class TestRelations(unittest.TestCase):
         assert not len(within.secondary_to_add)
         assert not len(within.secondary_to_remove)
 
-    def test_Within_changing_primary_and_secondary_updates_models_correctly(self):
+    def test_AsyncWithin_changing_primary_and_secondary_updates_models_correctly(self):
         within = async_relations.AsyncWithin(
             'parent_ids',
             primary_class=self.DAGItem,
@@ -1594,7 +1594,7 @@ class TestRelations(unittest.TestCase):
         run(within.save())
         assert within.secondary[0].id != old_id
 
-    def test_Within_create_property_returns_property(self):
+    def test_AsyncWithin_create_property_returns_property(self):
         within = async_relations.AsyncWithin(
             'parent_ids',
             primary_class=self.DAGItem,
@@ -1604,7 +1604,7 @@ class TestRelations(unittest.TestCase):
 
         assert type(prop) is property
 
-    def test_Within_property_wraps_input_class(self):
+    def test_AsyncWithin_property_wraps_input_class(self):
         within = async_relations.AsyncWithin(
             'parent_ids',
             primary_class=self.DAGItem,
@@ -1624,7 +1624,7 @@ class TestRelations(unittest.TestCase):
         assert callable(parent.children)
         assert type(parent.children()) is async_relations.AsyncWithin
 
-    def test_Within_save_changes_foreign_id_column_in_db(self):
+    def test_AsyncWithin_save_changes_foreign_id_column_in_db(self):
         within = async_relations.AsyncWithin(
             'parent_ids',
             primary_class=self.DAGItem,
@@ -1645,7 +1645,7 @@ class TestRelations(unittest.TestCase):
         assert child.id is not None
         assert run(parent.children().query().count()) == 1
 
-    def test_within_function_sets_property_from_Within(self):
+    def test_async_within_function_sets_property_from_Within(self):
         self.DAGItem.children = async_relations.async_within(
             self.DAGItem,
             self.DAGItem,
@@ -1665,7 +1665,7 @@ class TestRelations(unittest.TestCase):
         run(parent.children().save())
         assert len(parent.children) == 1
 
-    def test_Within_works_with_multiple_instances(self):
+    def test_AsyncWithin_works_with_multiple_instances(self):
         self.DAGItem.children = async_relations.async_within(
             self.DAGItem,
             self.DAGItem,
@@ -1690,7 +1690,7 @@ class TestRelations(unittest.TestCase):
         assert parent1.children[0].data['id'] == child1.data['id']
         assert parent2.children[0].data['id'] == child2.data['id']
 
-    def test_Within_reload_raises_ValueError_for_empty_relation(self):
+    def test_AsyncWithin_reload_raises_ValueError_for_empty_relation(self):
         within = async_relations.AsyncWithin(
             'parent_ids',
             primary_class=self.DAGItem,
@@ -1701,7 +1701,7 @@ class TestRelations(unittest.TestCase):
             run(within.reload())
         assert str(e.exception) == 'cannot reload an empty relation'
 
-    def test_within_related_property_loads_on_first_read(self):
+    def test_async_within_related_property_loads_on_first_read(self):
         self.DAGItem.children = async_relations.async_within(
             self.DAGItem,
             self.DAGItem,
