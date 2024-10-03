@@ -14,9 +14,13 @@ Generate a migration scaffold from a table name to alter a table.
 
 Generate a migration scaffold from a table name to drop a table.
 
-### `make_migration_from_model(model_name: str, model_path: str, connection_string: str = '', ctx: tuple = None) -> str:`
+### `make_migration_from_model_path(model_name: str, model_path: str, connection_string: str = '', ctx: tuple = None) -> str:`
 
-Generate a migration scaffold from a model.
+Generate a migration from a model name and path.
+
+### `make_migration_from_model(model: ModelProtocol, model_name: str = None, connection_string: str = '', ctx: tuple = None) -> str:`
+
+Generate a migration from a model.
 
 ### `publish_migrations(path: str, connection_string: str = '', ctx: tuple = None):`
 

@@ -142,6 +142,9 @@ class AsyncSqlQueryBuilder:
                  connection_info: str = '', model: Type[AsyncSqlModel] = None,
                  table: str = '', columns: list[str] = []
                  ) -> None:
+        """Initialize the instance. Must supply model_or_table or model
+            or table. Must supply context_manager.
+        """
         tressa(model_or_table is not None or model is not None or table is not None,
                'model_or_table, model, or table parameter must be specified')
         if model_or_table is None and model is not None:

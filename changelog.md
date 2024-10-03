@@ -1,3 +1,16 @@
+## 0.4.0
+
+- Replaced `make_migration_from_model` tool with new `make_migration_from_model`
+and `make_migration_from_model_path`
+- Added automatic timestamps to the `DeletedModel` and the async version
+- Added `like` and `not_like` to SQB
+- Added `does_not_start_with` to SQB
+- Added `does_not_end_with` to SQB
+- Fix: can now more reliably access relations through other relations
+- Added ability to suppress parameter interpolation in SQB.to_sql method
+- Relations now attempt to load automatically on first read of property, e.g.
+`SomeModel.find(some_id).related_model`
+
 ## 0.3.4
 
 - Fixed some type hints

@@ -127,6 +127,9 @@ something other than a str.
 
 ##### `__init__(model_or_table: Type[SqlModel] | str = None, context_manager: Type[DBContextProtocol] = SqliteContext, connection_info: str = '', model: Type[SqlModel] = None, table: str = '', columns: list[str] = []) -> None:`
 
+Initialize the instance. Must supply model_or_table or model or table. Must
+supply context_manager.
+
 ##### `is_null(column: str) -> SqlQueryBuilder:`
 
 Save the 'column is null' clause, then return self. Raises TypeError for invalid
@@ -157,9 +160,25 @@ for invalid column.
 Save the 'column > data' clause and param, then return self. Raises TypeError
 for invalid column.
 
+##### `like(column: str, pattern: str, data: str) -> SqlQueryBuilder:`
+
+Save the 'column like {pattern.replace(?, data)}' clause and param, then return
+self. Raises TypeError or ValueError for invalid column, pattern, or data.
+
+##### `not_like(column: str, pattern: str, data: str) -> SqlQueryBuilder:`
+
+Save the 'column not like {pattern.replace(?, data)}' clause and param, then
+return self. Raises TypeError or ValueError for invalid column, pattern, or
+data.
+
 ##### `starts_with(column: str, data: str) -> SqlQueryBuilder:`
 
 Save the 'column like data%' clause and param, then return self. Raises
+TypeError or ValueError for invalid column or data.
+
+##### `does_not_start_with(column: str, data: str) -> SqlQueryBuilder:`
+
+Save the 'column not like data%' clause and param, then return self. Raises
 TypeError or ValueError for invalid column or data.
 
 ##### `contains(column: str, data: str) -> SqlQueryBuilder:`
@@ -173,6 +192,11 @@ Save the 'column not like %data%' clause and param, then return self. Raises
 TypeError or ValueError for invalid column or data.
 
 ##### `ends_with(column: str, data: str) -> SqlQueryBuilder:`
+
+Save the 'column like %data' clause and param, then return self. Raises
+TypeError or ValueError for invalid column or data.
+
+##### `does_not_end_with(column: str, data: str) -> SqlQueryBuilder:`
 
 Save the 'column like %data' clause and param, then return self. Raises
 TypeError or ValueError for invalid column or data.
@@ -262,9 +286,13 @@ invalid updates or conditions.
 Delete the records that match the query and return the number of deleted
 records.
 
-##### `to_sql() -> str:`
+##### `to_sql(interpolate_params: bool = True) -> str | tuple[str, list]:`
 
-Return the sql where clause from the clauses and params.
+Return the sql where clause from the clauses and params. If interpolate_params
+is True, the parameters will be interpolated into the SQL str and a single str
+result will be returned. If interpolate_params is False, the parameters will not
+be interpolated into the SQL str, instead including question marks, and an
+additional list of params will be returned along with the SQL str.
 
 ##### `execute_raw(sql: str) -> tuple[int, list[tuple[Any]]]:`
 
@@ -312,8 +340,13 @@ Model for preserving and restoring deleted HashedModel records.
 - model_class: str
 - record_id: str
 - record: bytes
+- timestamp: str
 
 #### Methods
+
+##### `__init__(data: dict = {}) -> None:`
+
+##### `@classmethod insert(data: dict) -> SqlModel | None:`
 
 ##### `restore(inject: dict = {}) -> SqlModel:`
 
@@ -1443,19 +1476,17 @@ specified.
 ### `contains(cls: Type[ModelProtocol], other_model: Type[ModelProtocol], foreign_ids_column: str = None) -> property:`
 
 Creates a Contains relation and returns the result of calling create_property.
-Usage syntax is like `Item.parents = contains( Item, Item)`. If the column
+Usage syntax is like `Item.parents = contains(Item, Item)`. If the column
 containing the sorted list of ids is not item_ids (i.e. other_model.__name__ ->
 snake_case + '_ids'), it can be specified.
 
 ### `within(cls: Type[ModelProtocol], other_model: Type[ModelProtocol], foreign_ids_column: str = None) -> property:`
 
 Creates a Within relation and returns the result of calling create_property.
-Usage syntax is like `Item.children = within( Item, Item)`. If the column
+Usage syntax is like `Item.children = within(Item, Item)`. If the column
 containing the sorted list of ids is not item_ids (i.e. cls.__name__ ->
 snake_case + '_ids'), it can be specified.
 
 ### `get_index_name(table: TableProtocol, columns: list[Column | str], is_unique: bool = False) -> str:`
 
 Generate the name for an index from the table, columns, and type.
-
-

@@ -362,5 +362,3 @@ Allow the collection to be iterated over, returning a model on each iteration.
 ##### `__getitem__() -> AsyncModelProtocol:`
 
 Return the related model at the given index.
-
-
