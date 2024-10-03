@@ -335,6 +335,8 @@ class AsyncHasOne(AsyncRelation):
 
 
         class HasOneWrapped(self.secondary_class):
+            def __init__(self, original: AsyncModelProtocol = None) -> None:
+                self.data = original.data if original else {}
             def __call__(self) -> AsyncRelation:
                 return self.relations[cache_key]
             def __bool__(self) -> bool:
@@ -362,7 +364,7 @@ class AsyncHasOne(AsyncRelation):
             if cache_key not in self.relations or \
                 self.relations[cache_key] is None or \
                 self.relations[cache_key].secondary is None:
-                empty = HasOneWrapped({})
+                empty = HasOneWrapped()
 
                 if cache_key not in self.relations or self.relations[cache_key] is None:
                     self.relations[cache_key] = deepcopy(relation)
@@ -372,11 +374,18 @@ class AsyncHasOne(AsyncRelation):
                 empty.relations[cache_key] = self.relations[cache_key]
                 return empty
 
-            model = HasOneWrapped(self.relations[cache_key].secondary.data)
+            if not hasattr(self.relations[cache_key], 'secondary_wrapped') or \
+                self.relations[cache_key].secondary_wrapped is None:
+                self.relations[cache_key].secondary_wrapped = HasOneWrapped(
+                    self.relations[cache_key].secondary
+                )
+
+            model = self.relations[cache_key].secondary_wrapped
             if hasattr(self.relations[cache_key].secondary, 'relations'):
-                model.relations = {
-                    cache_key: self.relations[cache_key]
-                }
+                if not hasattr(model, 'relations'):
+                    model.relations = {}
+                if cache_key not in model.relations:
+                    model.relations[cache_key] = self.relations[cache_key]
 
             return model
 
@@ -391,7 +400,9 @@ class AsyncHasOne(AsyncRelation):
                 model.relations = {}
 
             self.relations[cache_key].secondary = model
-
+            self.relations[cache_key].secondary_wrapped = HasOneWrapped(
+                model
+            )
 
             model.relations[cache_key] = self.relations[cache_key]
 
@@ -691,6 +702,8 @@ class AsyncBelongsTo(AsyncHasOne):
 
 
         class BelongsToWrapped(self.secondary_class):
+            def __init__(self, original: AsyncModelProtocol = None) -> None:
+                self.data = original.data if original else {}
             def __call__(self) -> AsyncRelation:
                 return self.relations[f'{cache_key}']
             def __bool__(self) -> bool:
@@ -718,7 +731,7 @@ class AsyncBelongsTo(AsyncHasOne):
             if cache_key not in self.relations or \
                 self.relations[cache_key] is None or \
                 self.relations[cache_key].secondary is None:
-                empty = BelongsToWrapped({})
+                empty = BelongsToWrapped()
 
                 if cache_key not in self.relations or self.relations[cache_key] is None:
                     self.relations[cache_key] = deepcopy(relation)
@@ -728,11 +741,18 @@ class AsyncBelongsTo(AsyncHasOne):
                 empty.relations[f'{cache_key}'] = self.relations[cache_key]
                 return empty
 
-            model = BelongsToWrapped(self.relations[cache_key].secondary.data)
+            if not hasattr(self.relations[cache_key], 'secondary_wrapped') or \
+                self.relations[cache_key].secondary_wrapped is None:
+                self.relations[cache_key].secondary_wrapped = BelongsToWrapped(
+                    self.relations[cache_key].secondary
+                )
+
+            model = self.relations[cache_key].secondary_wrapped
             if hasattr(self.relations[cache_key].secondary, 'relations'):
-                model.relations = {
-                    f"{cache_key}": self.relations[cache_key]
-                }
+                if not hasattr(model, 'relations'):
+                    model.relations = {}
+                if cache_key not in model.relations:
+                    model.relations[cache_key] = self.relations[cache_key]
             return model
 
         @secondary.setter
@@ -743,6 +763,9 @@ class AsyncBelongsTo(AsyncHasOne):
                 model.relations = {}
 
             self.relations[cache_key].secondary = model
+            self.relations[cache_key].secondary_wrapped = BelongsToWrapped(
+                model
+            )
 
         return secondary
 
@@ -1373,10 +1396,10 @@ def async_belongs_to_many(cls: Type[AsyncModelProtocol], other_model: Type[Async
 def async_contains(cls: Type[AsyncModelProtocol], other_model: Type[AsyncModelProtocol],
              foreign_ids_column: str = None) -> property:
     """Creates a Contains relation and returns the result of calling
-        create_property. Usage syntax is like `Item.parents = contains(
-        Item, Item)`. If the column containing the sorted list of ids is
-        not item_ids (i.e. other_model.__name__ -> snake_case + '_ids'),
-        it can be specified.
+        create_property. Usage syntax is like `Item.parents =
+        async_contains(Item, Item)`. If the column containing the sorted
+        list of ids is not item_ids (i.e. other_model.__name__ ->
+        snake_case + '_ids'), it can be specified.
     """
     if foreign_ids_column is None:
         foreign_ids_column = _get_id_column(other_model) + 's'
@@ -1387,10 +1410,10 @@ def async_contains(cls: Type[AsyncModelProtocol], other_model: Type[AsyncModelPr
 def async_within(cls: Type[AsyncModelProtocol], other_model: Type[AsyncModelProtocol],
              foreign_ids_column: str = None) -> property:
     """Creates a Within relation and returns the result of calling
-        create_property. Usage syntax is like `Item.children = within(
-        Item, Item)`. If the column containing the sorted list of ids is
-        not item_ids (i.e. cls.__name__ -> snake_case + '_ids'), it can
-        be specified.
+        create_property. Usage syntax is like `Item.children =
+        async_within(Item, Item)`. If the column containing the sorted
+        list of ids is not item_ids (i.e. cls.__name__ ->
+        snake_case + '_ids'), it can be specified.
     """
     if foreign_ids_column is None:
         foreign_ids_column = _get_id_column(cls) + 's'

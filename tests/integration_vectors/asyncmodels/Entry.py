@@ -16,7 +16,7 @@ class Entry(AsyncHashedModel):
     id: str
     account_id: str
     nonce: str
-    type: EntryType
+    type: str
     amount: Decimal
     account: AsyncRelatedModel
     transactions: AsyncRelatedCollection
@@ -25,42 +25,37 @@ class Entry(AsyncHashedModel):
         data = self.encode_value(self._encode(self.data))
         return hash(bytes(data, 'utf-8'))
 
+    @property
+    def type(self) -> EntryType:
+        return EntryType(self.data['type'])
+    @type.setter
+    def type(self, val: EntryType):
+        self.data['type'] = val.value
+
+    @property
+    def amount(self) -> Decimal:
+        return Decimal(self.data['amount'])
+    @amount.setter
+    def amount(self, val: Decimal):
+        self.data['amount'] = str(val)
+
     @staticmethod
     def _encode(data: dict|None) -> dict|None:
-        if type(data) is dict and type(data['type']) is EntryType:
+        if type(data) is not dict:
+            return data
+        if 'type' in data and type(data['type']) is EntryType:
             data['type'] = data['type'].value
-        if type(data) is dict and type(data['amount']) is Decimal:
+        if 'amount' in data and type(data['amount']) is Decimal:
             data['amount'] = str(data['amount'])
         return data
 
-    @staticmethod
-    def _parse(data: dict|None) -> dict|None:
-        if type(data) is dict and type(data['type']) is str:
-            data['type'] = EntryType(data['type'])
-        if type(data) is dict and type(data['amount']) is str:
-            data['amount'] = Decimal(data['amount'])
-        return data
-
-    @staticmethod
-    def parse(models: Entry|list[Entry]) -> Entry|list[Entry]:
-        if type(models) is list:
-            for model in models:
-                model.data = Entry._parse(model.data)
-        else:
-            models.data = Entry._parse(models.data)
-        return models
-
     @classmethod
     async def insert(cls, data: dict) -> Entry | None:
-        # """For better type hints."""
         result = await super().insert(cls._encode(data))
-        if result is not None:
-            result.data = cls._parse(result.data)
         return result
 
     @classmethod
     async def insert_many(cls, items: list[dict]) -> int:
-        # """For better type hints."""
         items = [Entry._encode(data) for data in list]
         return await super().insert_many(items)
 

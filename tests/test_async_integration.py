@@ -307,6 +307,53 @@ class TestIntegration(unittest.TestCase):
         assert len(txn.ledgers) == 2
         assert len(txn.entries) == 4
 
+        # test accessing BelongsTo through a BelongsTo: case 1
+        assert not bvostro.ledger.owner.id
+        run(bvostro.ledger().reload())
+        ledger = bvostro.ledger
+        run(ledger.owner().reload())
+        assert ledger.owner.id
+        assert bvostro.ledger.owner.id
+
+        # test accessing BelongsTo through a BelongsTo: case 2
+        bvostro = run(asyncmodels.Account.find(bvostro.id))
+        run(bvostro.ledger().reload())
+        run(bvostro.ledger.owner().reload())
+        assert bvostro.ledger.owner.id
+
+        # test accessing HasMany through a HasOne
+        alice: asyncmodels.Identity = run(asyncmodels.Identity.find(alice.id))
+        assert not alice.ledger.id
+        run(alice.ledger().reload())
+        assert alice.ledger.id
+        assert not len(alice.ledger.accounts), alice.ledger.accounts
+        run(alice.ledger.accounts().reload())
+        assert len(alice.ledger.accounts), alice.ledger.accounts
+
+        # test accessing HasMany through a HasMany
+        run(aledger.accounts().reload())
+        acct = [a for a in aledger.accounts if a.name == 'Alice Equity'][0]
+        assert not len(acct.entries)
+        run(acct.entries().reload())
+        assert len(acct.entries)
+
+        # test accessing BelongsTo through a Contains
+        txn: asyncmodels.Transaction = run(asyncmodels.Transaction.query().first())
+        assert not len(txn.entries)
+        run(txn.entries().reload())
+        assert len(txn.entries)
+        entry: asyncmodels.Entry = txn.entries[0]
+        assert not entry.account
+        run(entry.account().reload())
+        assert entry.account
+
+        # test accessing Within through a HasMany
+        run(bequity.entries().reload())
+        entry: asyncmodels.Entry = bequity.entries[0]
+        assert not len(entry.transactions)
+        run(entry.transactions().reload())
+        assert len(entry.transactions) == 1
+
     def test_integration_e2e_models2(self):
         # generate migrations
         names = ['User', 'Avatar', 'Post', 'Friendship']

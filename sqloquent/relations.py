@@ -1,6 +1,11 @@
 from __future__ import annotations
 from .errors import tert, vert, tressa
-from .interfaces import ModelProtocol, QueryBuilderProtocol, RelatedCollection, RelatedModel
+from .interfaces import (
+    ModelProtocol,
+    QueryBuilderProtocol,
+    RelatedCollection,
+    RelatedModel,
+)
 from .tools import _pascalcase_to_snake_case
 from abc import abstractmethod
 from copy import deepcopy
@@ -340,6 +345,8 @@ class HasOne(Relation):
 
 
         class HasOneWrapped(self.secondary_class):
+            def __init__(self, original: ModelProtocol = None) -> None:
+                self.data = original.data if original else {}
             def __call__(self) -> Relation:
                 return self.relations[cache_key]
             def __bool__(self) -> bool:
@@ -367,7 +374,7 @@ class HasOne(Relation):
             if cache_key not in self.relations or \
                 self.relations[cache_key] is None or \
                 self.relations[cache_key].secondary is None:
-                empty = HasOneWrapped({})
+                empty = HasOneWrapped()
 
                 if cache_key not in self.relations or self.relations[cache_key] is None:
                     self.relations[cache_key] = deepcopy(relation)
@@ -377,11 +384,18 @@ class HasOne(Relation):
                 empty.relations[cache_key] = self.relations[cache_key]
                 return empty
 
-            model = HasOneWrapped(self.relations[cache_key].secondary.data)
+            if not hasattr(self.relations[cache_key], 'secondary_wrapped') or \
+                self.relations[cache_key].secondary_wrapped is None:
+                self.relations[cache_key].secondary_wrapped = HasOneWrapped(
+                    self.relations[cache_key].secondary
+                )
+
+            model = self.relations[cache_key].secondary_wrapped
             if hasattr(self.relations[cache_key].secondary, 'relations'):
-                model.relations = {
-                    cache_key: self.relations[cache_key]
-                }
+                if not hasattr(model, 'relations'):
+                    model.relations = {}
+                if cache_key not in model.relations:
+                    model.relations[cache_key] = self.relations[cache_key]
 
             return model
 
@@ -396,7 +410,9 @@ class HasOne(Relation):
                 model.relations = {}
 
             self.relations[cache_key].secondary = model
-
+            self.relations[cache_key].secondary_wrapped = HasOneWrapped(
+                model
+            )
 
             model.relations[cache_key] = self.relations[cache_key]
 
@@ -694,6 +710,8 @@ class BelongsTo(HasOne):
 
 
         class BelongsToWrapped(self.secondary_class):
+            def __init__(self, original: ModelProtocol = None) -> None:
+                self.data = original.data if original else {}
             def __call__(self) -> Relation:
                 return self.relations[f'{cache_key}']
             def __bool__(self) -> bool:
@@ -721,7 +739,7 @@ class BelongsTo(HasOne):
             if cache_key not in self.relations or \
                 self.relations[cache_key] is None or \
                 self.relations[cache_key].secondary is None:
-                empty = BelongsToWrapped({})
+                empty = BelongsToWrapped()
 
                 if cache_key not in self.relations or self.relations[cache_key] is None:
                     self.relations[cache_key] = deepcopy(relation)
@@ -731,11 +749,18 @@ class BelongsTo(HasOne):
                 empty.relations[f'{cache_key}'] = self.relations[cache_key]
                 return empty
 
-            model = BelongsToWrapped(self.relations[cache_key].secondary.data)
+            if not hasattr(self.relations[cache_key], 'secondary_wrapped') or \
+                self.relations[cache_key].secondary_wrapped is None:
+                self.relations[cache_key].secondary_wrapped = BelongsToWrapped(
+                    self.relations[cache_key].secondary
+                )
+
+            model = self.relations[cache_key].secondary_wrapped
             if hasattr(self.relations[cache_key].secondary, 'relations'):
-                model.relations = {
-                    f"{cache_key}": self.relations[cache_key]
-                }
+                if not hasattr(model, 'relations'):
+                    model.relations = {}
+                if cache_key not in model.relations:
+                    model.relations[cache_key] = self.relations[cache_key]
             return model
 
         @secondary.setter
@@ -746,6 +771,9 @@ class BelongsTo(HasOne):
                 model.relations = {}
 
             self.relations[cache_key].secondary = model
+            self.relations[cache_key].secondary_wrapped = BelongsToWrapped(
+                model
+            )
 
         return secondary
 
@@ -1376,10 +1404,10 @@ def belongs_to_many(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
 def contains(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
              foreign_ids_column: str = None) -> property:
     """Creates a Contains relation and returns the result of calling
-        create_property. Usage syntax is like `Item.parents = contains(
-        Item, Item)`. If the column containing the sorted list of ids is
-        not item_ids (i.e. other_model.__name__ -> snake_case + '_ids'),
-        it can be specified.
+        create_property. Usage syntax is like `Item.parents =
+        contains(Item, Item)`. If the column containing the sorted list
+        of ids is not item_ids (i.e. other_model.__name__ ->
+        snake_case + '_ids'), it can be specified.
     """
     if foreign_ids_column is None:
         foreign_ids_column = _get_id_column(other_model) + 's'
@@ -1390,10 +1418,10 @@ def contains(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
 def within(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
              foreign_ids_column: str = None) -> property:
     """Creates a Within relation and returns the result of calling
-        create_property. Usage syntax is like `Item.children = within(
-        Item, Item)`. If the column containing the sorted list of ids is
-        not item_ids (i.e. cls.__name__ -> snake_case + '_ids'), it can
-        be specified.
+        create_property. Usage syntax is like `Item.children =
+        within(Item, Item)`. If the column containing the sorted list of
+        ids is not item_ids (i.e. cls.__name__ -> snake_case + '_ids'),
+        it can be specified.
     """
     if foreign_ids_column is None:
         foreign_ids_column = _get_id_column(cls) + 's'
