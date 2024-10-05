@@ -1256,6 +1256,10 @@ class TestClasses(unittest.TestCase):
             column2: str
 
         original = HashedSubclass.insert({'column1': 'stuff'})
+        expected_id = sha256(
+            packify.pack({'column1': 'stuff', 'column2': None})
+        ).digest().hex()
+        assert original.id == expected_id
         deleted = original.delete()
         restored = deleted.restore({'HashedSubclass': HashedSubclass})
         assert restored.id == original.id

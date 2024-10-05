@@ -34,6 +34,7 @@ class TestClasses(unittest.TestCase):
             'record blob not null, timestamp text not null)'))
         run(self.cursor.execute('create table example (id text, name text)'))
         run(self.cursor.execute('create table hashed_records (id text, details text)'))
+        run(self.cursor.execute('create table hashed_subclass (id text, column1 text, column2 text)'))
         run(self.cursor.execute('create table attachments (id text, ' +
             'related_model text, related_id text, details blob)'))
 
@@ -1261,6 +1262,21 @@ class TestClasses(unittest.TestCase):
         assert run(async_classes.AsyncDeletedModel.query().count()) == 2
         assert saved.data['id'] not in (id1, id2)
 
+    def test_AsyncHashedModel_subclass_commits_to_empty_columns(self):
+        class HashedSubclass(async_classes.AsyncHashedModel):
+            table = 'hashed_subclass'
+            columns = ('id', 'column1', 'column2')
+            column1: str
+            column2: str
+
+        original = run(HashedSubclass.insert({'column1': 'stuff'}))
+        expected_id = sha256(
+            packify.pack({'column1': 'stuff', 'column2': None})
+        ).digest().hex()
+        assert original.id == expected_id
+        deleted = run(original.delete())
+        restored = run(deleted.restore({'HashedSubclass': HashedSubclass}))
+        assert restored.id == original.id
 
     # AsyncDeletedModel tests
     def test_AsyncDeletedModel_issubclass_of_SqlModel(self):
