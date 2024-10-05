@@ -30,6 +30,7 @@ class TestClasses(unittest.TestCase):
             'record blob not null, timestamp text not null)')
         self.cursor.execute('create table example (id text, name text)')
         self.cursor.execute('create table hashed_records (id text, details text)')
+        self.cursor.execute('create table hashed_subclass (id text, column1 text, column2 text)')
         self.cursor.execute('create table attachments (id text, ' +
             'related_model text, related_id text, details blob)')
 
@@ -1246,6 +1247,18 @@ class TestClasses(unittest.TestCase):
         assert classes.DeletedModel.query().count() == 2
         assert saved.data['id'] not in (id1, id2)
         assert saved.data == updated.data
+
+    def test_HashedModel_subclass_commits_to_empty_columns(self):
+        class HashedSubclass(classes.HashedModel):
+            table = 'hashed_subclass'
+            columns = ('id', 'column1', 'column2')
+            column1: str
+            column2: str
+
+        original = HashedSubclass.insert({'column1': 'stuff'})
+        deleted = original.delete()
+        restored = deleted.restore({'HashedSubclass': HashedSubclass})
+        assert restored.id == original.id
 
 
     # DeletedModel tests
