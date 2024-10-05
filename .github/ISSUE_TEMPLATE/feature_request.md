@@ -1,9 +1,9 @@
 ---
 name: Feature request
 about: Suggest an idea for this project
-title: ''
-labels: ''
-assignees: ''
+title: 'Enhancement: '
+labels: enhancement
+assignees: k98kurz
 
 ---
 

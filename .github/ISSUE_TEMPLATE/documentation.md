@@ -1,8 +1,8 @@
 ---
 name: Documentation
 about: Create a report to help us improve documentation
-title: Documentation problem
-labels: ''
+title: 'Documentation: '
+labels: documentation
 assignees: k98kurz
 
 ---
