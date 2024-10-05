@@ -14,7 +14,7 @@ from sqloquent.interfaces import RowProtocol
 from types import TracebackType
 from typing import (
     Any,
-    Generator,
+    AsyncGenerator,
     Iterable,
     Optional,
     Protocol,
@@ -225,8 +225,29 @@ class AsyncQueryBuilderProtocol(Protocol):
         """Save the 'column > data' clause and param, then return self."""
         ...
 
+    def like(self, column: str, pattern: str, data: str) -> AsyncQueryBuilderProtocol:
+        """Save the 'column like {pattern.replace(?, data)}' clause and
+            param, then return self. Raises TypeError or ValueError for
+            invalid column, pattern, or data.
+        """
+        ...
+
+    def not_like(self, column: str, pattern: str, data: str) -> AsyncQueryBuilderProtocol:
+        """Save the 'column not like {pattern.replace(?, data)}' clause
+            and param, then return self. Raises TypeError or ValueError
+            for invalid column, pattern, or data.
+        """
+        ...
+
     def starts_with(self, column: str, data: str) -> AsyncQueryBuilderProtocol:
         """Save the 'column like data%' clause and param, then return self."""
+        ...
+
+    def does_not_start_with(self, column: str, data: str) -> AsyncQueryBuilderProtocol:
+        """Save the 'column like data%' clause and param, then return
+            self. Raises TypeError or ValueError for invalid column or
+            data.
+        """
         ...
 
     def contains(self, column: str, data: str) -> AsyncQueryBuilderProtocol:
@@ -241,8 +262,22 @@ class AsyncQueryBuilderProtocol(Protocol):
         """Save the 'column like %data' clause and param, then return self."""
         ...
 
+    def does_not_end_with(self, column: str, data: str) -> AsyncQueryBuilderProtocol:
+        """Save the 'column like %data' clause and param, then return
+            self. Raises TypeError or ValueError for invalid column or
+            data.
+        """
+        ...
+
     def is_in(self, column: str, data: Union[tuple, list]) -> AsyncQueryBuilderProtocol:
         """Save the 'column in data' clause and param, then return self."""
+        ...
+
+    def not_in(self, column: str, data: Union[tuple, list]) -> AsyncQueryBuilderProtocol:
+        """Save the 'column not in data' clause and param, then return
+            self. Raises TypeError or ValueError for invalid column or
+            data.
+        """
         ...
 
     def order_by(self, column: str, direction: str = 'desc') -> AsyncQueryBuilderProtocol:
@@ -302,7 +337,7 @@ class AsyncQueryBuilderProtocol(Protocol):
         """Takes the specified number of rows."""
         ...
 
-    async def chunk(self, number: int) -> Generator[list[AsyncModelProtocol]|list[AsyncJoinedModelProtocol]|list[RowProtocol], None, None]:
+    def chunk(self, number: int) -> AsyncGenerator[list[AsyncModelProtocol]|list[AsyncJoinedModelProtocol]|list[RowProtocol], None, None]:
         """Chunk all matching rows the specified number of rows at a time."""
         ...
 
@@ -320,8 +355,15 @@ class AsyncQueryBuilderProtocol(Protocol):
         """
         ...
 
-    def to_sql(self) -> str:
-        """Return the sql where clause from the clauses and params."""
+    def to_sql(self, interpolate_params: bool = True) -> str|tuple[str, list]:
+        """Return the sql where clause from the clauses and params. If
+            interpolate_params is True, the parameters will be
+            interpolated into the SQL str and a single str result will
+            be returned. If interpolate_params is False, the parameters
+            will not be interpolated into the SQL str, instead including
+            question marks, and an additional list of params will be
+            returned along with the SQL str.
+        """
         ...
 
     async def execute_raw(self, sql: str) -> tuple[int, list[tuple[Any]]]:
@@ -379,7 +421,7 @@ class AsyncRelationProtocol(Protocol):
         """Reload the secondary models from the database."""
         ...
 
-    async def query(self) -> AsyncQueryBuilderProtocol|None:
+    def query(self) -> AsyncQueryBuilderProtocol|None:
         """Creates the base query for the underlying relation."""
         ...
 
