@@ -1264,6 +1264,23 @@ class TestClasses(unittest.TestCase):
         restored = deleted.restore({'HashedSubclass': HashedSubclass})
         assert restored.id == original.id
 
+    def test_HashedModel_subclass_does_not_commit_to_excluded_columns(self):
+        class HashedSubclass(classes.HashedModel):
+            table = 'hashed_subclass'
+            columns = ('id', 'column1', 'column2')
+            columns_excluded_from_hash = ('column2',)
+            column1: str
+            column2: str
+
+        original = HashedSubclass.insert({'column1': 'stuff', 'column2': 'something'})
+        expected_id = sha256(
+            packify.pack({'column1': 'stuff'})
+        ).digest().hex()
+        assert original.id == expected_id
+        deleted = original.delete()
+        restored = deleted.restore({'HashedSubclass': HashedSubclass})
+        assert restored.id == original.id
+
 
     # DeletedModel tests
     def test_DeletedModel_issubclass_of_SqlModel(self):

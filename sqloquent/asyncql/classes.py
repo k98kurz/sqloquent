@@ -1032,6 +1032,7 @@ class AsyncHashedModel(AsyncSqlModel):
     """Model for interacting with sql database using hash for id."""
     table: str = 'hashed_records'
     columns: tuple = ('id', 'details')
+    columns_excluded_from_hash: tuple[str] = tuple()
     id: str
     details: bytes
 
@@ -1043,7 +1044,10 @@ class AsyncHashedModel(AsyncSqlModel):
         for name in cls.columns:
             if name not in data and name != cls.id_column:
                 data[name] = None
-        data = { k: data[k] for k in data if k in cls.columns and k != cls.id_column }
+        data = {
+            k: data[k] for k in data
+            if k in cls.columns and k != cls.id_column and k not in cls.columns_excluded_from_hash
+        }
         preimage = packify.pack(data)
         return sha256(preimage).digest().hex()
 
