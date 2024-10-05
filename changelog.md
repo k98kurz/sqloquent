@@ -1,3 +1,9 @@
+## 0.4.1
+
+- Fix: `HashedModel` now commits to empty columns as `None` values
+- Added `columns_excluded_from_hash` attribute to `HashedModel` to exclude
+some columns of subclasses from sha256 id generation
+
 ## 0.4.0
 
 - Replaced `make_migration_from_model` tool with new `make_migration_from_model`
