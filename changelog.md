@@ -1,3 +1,7 @@
+## 0.4.2
+
+- Fixed several interfaces (`Protocol`s) for more accurate type hints
+
 ## 0.4.1
 
 - Fix: `HashedModel` now commits to empty columns as `None` values

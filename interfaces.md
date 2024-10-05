@@ -186,9 +186,25 @@ Save the 'column < data' clause and param, then return self.
 
 Save the 'column > data' clause and param, then return self.
 
+##### `like(column: str, pattern: str, data: str) -> QueryBuilderProtocol:`
+
+Save the 'column like {pattern.replace(?, data)}' clause and param, then return
+self. Raises TypeError or ValueError for invalid column, pattern, or data.
+
+##### `not_like(column: str, pattern: str, data: str) -> QueryBuilderProtocol:`
+
+Save the 'column not like {pattern.replace(?, data)}' clause and param, then
+return self. Raises TypeError or ValueError for invalid column, pattern, or
+data.
+
 ##### `starts_with(column: str, data: str) -> QueryBuilderProtocol:`
 
 Save the 'column like data%' clause and param, then return self.
+
+##### `does_not_start_with(column: str, data: str) -> QueryBuilderProtocol:`
+
+Save the 'column not like data%' clause and param, then return self. Raises
+TypeError or ValueError for invalid column or data.
 
 ##### `contains(column: str, data: str) -> QueryBuilderProtocol:`
 
@@ -202,9 +218,19 @@ Save the 'column not like %data%' clause and param, then return self.
 
 Save the 'column like %data' clause and param, then return self.
 
+##### `does_not_end_with(column: str, data: str) -> QueryBuilderProtocol:`
+
+Save the 'column like %data' clause and param, then return self. Raises
+TypeError or ValueError for invalid column or data.
+
 ##### `is_in(column: str, data: Union[tuple, list]) -> QueryBuilderProtocol:`
 
 Save the 'column in data' clause and param, then return self.
+
+##### `not_in(column: str, data: Union[tuple, list]) -> QueryBuilderProtocol:`
+
+Save the 'column not in data' clause and param, then return self. Raises
+TypeError or ValueError for invalid column or data.
 
 ##### `order_by(column: str, direction: str = 'desc') -> QueryBuilderProtocol:`
 
@@ -274,9 +300,13 @@ Update the datastore and return number of records updated.
 Delete the records that match the query and return the number of deleted
 records.
 
-##### `to_sql() -> str:`
+##### `to_sql(interpolate_params: bool = True) -> str | tuple[str, list]:`
 
-Return the sql where clause from the clauses and params.
+Return the sql where clause from the clauses and params. If interpolate_params
+is True, the parameters will be interpolated into the SQL str and a single str
+result will be returned. If interpolate_params is False, the parameters will not
+be interpolated into the SQL str, instead including question marks, and an
+additional list of params will be returned along with the SQL str.
 
 ##### `execute_raw(sql: str) -> tuple[int, list[tuple[Any]]]:`
 
