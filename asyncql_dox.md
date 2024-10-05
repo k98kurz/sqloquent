@@ -314,6 +314,10 @@ Interface showing how a relation should function.
 
 #### Methods
 
+##### `__init__() -> None:`
+
+The exact initialization will depend upon relation subtype.
+
 ##### `@staticmethod single_model_precondition() -> None:`
 
 Checks preconditions for a model.
@@ -736,18 +740,19 @@ the record. Raises TypeError if packed record is not a dict.
 
 ### `AsyncHashedModel(AsyncSqlModel)`
 
-Model for interacting with sql database using hash for id.
+Model for interacting with sql database using sha256 for id.
 
 #### Annotations
 
 - table: str
 - id_column: str
-- columns: tuple
+- columns: tuple[str]
 - id: str
 - name: str
 - query_builder_class: Type[AsyncQueryBuilderProtocol]
 - connection_info: str
 - data: dict
+- columns_excluded_from_hash: tuple[str]
 - details: bytes
 
 #### Methods
@@ -755,7 +760,9 @@ Model for interacting with sql database using hash for id.
 ##### `@classmethod generate_id(data: dict) -> str:`
 
 Generate an id by hashing the non-id contents. Raises TypeError for unencodable
-type (calls packify.pack).
+type (calls packify.pack). Any columns not present in the data dict will be set
+to None. Any columns in the columns_excluded_from_hash tuple will be excluded
+from the sha256 hash.
 
 ##### `@classmethod async insert(data: dict) -> Optional[AsyncHashedModel]:`
 
@@ -795,6 +802,7 @@ Class for attaching immutable details to a record.
 - query_builder_class: Type[AsyncQueryBuilderProtocol]
 - connection_info: str
 - data: dict
+- columns_excluded_from_hash: tuple[str]
 - details: bytes | None
 - related_model: str
 - related_id: str
@@ -1238,3 +1246,5 @@ Creates a Within relation and returns the result of calling create_property.
 Usage syntax is like `Item.children = async_within(Item, Item)`. If the column
 containing the sorted list of ids is not item_ids (i.e. cls.__name__ ->
 snake_case + '_ids'), it can be specified.
+
+

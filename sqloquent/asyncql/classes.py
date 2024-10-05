@@ -1029,9 +1029,9 @@ class AsyncDeletedModel(AsyncSqlModel):
 
 
 class AsyncHashedModel(AsyncSqlModel):
-    """Model for interacting with sql database using hash for id."""
+    """Model for interacting with sql database using sha256 for id."""
     table: str = 'hashed_records'
-    columns: tuple = ('id', 'details')
+    columns: tuple[str] = ('id', 'details')
     columns_excluded_from_hash: tuple[str] = tuple()
     id: str
     details: bytes
@@ -1039,7 +1039,10 @@ class AsyncHashedModel(AsyncSqlModel):
     @classmethod
     def generate_id(cls, data: dict) -> str:
         """Generate an id by hashing the non-id contents. Raises
-            TypeError for unencodable type (calls packify.pack).
+            TypeError for unencodable type (calls packify.pack). Any
+            columns not present in the data dict will be set to None.
+            Any columns in the columns_excluded_from_hash tuple will be
+            excluded from the sha256 hash.
         """
         for name in cls.columns:
             if name not in data and name != cls.id_column:

@@ -357,18 +357,19 @@ record. Raises TypeError if packed record is not a dict.
 
 ### `HashedModel(SqlModel)`
 
-Model for interacting with sql database using hash for id.
+Model for interacting with sql database using sha256 for id.
 
 #### Annotations
 
 - table: str
 - id_column: str
-- columns: tuple
+- columns: tuple[str]
 - id: str
 - name: str
 - query_builder_class: Type[QueryBuilderProtocol]
 - connection_info: str
 - data: dict
+- columns_excluded_from_hash: tuple[str]
 - details: bytes
 
 #### Methods
@@ -376,7 +377,9 @@ Model for interacting with sql database using hash for id.
 ##### `@classmethod generate_id(data: dict) -> str:`
 
 Generate an id by hashing the non-id contents. Raises TypeError for unencodable
-type (calls packify.pack).
+type (calls packify.pack). Any columns not present in the data dict will be set
+to None. Any columns in the columns_excluded_from_hash tuple will be excluded
+from the sha256 hash.
 
 ##### `@classmethod insert(data: dict) -> Optional[HashedModel]:`
 
@@ -416,6 +419,7 @@ Class for attaching immutable details to a record.
 - query_builder_class: Type[QueryBuilderProtocol]
 - connection_info: str
 - data: dict
+- columns_excluded_from_hash: tuple[str]
 - details: bytes | None
 - related_model: str
 - related_id: str
@@ -1490,3 +1494,5 @@ snake_case + '_ids'), it can be specified.
 ### `get_index_name(table: TableProtocol, columns: list[Column | str], is_unique: bool = False) -> str:`
 
 Generate the name for an index from the table, columns, and type.
+
+
