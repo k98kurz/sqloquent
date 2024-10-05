@@ -12,6 +12,12 @@ from copy import deepcopy
 from typing import Optional, Type
 import asyncio
 
+def run(task):
+    try:
+        return asyncio.get_running_loop().run_until_complete(task)
+    except RuntimeError:
+        return asyncio.run(task)
+
 
 class AsyncRelation:
     """Base class for setting up relations."""
@@ -76,7 +82,7 @@ class AsyncRelation:
             precondition check fails.
         """
         if self.secondary_to_remove and self.primary:
-            asyncio.run(self.save())
+            run(self.save())
 
         if primary is None:
             if self._primary is not None and self.primary_to_remove is None:
@@ -190,7 +196,7 @@ class AsyncHasOne(AsyncRelation):
             tracking measures to reduce the frequency of database calls.
         """
         if self.primary_to_remove and self.secondary:
-            asyncio.run(self.save())
+            run(self.save())
 
         if secondary is None:
             if self._secondary:
@@ -370,7 +376,7 @@ class AsyncHasOne(AsyncRelation):
 
             if self.relations[cache_key].secondary is None:
                 try:
-                    asyncio.run(self.relations[cache_key].reload())
+                    run(self.relations[cache_key].reload())
                 except ValueError:
                     pass
 
@@ -431,7 +437,7 @@ class AsyncHasMany(AsyncHasOne):
     def secondary(self, secondary: Optional[list[AsyncModelProtocol]]) -> None:
         """Sets the secondary model instance."""
         if self.primary_to_remove and self._secondary:
-            asyncio.run(self.save())
+            run(self.save())
 
         secondary_is_set = self._secondary is not None and len(self._secondary) > 0
 
@@ -607,7 +613,7 @@ class AsyncHasMany(AsyncHasOne):
 
             if self.relations[cache_key].secondary is None:
                 try:
-                    asyncio.run(self.relations[cache_key].reload())
+                    run(self.relations[cache_key].reload())
                 except ValueError:
                     pass
 
@@ -747,7 +753,7 @@ class AsyncBelongsTo(AsyncHasOne):
 
             if self.relations[cache_key].secondary is None:
                 try:
-                    asyncio.run(self.relations[cache_key].reload())
+                    run(self.relations[cache_key].reload())
                 except ValueError:
                     pass
 
@@ -821,7 +827,7 @@ class AsyncBelongsToMany(AsyncRelation):
     def secondary(self, secondary: Optional[list[AsyncModelProtocol]]) -> None:
         """Sets the secondary model instance."""
         if self.primary_to_remove and self._secondary:
-            asyncio.run(self.save())
+            run(self.save())
 
         if secondary is None:
             if self._secondary:
@@ -1059,7 +1065,7 @@ class AsyncBelongsToMany(AsyncRelation):
 
             if self.relations[cache_key].secondary is None:
                 try:
-                    asyncio.run(self.relations[cache_key].reload())
+                    run(self.relations[cache_key].reload())
                 except ValueError:
                     pass
 
@@ -1212,7 +1218,7 @@ class AsyncContains(AsyncHasMany):
 
             if self.relations[cache_key].secondary is None:
                 try:
-                    asyncio.run(self.relations[cache_key].reload())
+                    run(self.relations[cache_key].reload())
                 except ValueError:
                     pass
 
@@ -1340,7 +1346,7 @@ class AsyncWithin(AsyncHasMany):
 
             if self.relations[cache_key].secondary is None:
                 try:
-                    asyncio.run(self.relations[cache_key].reload())
+                    run(self.relations[cache_key].reload())
                 except ValueError:
                     pass
                 except KeyError:
