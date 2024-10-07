@@ -11,13 +11,19 @@ from abc import abstractmethod
 from copy import deepcopy
 from typing import Optional, Type
 import asyncio
+import nest_asyncio
+
+
+nest_asyncio.apply()
 
 def run(task):
     try:
-        return asyncio.get_running_loop().run_until_complete(task)
+        loop = asyncio.new_event_loop()
+        loop.run_until_complete(task)
     except RuntimeError:
         return asyncio.run(task)
-
+    finally:
+        loop.close()
 
 class AsyncRelation:
     """Base class for setting up relations."""
