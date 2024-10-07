@@ -939,6 +939,13 @@ The package includes a set of tools with a CLI invocation script.
 - autorollback
 - autorefresh
 
+## More Resources
+
+Check out the [Pycelium discord server](https://discord.gg/b2QFEJDX69). If you
+experience a problem, please discuss it on the Discord server. All suggestions
+for improvement are also welcome, and the best place for that is also Discord.
+If you experience a bug and do not use Discord, open an issue on Github.
+
 ## Tests
 
 Open a terminal in the root directory and run the following to set up:
