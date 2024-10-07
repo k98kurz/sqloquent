@@ -9,14 +9,15 @@ from sqloquent.asyncql.interfaces import (
 from sqloquent.tools import _pascalcase_to_snake_case
 from abc import abstractmethod
 from copy import deepcopy
-from typing import Optional, Type
+from typing import Awaitable, Optional, Type
 import asyncio
 import nest_asyncio
 
 
 nest_asyncio.apply()
 
-def run(task):
+def run(task: Awaitable):
+    """Attempt to run a task in a new event loop, then close the loop."""
     try:
         loop = asyncio.new_event_loop()
         loop.run_until_complete(task)
@@ -24,6 +25,7 @@ def run(task):
         return asyncio.run(task)
     finally:
         loop.close()
+
 
 class AsyncRelation:
     """Base class for setting up relations."""
@@ -340,7 +342,10 @@ class AsyncHasOne(AsyncRelation):
             on models. Sets the relevant post-init hook to set up the
             relation on newly created models. Setting the secondary
             property on the instance will raise a TypeError if the
-            precondition check fails.
+            precondition check fails. Reading the property for the first
+            time will cause an attempt to read from the database using
+            a synchronized async call, which might produce a
+            `ResourceWarning` if done within an async function.
         """
         relation = self
         cache_key = self.get_cache_key()
@@ -572,7 +577,10 @@ class AsyncHasMany(AsyncHasOne):
             on models. Sets the relevant post-init hook to set up the
             relation on newly created models. Setting the secondary
             property on the instance will raise a TypeError if the
-            precondition check fails.
+            precondition check fails. Reading the property for the first
+            time will cause an attempt to read from the database using
+            a synchronized async call, which might produce a
+            `ResourceWarning` if done within an async function.
         """
         relation = self
         cache_key = self.get_cache_key()
@@ -717,7 +725,10 @@ class AsyncBelongsTo(AsyncHasOne):
             on models. Sets the relevant post-init hook to set up the
             relation on newly created models. Setting the secondary
             property on the instance will raise a TypeError if the
-            precondition check fails.
+            precondition check fails. Reading the property for the first
+            time will cause an attempt to read from the database using
+            a synchronized async call, which might produce a
+            `ResourceWarning` if done within an async function.
         """
         relation = self
         cache_key = self.get_cache_key()
@@ -1033,7 +1044,10 @@ class AsyncBelongsToMany(AsyncRelation):
             on models. Sets the relevant post-init hook to set up the
             relation on newly created models. Setting the secondary
             property on the instance will raise a TypeError if the
-            precondition check fails.
+            precondition check fails. Reading the property for the first
+            time will cause an attempt to read from the database using
+            a synchronized async call, which might produce a
+            `ResourceWarning` if done within an async function.
         """
         relation = self
         cache_key = self.get_cache_key()
@@ -1186,7 +1200,10 @@ class AsyncContains(AsyncHasMany):
             on models. Sets the relevant post-init hook to set up the
             relation on newly created models. Setting the secondary
             property on the instance will raise a TypeError if the
-            precondition check fails.
+            precondition check fails. Reading the property for the first
+            time will cause an attempt to read from the database using
+            a synchronized async call, which might produce a
+            `ResourceWarning` if done within an async function.
         """
         relation = self
         cache_key = self.get_cache_key()
@@ -1314,7 +1331,10 @@ class AsyncWithin(AsyncHasMany):
             on models. Sets the relevant post-init hook to set up the
             relation on newly created models. Setting the secondary
             property on the instance will raise a TypeError if the
-            precondition check fails.
+            precondition check fails. Reading the property for the first
+            time will cause an attempt to read from the database using
+            a synchronized async call, which might produce a
+            `ResourceWarning` if done within an async function.
         """
         relation = self
         cache_key = self.get_cache_key()

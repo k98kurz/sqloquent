@@ -1,3 +1,9 @@
+## 0.4.3
+
+- Added dependency on `nest-asyncio==1.6.0`
+- Fixed `RuntimeError` issues with async ORM implementation
+- Documented async ORM tendency to occasionally produce `ResourceWarning`s
+
 ## 0.4.2
 
 - Fixed several interfaces (`Protocol`s) for more accurate type hints

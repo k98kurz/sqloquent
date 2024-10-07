@@ -986,7 +986,9 @@ Returns the cache key for this relation.
 Creates a property that can be used to set relation properties on models. Sets
 the relevant post-init hook to set up the relation on newly created models.
 Setting the secondary property on the instance will raise a TypeError if the
-precondition check fails.
+precondition check fails. Reading the property for the first time will cause an
+attempt to read from the database using a synchronized async call, which might
+produce a `ResourceWarning` if done within an async function.
 
 ### `AsyncHasMany(AsyncHasOne)`
 
@@ -1033,7 +1035,9 @@ Creates the base query for the underlying relation.
 Creates a property that can be used to set relation properties on models. Sets
 the relevant post-init hook to set up the relation on newly created models.
 Setting the secondary property on the instance will raise a TypeError if the
-precondition check fails.
+precondition check fails. Reading the property for the first time will cause an
+attempt to read from the database using a synchronized async call, which might
+produce a `ResourceWarning` if done within an async function.
 
 ### `AsyncBelongsTo(AsyncHasOne)`
 
@@ -1076,7 +1080,9 @@ Creates the base query for the underlying relation.
 Creates a property that can be used to set relation properties on models. Sets
 the relevant post-init hook to set up the relation on newly created models.
 Setting the secondary property on the instance will raise a TypeError if the
-precondition check fails.
+precondition check fails. Reading the property for the first time will cause an
+attempt to read from the database using a synchronized async call, which might
+produce a `ResourceWarning` if done within an async function.
 
 ### `AsyncBelongsToMany(AsyncRelation)`
 
@@ -1137,7 +1143,9 @@ Returns the cache key for this relation.
 Creates a property that can be used to set relation properties on models. Sets
 the relevant post-init hook to set up the relation on newly created models.
 Setting the secondary property on the instance will raise a TypeError if the
-precondition check fails.
+precondition check fails. Reading the property for the first time will cause an
+attempt to read from the database using a synchronized async call, which might
+produce a `ResourceWarning` if done within an async function.
 
 ### `AsyncContains(AsyncHasMany)`
 
@@ -1180,7 +1188,9 @@ Creates the base query for the underlying relation.
 Creates a property that can be used to set relation properties on models. Sets
 the relevant post-init hook to set up the relation on newly created models.
 Setting the secondary property on the instance will raise a TypeError if the
-precondition check fails.
+precondition check fails. Reading the property for the first time will cause an
+attempt to read from the database using a synchronized async call, which might
+produce a `ResourceWarning` if done within an async function.
 
 ### `AsyncWithin(AsyncHasMany)`
 
@@ -1225,7 +1235,9 @@ class).
 Creates a property that can be used to set relation properties on models. Sets
 the relevant post-init hook to set up the relation on newly created models.
 Setting the secondary property on the instance will raise a TypeError if the
-precondition check fails.
+precondition check fails. Reading the property for the first time will cause an
+attempt to read from the database using a synchronized async call, which might
+produce a `ResourceWarning` if done within an async function.
 
 ## Functions
 
