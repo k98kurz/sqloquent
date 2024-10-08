@@ -605,8 +605,8 @@ class HasMany(HasOne):
 
         @property
         def secondary(self: ModelProtocol) -> RelatedCollection:
-            """The secondary model instance. Setting raises TypeError if
-                the precondition check fails.
+            """The secondary model instances. Setting raises TypeError
+                if the precondition check fails.
             """
             if cache_key not in self.relations or \
                 self.relations[cache_key] is None:
@@ -1209,9 +1209,9 @@ class Contains(HasMany):
 
 
         @property
-        def secondary(self: ModelProtocol) -> RelatedModel:
-            """The secondary model instance. Setting raises TypeError if
-                the precondition check fails.
+        def secondary(self: ModelProtocol) -> RelatedCollection:
+            """The secondary model instances. Setting raises TypeError
+                if the precondition check fails.
             """
             if cache_key not in self.relations or \
                 self.relations[cache_key] is None:
@@ -1390,7 +1390,10 @@ def has_one(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol],
         foreign_id_column = _get_id_column(cls)
 
     relation = HasOne(foreign_id_column, primary_class=cls, secondary_class=owned_model)
-    return relation.create_property()
+    prop = relation.create_property()
+    prop.__doc__ = f'The related {owned_model.__name__}. Setting raises ' +\
+        'TypeError if the precondition check fails.'
+    return prop
 
 def has_many(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol],
              foreign_id_column: str = None) -> property:
@@ -1404,7 +1407,10 @@ def has_many(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol],
         foreign_id_column = _get_id_column(cls)
 
     relation = HasMany(foreign_id_column, primary_class=cls, secondary_class=owned_model)
-    return relation.create_property()
+    prop = relation.create_property()
+    prop.__doc__ = f'The related {owned_model.__name__}s. Setting raises ' +\
+        'TypeError if the precondition check fails.'
+    return prop
 
 def belongs_to(cls: Type[ModelProtocol], owner_model: Type[ModelProtocol],
                foreign_id_column: str = None) -> property:
@@ -1418,7 +1424,10 @@ def belongs_to(cls: Type[ModelProtocol], owner_model: Type[ModelProtocol],
         foreign_id_column = _get_id_column(owner_model)
 
     relation = BelongsTo(foreign_id_column, primary_class=cls, secondary_class=owner_model)
-    return relation.create_property()
+    prop = relation.create_property()
+    prop.__doc__ = f'The related {owner_model.__name__}. Setting raises ' +\
+        'TypeError if the precondition check fails.'
+    return prop
 
 def belongs_to_many(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
                 pivot: Type[ModelProtocol],
@@ -1437,7 +1446,10 @@ def belongs_to_many(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
 
     relation = BelongsToMany(pivot, primary_id_column, secondary_id_column,
                              primary_class=cls, secondary_class=other_model)
-    return relation.create_property()
+    prop = relation.create_property()
+    prop.__doc__ = f'The related {other_model.__name__}s. Setting ' +\
+        'raises TypeError if the precondition check fails.'
+    return prop
 
 def contains(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
              foreign_ids_column: str = None) -> property:
@@ -1451,7 +1463,10 @@ def contains(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
         foreign_ids_column = _get_id_column(other_model) + 's'
     relation = Contains(foreign_ids_column, primary_class=cls,
                         secondary_class=other_model)
-    return relation.create_property()
+    prop = relation.create_property()
+    prop.__doc__ = f'The related {other_model.__name__}s. Setting raises ' +\
+        'TypeError if the precondition check fails.'
+    return prop
 
 def within(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
              foreign_ids_column: str = None) -> property:
@@ -1465,4 +1480,7 @@ def within(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
         foreign_ids_column = _get_id_column(cls) + 's'
     relation = Within(foreign_ids_column, primary_class=cls,
                         secondary_class=other_model)
-    return relation.create_property()
+    prop = relation.create_property()
+    prop.__doc__ = f'The related {other_model.__name__}. Setting raises ' +\
+        'TypeError if the precondition check fails.'
+    return prop

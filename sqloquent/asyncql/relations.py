@@ -615,8 +615,8 @@ class AsyncHasMany(AsyncHasOne):
 
         @property
         def secondary(self: AsyncModelProtocol) -> AsyncRelatedCollection:
-            """The secondary model instance. Setting raises TypeError if
-                the precondition check fails.
+            """The secondary model instances. Setting raises TypeError
+                if the precondition check fails.
             """
             if cache_key not in self.relations or \
                 self.relations[cache_key] is None:
@@ -1228,9 +1228,9 @@ class AsyncContains(AsyncHasMany):
 
 
         @property
-        def secondary(self: AsyncModelProtocol) -> AsyncRelatedModel:
-            """The secondary model instance. Setting raises TypeError if
-                the precondition check fails.
+        def secondary(self: AsyncModelProtocol) -> AsyncRelatedCollection:
+            """The secondary model instances. Setting raises TypeError
+                if the precondition check fails.
             """
             if cache_key not in self.relations or \
                 self.relations[cache_key] is None:
@@ -1412,7 +1412,10 @@ def async_has_one(cls: Type[AsyncModelProtocol], owned_model: Type[AsyncModelPro
         foreign_id_column = _get_id_column(cls)
 
     relation = AsyncHasOne(foreign_id_column, primary_class=cls, secondary_class=owned_model)
-    return relation.create_property()
+    prop = relation.create_property()
+    prop.__doc__ = f'The related {owned_model.__name__}. Setting raises ' +\
+        'TypeError if the precondition check fails.'
+    return prop
 
 def async_has_many(cls: Type[AsyncModelProtocol], owned_model: Type[AsyncModelProtocol],
              foreign_id_column: str = None) -> property:
@@ -1426,7 +1429,10 @@ def async_has_many(cls: Type[AsyncModelProtocol], owned_model: Type[AsyncModelPr
         foreign_id_column = _get_id_column(cls)
 
     relation = AsyncHasMany(foreign_id_column, primary_class=cls, secondary_class=owned_model)
-    return relation.create_property()
+    prop = relation.create_property()
+    prop.__doc__ = f'The related {owned_model.__name__}s. Setting raises ' +\
+        'TypeError if the precondition check fails.'
+    return prop
 
 def async_belongs_to(cls: Type[AsyncModelProtocol], owner_model: Type[AsyncModelProtocol],
                foreign_id_column: str = None) -> property:
@@ -1440,7 +1446,10 @@ def async_belongs_to(cls: Type[AsyncModelProtocol], owner_model: Type[AsyncModel
         foreign_id_column = _get_id_column(owner_model)
 
     relation = AsyncBelongsTo(foreign_id_column, primary_class=cls, secondary_class=owner_model)
-    return relation.create_property()
+    prop = relation.create_property()
+    prop.__doc__ = f'The related {owner_model.__name__}. Setting raises ' +\
+        'TypeError if the precondition check fails.'
+    return prop
 
 def async_belongs_to_many(cls: Type[AsyncModelProtocol], other_model: Type[AsyncModelProtocol],
                 pivot: Type[AsyncModelProtocol],
@@ -1459,7 +1468,10 @@ def async_belongs_to_many(cls: Type[AsyncModelProtocol], other_model: Type[Async
 
     relation = AsyncBelongsToMany(pivot, primary_id_column, secondary_id_column,
                              primary_class=cls, secondary_class=other_model)
-    return relation.create_property()
+    prop = relation.create_property()
+    prop.__doc__ = f'The related {other_model.__name__}s. Setting ' +\
+        'raises TypeError if the precondition check fails.'
+    return prop
 
 def async_contains(cls: Type[AsyncModelProtocol], other_model: Type[AsyncModelProtocol],
              foreign_ids_column: str = None) -> property:
@@ -1473,7 +1485,10 @@ def async_contains(cls: Type[AsyncModelProtocol], other_model: Type[AsyncModelPr
         foreign_ids_column = _get_id_column(other_model) + 's'
     relation = AsyncContains(foreign_ids_column, primary_class=cls,
                         secondary_class=other_model)
-    return relation.create_property()
+    prop = relation.create_property()
+    prop.__doc__ = f'The related {other_model.__name__}s. Setting raises ' +\
+        'TypeError if the precondition check fails.'
+    return prop
 
 def async_within(cls: Type[AsyncModelProtocol], other_model: Type[AsyncModelProtocol],
              foreign_ids_column: str = None) -> property:
@@ -1487,4 +1502,7 @@ def async_within(cls: Type[AsyncModelProtocol], other_model: Type[AsyncModelProt
         foreign_ids_column = _get_id_column(cls) + 's'
     relation = AsyncWithin(foreign_ids_column, primary_class=cls,
                         secondary_class=other_model)
-    return relation.create_property()
+    prop = relation.create_property()
+    prop.__doc__ = f'The related {other_model.__name__}. Setting raises ' +\
+        'TypeError if the precondition check fails.'
+    return prop
