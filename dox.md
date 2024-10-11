@@ -396,9 +396,9 @@ calls packify.pack).
 ##### `update(updates: dict) -> HashedModel:`
 
 Persist the specified changes to the datastore, creating a new record in the
-process. Update and return self in monad pattern. Raises TypeError or ValueError
-for invalid updates. Did not need to overwrite the save method because save
-calls update or insert.
+process unless the changes were to the hash-excluded columns. Update and return
+self in monad pattern. Raises TypeError or ValueError for invalid updates. Did
+not need to overwrite the save method because save calls update or insert.
 
 ##### `delete() -> DeletedModel:`
 

@@ -1,3 +1,8 @@
+## 0.4.6
+
+- Fix: corrected `HashedModel.update` and `AsyncHashedModel.update` to properly
+persist changes to non-committed columns
+
 ## 0.4.5
 
 - Fix: corrected ORM property docstring overwrite text (pluralized `within`
