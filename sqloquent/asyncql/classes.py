@@ -1080,7 +1080,8 @@ class AsyncHashedModel(AsyncSqlModel):
 
     async def update(self, updates: dict) -> AsyncHashedModel:
         """Persist the specified changes to the datastore, creating a
-            new record in the process. Update and return self in monad
+            new record in the process unless the changes were to the
+            hash-excluded columns. Update and return self in monad
             pattern. Raises TypeError or ValueError for invalid updates.
             Did not need to overwrite the save method because save calls
             update or insert.
@@ -1095,20 +1096,23 @@ class AsyncHashedModel(AsyncSqlModel):
         for key in updates:
             vert(key in self.columns, f'unrecognized column: {key}')
 
-        # insert new record or update and return
-        if self.data[self.id_column]:
-            # if there's nothing to do, do nothing
-            new_id = self.generate_id({**self.data, **updates})
-            if new_id == self.data[self.id_column]:
-                return self
+        # insert new record and return
+        if not self.data[self.id_column]:
+            instance = await self.insert(updates)
+            self.data = instance.data
+            return self
 
+        # if a committed value is changed, delete old, insert new, and return
+        new_id = self.generate_id({**self.data, **updates})
+        if new_id != self.data[self.id_column]:
             instance = await self.insert(updates)
             await self.delete()
-        else:
-            instance = await self.insert(updates)
+            self.data = instance.data
+            return self
 
-        self.data = instance.data
-        return instance
+        # update uncommitted value and return
+        await self.query({self.id_column: self.id}).update(updates)
+        return self
 
     async def delete(self) -> AsyncDeletedModel:
         """Delete the model, putting it in the deleted_records table,

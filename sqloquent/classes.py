@@ -1096,7 +1096,8 @@ class HashedModel(SqlModel):
 
     def update(self, updates: dict) -> HashedModel:
         """Persist the specified changes to the datastore, creating a
-            new record in the process. Update and return self in monad
+            new record in the process unless the changes were to the
+            hash-excluded columns. Update and return self in monad
             pattern. Raises TypeError or ValueError for invalid updates.
             Did not need to overwrite the save method because save calls
             update or insert.
@@ -1111,19 +1112,22 @@ class HashedModel(SqlModel):
         for key in updates:
             vert(key in self.columns, f'unrecognized column: {key}')
 
-        # insert new record or update and return
-        if self.data[self.id_column]:
-            # if there's nothing to do, do nothing
-            new_id = self.generate_id({**self.data, **updates})
-            if new_id == self.data[self.id_column]:
-                return self
+        # insert new record and return
+        if not self.data[self.id_column]:
+            instance = self.insert(updates)
+            self.data = instance.data
+            return self
 
+        # if a committed value is changed, delete old, insert new, and return
+        new_id = self.generate_id({**self.data, **updates})
+        if new_id != self.data[self.id_column]:
             instance = self.insert(updates)
             self.delete()
-        else:
-            instance = self.insert(updates)
+            self.data = instance.data
+            return self
 
-        self.data = instance.data
+        # update uncommitted value and return
+        self.query({self.id_column: self.id}).update(updates)
         return self
 
     def delete(self) -> DeletedModel:

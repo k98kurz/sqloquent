@@ -1295,6 +1295,19 @@ class TestClasses(unittest.TestCase):
         restored = run(deleted.restore({'HashedSubclass': HashedSubclass}))
         assert restored.id == original.id
 
+    def test_AsyncHashedModel_subclass_does_not_commit_to_excluded_columns(self):
+        class HashedSubclass(async_classes.AsyncHashedModel):
+            table = 'hashed_subclass'
+            columns = ('id', 'column1', 'column2')
+            columns_excluded_from_hash = ('column2',)
+            column1: str
+            column2: str
+
+        original = run(HashedSubclass.insert({'column1': 'stuff', 'column2': 'something'}))
+        run(original.update({'column2': 'something else'}))
+        same = run(HashedSubclass.find(original.id))
+        assert same.column2 == 'something else', same
+
     # AsyncDeletedModel tests
     def test_AsyncDeletedModel_issubclass_of_SqlModel(self):
         assert issubclass(async_classes.AsyncDeletedModel, async_classes.AsyncSqlModel)

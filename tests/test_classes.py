@@ -1281,6 +1281,18 @@ class TestClasses(unittest.TestCase):
         restored = deleted.restore({'HashedSubclass': HashedSubclass})
         assert restored.id == original.id
 
+    def test_HashedModel_subclass_can_update_excluded_columns(self):
+        class HashedSubclass(classes.HashedModel):
+            table = 'hashed_subclass'
+            columns = ('id', 'column1', 'column2')
+            columns_excluded_from_hash = ('column2',)
+            column1: str
+            column2: str
+
+        original = HashedSubclass.insert({'column1': 'stuff', 'column2': 'something'})
+        original.update({'column2': 'something else'})
+        same = HashedSubclass.find(original.id)
+        assert same.column2 == 'something else', same
 
     # DeletedModel tests
     def test_DeletedModel_issubclass_of_SqlModel(self):
