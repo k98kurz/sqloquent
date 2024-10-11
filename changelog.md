@@ -1,3 +1,13 @@
+## 0.4.5
+
+- Fix: corrected ORM property docstring overwrite text (pluralized `within`
+and `async_within`)
+
+## 0.4.4
+
+- Improved autodox documentation for library users utilizing the ORM helper
+functions by overwriting relation property docstrings
+
 ## 0.4.3
 
 - Added dependency on `nest-asyncio==1.6.0`

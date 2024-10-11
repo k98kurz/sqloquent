@@ -1503,6 +1503,6 @@ def async_within(cls: Type[AsyncModelProtocol], other_model: Type[AsyncModelProt
     relation = AsyncWithin(foreign_ids_column, primary_class=cls,
                         secondary_class=other_model)
     prop = relation.create_property()
-    prop.__doc__ = f'The related {other_model.__name__}. Setting raises ' +\
+    prop.__doc__ = f'The related {other_model.__name__}s. Setting raises ' +\
         'TypeError if the precondition check fails.'
     return prop
