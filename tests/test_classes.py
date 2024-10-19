@@ -258,6 +258,86 @@ class TestClasses(unittest.TestCase):
         model.reload()
         assert model.data['name'] == 'Jane'
 
+    def test_SqlModel_add_hook_remove_hook_and_invoke_hooks(self):
+        log = []
+        def addlog(*args, **kwargs):
+            log.append((args, kwargs))
+        classes.SqlModel.add_hook('test', addlog)
+        assert len(log) == 0
+        classes.SqlModel.invoke_hooks('test', 1, 2, three=3)
+        assert len(log) == 1, log
+        assert log[0][0] == (1, 2), log
+        assert log[0][1] == {'three': 3}, log
+        classes.SqlModel.remove_hook('test', addlog)
+        log.pop()
+        classes.SqlModel.invoke_hooks('test', 'abc', foo='bar')
+        assert len(log) == 0, log
+
+    def test_SqlModel_hooks_fire_on_relevant_methods(self):
+        log = []
+        def addlog(*args, **kwargs):
+            log.append((args, kwargs))
+        # insert
+        assert len(log) == 0
+        classes.SqlModel.insert({'name': 'foobar'})
+        assert len(log) == 0, log
+        classes.SqlModel.add_hook('before_insert', addlog)
+        classes.SqlModel.add_hook('after_insert', addlog)
+        classes.SqlModel.insert({'name': 'foobar'})
+        assert len(log) == 2, log
+        log.pop(); log.pop()
+        classes.SqlModel.remove_hook('before_insert', addlog)
+        classes.SqlModel.remove_hook('after_insert', addlog)
+
+        # insert_many
+        classes.SqlModel.insert_many([{'name': 'foobar'}])
+        assert len(log) == 0, log
+        classes.SqlModel.add_hook('before_insert_many', addlog)
+        classes.SqlModel.add_hook('after_insert_many', addlog)
+        classes.SqlModel.insert_many([{'name': 'foobar'}])
+        assert len(log) == 2, log
+        log.pop(); log.pop()
+        classes.SqlModel.remove_hook('before_insert_many', addlog)
+        classes.SqlModel.remove_hook('after_insert_many', addlog)
+
+        # update
+        item = classes.SqlModel.query().first()
+        item.update({'name': 'foodbar'})
+        assert len(log) == 0, log
+        classes.SqlModel.add_hook('before_update', addlog)
+        classes.SqlModel.add_hook('after_update', addlog)
+        item.update({'name': 'foobar'})
+        assert len(log) == 2, log
+        log.pop(); log.pop()
+        classes.SqlModel.remove_hook('before_update', addlog)
+        classes.SqlModel.remove_hook('after_update', addlog)
+
+        # delete
+        item = classes.SqlModel.query().first()
+        item.delete()
+        assert len(log) == 0, log
+        item = classes.SqlModel.query().first()
+        classes.SqlModel.add_hook('before_delete', addlog)
+        classes.SqlModel.add_hook('after_delete', addlog)
+        item.delete()
+        assert len(log) == 2, log
+        log.pop(); log.pop()
+        classes.SqlModel.remove_hook('before_delete', addlog)
+        classes.SqlModel.remove_hook('after_delete', addlog)
+
+        # reload
+        item = classes.SqlModel.query().first()
+        item.reload()
+        assert len(log) == 0, log
+        item = classes.SqlModel.query().first()
+        classes.SqlModel.add_hook('before_reload', addlog)
+        classes.SqlModel.add_hook('after_reload', addlog)
+        item.reload()
+        assert len(log) == 2, log
+        log.pop(); log.pop()
+        classes.SqlModel.remove_hook('before_reload', addlog)
+        classes.SqlModel.remove_hook('after_reload', addlog)
+
 
     # JoinedModel test
     def test_JoinedModel_get_models_returns_correct_models(self):

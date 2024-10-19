@@ -258,6 +258,86 @@ class TestClasses(unittest.TestCase):
         run(model.reload())
         assert model.data['name'] == 'Jane'
 
+    def test_AsyncSqlModel_add_hook_remove_hook_and_invoke_hooks(self):
+        log = []
+        def addlog(*args, **kwargs):
+            log.append((args, kwargs))
+        async_classes.AsyncSqlModel.add_hook('test', addlog)
+        assert len(log) == 0
+        run(async_classes.AsyncSqlModel.invoke_hooks('test', 1, 2, three=3))
+        assert len(log) == 1, log
+        assert log[0][0] == (1, 2), log
+        assert log[0][1] == {'three': 3}, log
+        async_classes.AsyncSqlModel.remove_hook('test', addlog)
+        log.pop()
+        run(async_classes.AsyncSqlModel.invoke_hooks('test', 'abc', foo='bar'))
+        assert len(log) == 0, log
+
+    def test_AsyncSqlModel_hooks_fire_on_relevant_methods(self):
+        log = []
+        def addlog(*args, **kwargs):
+            log.append((args, kwargs))
+        # insert
+        assert len(log) == 0
+        run(async_classes.AsyncSqlModel.insert({'name': 'foobar'}))
+        assert len(log) == 0, log
+        async_classes.AsyncSqlModel.add_hook('before_insert', addlog)
+        async_classes.AsyncSqlModel.add_hook('after_insert', addlog)
+        run(async_classes.AsyncSqlModel.insert({'name': 'foobar'}))
+        assert len(log) == 2, log
+        log.pop(); log.pop()
+        async_classes.AsyncSqlModel.remove_hook('before_insert', addlog)
+        async_classes.AsyncSqlModel.remove_hook('after_insert', addlog)
+
+        # insert_many
+        run(async_classes.AsyncSqlModel.insert_many([{'name': 'foobar'}]))
+        assert len(log) == 0, log
+        async_classes.AsyncSqlModel.add_hook('before_insert_many', addlog)
+        async_classes.AsyncSqlModel.add_hook('after_insert_many', addlog)
+        run(async_classes.AsyncSqlModel.insert_many([{'name': 'foobar'}]))
+        assert len(log) == 2, log
+        log.pop(); log.pop()
+        async_classes.AsyncSqlModel.remove_hook('before_insert_many', addlog)
+        async_classes.AsyncSqlModel.remove_hook('after_insert_many', addlog)
+
+        # update
+        item = run(async_classes.AsyncSqlModel.query().first())
+        run(item.update({'name': 'foodbar'}))
+        assert len(log) == 0, log
+        async_classes.AsyncSqlModel.add_hook('before_update', addlog)
+        async_classes.AsyncSqlModel.add_hook('after_update', addlog)
+        run(item.update({'name': 'foobar'}))
+        assert len(log) == 2, log
+        log.pop(); log.pop()
+        async_classes.AsyncSqlModel.remove_hook('before_update', addlog)
+        async_classes.AsyncSqlModel.remove_hook('after_update', addlog)
+
+        # delete
+        item = run(async_classes.AsyncSqlModel.query().first())
+        run(item.delete())
+        assert len(log) == 0, log
+        item = run(async_classes.AsyncSqlModel.query().first())
+        async_classes.AsyncSqlModel.add_hook('before_delete', addlog)
+        async_classes.AsyncSqlModel.add_hook('after_delete', addlog)
+        run(item.delete())
+        assert len(log) == 2, log
+        log.pop(); log.pop()
+        async_classes.AsyncSqlModel.remove_hook('before_delete', addlog)
+        async_classes.AsyncSqlModel.remove_hook('after_delete', addlog)
+
+        # reload
+        item = run(async_classes.AsyncSqlModel.query().first())
+        run(item.reload())
+        assert len(log) == 0, log
+        item = run(async_classes.AsyncSqlModel.query().first())
+        async_classes.AsyncSqlModel.add_hook('before_reload', addlog)
+        async_classes.AsyncSqlModel.add_hook('after_reload', addlog)
+        run(item.reload())
+        assert len(log) == 2, log
+        log.pop(); log.pop()
+        async_classes.AsyncSqlModel.remove_hook('before_reload', addlog)
+        async_classes.AsyncSqlModel.remove_hook('after_reload', addlog)
+
 
     # async_dynamic_sqlmodel test
     def test_async_dynamic_sqlmodel_returns_type_ModelProtocol(self):

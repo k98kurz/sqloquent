@@ -7,11 +7,12 @@ from sqloquent.asyncql.interfaces import (
     AsyncModelProtocol,
 )
 from sqloquent.classes import JoinSpec, Row
+from asyncio import iscoroutine
 from dataclasses import dataclass
 from hashlib import sha256
 from time import time
 from types import TracebackType
-from typing import Any, AsyncGenerator, Optional, Type, Union
+from typing import Any, AsyncGenerator, Optional, Type, Union, Callable
 from uuid import uuid4
 import aiosqlite
 import packify
@@ -802,6 +803,7 @@ class AsyncSqlModel:
     query_builder_class: Type[AsyncQueryBuilderProtocol] = AsyncSqlQueryBuilder
     connection_info: str = ''
     data: dict
+    _event_hooks: dict[str, list[Callable]] = {}
 
     def __init__(self, data: dict = {}) -> None:
         """Initialize the instance. Raises TypeError or ValueError if
@@ -826,6 +828,37 @@ class AsyncSqlModel:
                 vert(callable(call),
                     '_post_init_hooks must be a dict mapping names to Callables')
                 call(self)
+
+    @classmethod
+    def add_hook(cls, event: str, hook: Callable):
+        """Add the hook for the event."""
+        if event not in cls._event_hooks:
+            cls._event_hooks[event] = []
+        if hook not in cls._event_hooks[event]:
+            cls._event_hooks[event].append(hook)
+
+    @classmethod
+    def remove_hook(cls, event: str, hook: Callable):
+        """Remove the hook for the event."""
+        if event not in cls._event_hooks:
+            return
+        if hook in cls._event_hooks[event]:
+            cls._event_hooks[event].remove(hook)
+
+    @classmethod
+    def clear_hooks(cls, event: str):
+        """Remove all hooks for an event."""
+        if event not in cls._event_hooks:
+            return
+        del cls._event_hooks[event]
+
+    @classmethod
+    async def invoke_hooks(cls, event: str, *args, **kwargs):
+        """Invoke the hooks for the event, passing args and kwargs."""
+        for hook in cls._event_hooks.get(event, []):
+            val = hook(*args, **kwargs)
+            if iscoroutine(val):
+                await val
 
     @staticmethod
     def create_property(name) -> property:
@@ -882,35 +915,48 @@ class AsyncSqlModel:
         return await cls().query_builder_class(model=cls).find(id)
 
     @classmethod
-    async def insert(cls, data: dict) -> Optional[AsyncSqlModel]:
+    async def insert(cls, data: dict, /, *, suppress_events: bool = False) -> Optional[AsyncSqlModel]:
         """Insert a new record to the datastore. Return instance. Raises
             TypeError if data is not a dict.
         """
+        if not suppress_events:
+            await cls.invoke_hooks('before_insert', data)
         tert(isinstance(data, dict), 'data must be dict')
         if cls.id_column not in data:
             data[cls.id_column] = cls.generate_id()
 
-        return await cls().query_builder_class(model=cls).insert(data)
+        val = await cls().query_builder_class(model=cls).insert(data)
+        if not suppress_events:
+            await cls.invoke_hooks('after_insert', data)
+        return val
 
     @classmethod
-    async def insert_many(cls, items: list[dict]) -> int:
+    async def insert_many(cls, items: list[dict], /, *, suppress_events: bool = False) -> int:
         """Insert a batch of records and return the number of items
             inserted. Raises TypeError if items is not list[dict].
         """
+        if not suppress_events:
+            await cls.invoke_hooks('before_insert_many', items)
         tert(isinstance(items, list), 'items must be type list[dict]')
         for item in items:
             tert(isinstance(item, dict), 'items must be type list[dict]')
             if cls.id_column not in item:
                 item[cls.id_column] = cls.generate_id()
 
-        return await cls().query_builder_class(model=cls).insert_many(items)
+        val = await cls().query_builder_class(model=cls).insert_many(items)
+        if not suppress_events:
+            await cls.invoke_hooks('after_insert_many', items, val)
+        return val
 
-    async def update(self, updates: dict, conditions: dict = None) -> AsyncSqlModel:
+    async def update(self, updates: dict, conditions: dict = None, /, *,
+                     suppress_events: bool = False) -> AsyncSqlModel:
         """Persist the specified changes to the datastore. Return self
             in monad pattern. Raises TypeError or ValueError for invalid
             updates or conditions (self.data must include the id to
             update or conditions must be specified).
         """
+        if not suppress_events:
+            await self.invoke_hooks('before_update', self, updates, conditions)
         tert(type(updates) is dict, 'updates must be dict')
         tert (type(conditions) is dict or conditions is None,
             'conditions must be dict or None')
@@ -935,31 +981,47 @@ class AsyncSqlModel:
         # run update query
         await self.query().update(updates, conditions)
 
+        if not suppress_events:
+            await self.invoke_hooks('after_update', self, updates, conditions)
+
         return self
 
-    async def save(self) -> AsyncSqlModel:
+    async def save(self, /, *, suppress_events: bool = False) -> AsyncSqlModel:
         """Persist to the datastore. Return self in monad pattern.
             Calls insert or update and raises appropriate errors.
         """
+        if not suppress_events:
+            await self.invoke_hooks('before_save', self)
         if self.id_column in self.data:
             if await self.find(self.data[self.id_column]) is not None:
                 return await self.update({})
-        return await self.insert(self.data)
+        val = await self.insert(self.data)
+        if not suppress_events:
+            await self.invoke_hooks('after_save', self, val)
+        return val
 
-    async def delete(self) -> None:
+    async def delete(self, /, *, suppress_events: bool = False) -> None:
         """Delete the record."""
+        if not suppress_events:
+            await self.invoke_hooks('before_delete', self)
         if self.id_column in self.data:
             await self.query().equal(self.id_column, self.data[self.id_column]).delete()
+        if not suppress_events:
+            await self.invoke_hooks('after_delete', self)
 
-    async def reload(self) -> AsyncSqlModel:
+    async def reload(self, /, *, suppress_events: bool = False) -> AsyncSqlModel:
         """Reload values from datastore. Return self in monad pattern.
             Raises UsageError if id is not set in self.data.
         """
+        if not suppress_events:
+            await self.invoke_hooks('before_reload', self)
         tressa(self.id_column in self.data,
                'id_column must be set in self.data to reload from db')
         reloaded = await self.find(self.data[self.id_column])
         if reloaded:
             self.data = reloaded.data
+        if not suppress_events:
+            await self.invoke_hooks('after_reload', self)
         return self
 
     @classmethod
