@@ -45,6 +45,10 @@ class TestClasses(unittest.TestCase):
 
     def tearDown(self) -> None:
         """Close cursor and delete test database."""
+        classes.SqlModel.clear_hooks()
+        classes.HashedModel.clear_hooks()
+        classes.DeletedModel.clear_hooks()
+        classes.Attachment.clear_hooks()
         q = "select name from sqlite_master where type='table'"
         self.cursor.execute(q)
         results = self.cursor.fetchall()
@@ -266,7 +270,7 @@ class TestClasses(unittest.TestCase):
         assert len(log) == 0
         classes.SqlModel.invoke_hooks('test', 1, 2, three=3)
         assert len(log) == 1, log
-        assert log[0][0] == (1, 2), log
+        assert log[0][0] == (classes.SqlModel, 1, 2), log
         assert log[0][1] == {'three': 3}, log
         classes.SqlModel.remove_hook('test', addlog)
         log.pop()
@@ -1384,6 +1388,72 @@ class TestClasses(unittest.TestCase):
         same = HashedSubclass.find(original.id)
         assert same.column2 == 'something else', same
 
+    def test_HashedModel_event_hooks(self):
+        log = []
+        def addlog(*args, **kwargs):
+            log.append((args, kwargs))
+        count = 0
+        def next_details():
+            nonlocal count
+            count += 1
+            return f'test {count}'
+
+        # insert
+        classes.HashedModel.add_hook('before_insert', addlog)
+        classes.HashedModel.add_hook('after_insert', addlog)
+        assert len(log) == 0, 'invalid test precondition'
+        classes.HashedModel.insert({'details': next_details()})
+        assert len(log) == 2
+        classes.HashedModel.insert({'details': next_details()}, suppress_events=True)
+        assert len(log) == 2
+        classes.HashedModel.clear_hooks('before_insert')
+        classes.HashedModel.clear_hooks('after_insert')
+        classes.HashedModel.insert({'details': next_details()})
+        assert len(log) == 2
+        log.clear()
+
+        # insert many
+        classes.HashedModel.add_hook('before_insert_many', addlog)
+        classes.HashedModel.add_hook('after_insert_many', addlog)
+        assert len(log) == 0, 'invalid test precondition'
+        classes.HashedModel.insert_many([{'details': next_details()}])
+        assert len(log) == 2
+        classes.HashedModel.insert_many([{'details': next_details()}], suppress_events=True)
+        assert len(log) == 2
+        classes.HashedModel.clear_hooks('before_insert_many')
+        classes.HashedModel.clear_hooks('after_insert_many')
+        classes.HashedModel.insert_many([{'details': next_details()}])
+        assert len(log) == 2
+        log.clear()
+
+        # update
+        model = classes.HashedModel.query().order_by('details').first()
+        classes.HashedModel.add_hook('before_update', addlog)
+        classes.HashedModel.add_hook('after_update', addlog)
+        assert len(log) == 0, 'invalid test precondition'
+        model = model.update({'details': next_details()})
+        assert len(log) == 2, len(log)
+        model = model.update({'details': next_details()}, suppress_events=True)
+        assert len(log) == 2, len(log)
+        classes.HashedModel.clear_hooks('before_update')
+        classes.HashedModel.clear_hooks('after_update')
+        model = model.update({'details': next_details()})
+        assert len(log) == 2, len(log)
+        log.clear()
+
+        # delete
+        classes.HashedModel.add_hook('before_delete', addlog)
+        classes.HashedModel.add_hook('after_delete', addlog)
+        assert len(log) == 0, 'invalid test precondition'
+        classes.HashedModel.query().first().delete()
+        assert len(log) == 2, len(log)
+        classes.HashedModel.query().first().delete(suppress_events=True)
+        assert len(log) == 2, len(log)
+        classes.HashedModel.clear_hooks()
+        classes.HashedModel.query().first().delete()
+        assert len(log) == 2, len(log)
+
+
     # DeletedModel tests
     def test_DeletedModel_issubclass_of_SqlModel(self):
         assert issubclass(classes.DeletedModel, classes.SqlModel)
@@ -1436,6 +1506,44 @@ class TestClasses(unittest.TestCase):
         with self.assertRaises(TypeError) as e:
             deleted.restore()
         assert str(e.exception) == 'related_model must inherit from SqlModel'
+
+    def test_DeletedModel_event_hooks(self):
+        log = []
+        def make_handler(name):
+            def addlog(cls, *args, **kwargs):
+                log.append((name, args, kwargs))
+            return addlog
+
+        # insert
+        classes.DeletedModel.add_hook('before_insert', make_handler('before_insert'))
+        classes.DeletedModel.add_hook('after_insert', make_handler('after_insert'))
+        model = classes.HashedModel.insert({'details': 'test'})
+        assert len(log) == 0, 'invalid test precondition'
+        deleted = model.delete()
+        assert len(log) == 2, '\n'.join([repr(l) for l in log])
+        model: classes.HashedModel = deleted.restore()
+        deleted = model.delete(suppress_events=True)
+        assert len(log) == 2, '\n'.join([repr(l) for l in log])
+        model = deleted.restore()
+        classes.DeletedModel.clear_hooks()
+        deleted = model.delete()
+        assert len(log) == 2, '\n'.join([repr(l) for l in log])
+        log.clear()
+
+        # restore
+        classes.DeletedModel.add_hook('before_restore', make_handler('before_restore'))
+        classes.DeletedModel.add_hook('after_restore', make_handler('after_restore'))
+        assert len(log) == 0, 'invalid test precondition'
+        model = deleted.restore()
+        assert len(log) == 2
+        deleted = model.delete()
+        model = deleted.restore(suppress_events=True)
+        assert len(log) == 2
+        deleted = model.delete()
+        classes.DeletedModel.clear_hooks()
+        model = deleted.restore()
+        assert len(log) == 2
+        classes.DeletedModel.clear_hooks()
 
 
     # Attachment tests
@@ -1508,6 +1616,36 @@ class TestClasses(unittest.TestCase):
 
         related = attachment.related(True)
         assert isinstance(related, classes.SqlModel)
+
+    def test_Attachment_insert_event_hook(self):
+        log = []
+        def make_handler(name):
+            def addlog(cls, *args, **kwargs):
+                log.append((name, args, kwargs))
+            return addlog
+
+        classes.Attachment.add_hook('before_insert', make_handler('before_insert'))
+        classes.Attachment.add_hook('after_insert', make_handler('before_insert'))
+        assert len(log) == 0, 'invalid test precondition'
+        classes.Attachment.insert({
+            'related_model': 'HashedModel',
+            'related_id': 'abcdef',
+            'details': 'something testy'
+        })
+        assert len(log) == 2, len(log)
+        classes.Attachment.insert({
+            'related_model': 'HashedModel',
+            'related_id': 'abcdef',
+            'details': 'something testy2'
+        }, suppress_events=True)
+        assert len(log) == 2, len(log)
+        classes.Attachment.clear_hooks()
+        classes.Attachment.insert({
+            'related_model': 'HashedModel',
+            'related_id': 'abcdef',
+            'details': 'something testy3'
+        })
+        assert len(log) == 2, len(log)
 
 
 if __name__ == '__main__':

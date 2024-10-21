@@ -7,7 +7,7 @@ from sqloquent.asyncql.interfaces import (
     AsyncModelProtocol,
 )
 from sqloquent.classes import JoinSpec, Row
-from asyncio import iscoroutine
+from asyncio import iscoroutine, gather
 from dataclasses import dataclass
 from hashlib import sha256
 from time import time
@@ -832,6 +832,8 @@ class AsyncSqlModel:
     @classmethod
     def add_hook(cls, event: str, hook: Callable):
         """Add the hook for the event."""
+        if cls is not AsyncSqlModel and cls._event_hooks is AsyncSqlModel._event_hooks:
+            cls._event_hooks = {} # give each class its own event hooks dict
         if event not in cls._event_hooks:
             cls._event_hooks[event] = []
         if hook not in cls._event_hooks[event]:
@@ -840,25 +842,44 @@ class AsyncSqlModel:
     @classmethod
     def remove_hook(cls, event: str, hook: Callable):
         """Remove the hook for the event."""
+        if cls is not AsyncSqlModel and cls._event_hooks is AsyncSqlModel._event_hooks:
+            cls._event_hooks = {} # give each class its own event hooks dict
         if event not in cls._event_hooks:
             return
         if hook in cls._event_hooks[event]:
             cls._event_hooks[event].remove(hook)
 
     @classmethod
-    def clear_hooks(cls, event: str):
-        """Remove all hooks for an event."""
+    def clear_hooks(cls, event: str = None):
+        """Remove all hooks for an event. If no event is specified,
+            clear all hooks for all events.
+        """
+        if cls is not AsyncSqlModel and cls._event_hooks is AsyncSqlModel._event_hooks:
+            cls._event_hooks = {} # give each class its own event hooks dict
+        if event is None:
+            return cls._event_hooks.clear()
         if event not in cls._event_hooks:
             return
         del cls._event_hooks[event]
 
     @classmethod
     async def invoke_hooks(cls, event: str, *args, **kwargs):
-        """Invoke the hooks for the event, passing args and kwargs."""
+        """Invoke the hooks for the event, passing cls, *args, and
+            **kwargs. if parallel_hooks=True is passed in the kwargs,
+            all coroutines returned from hooks will be awaited
+            concurrently (with `asyncio.gather`) after non-async hooks
+            have executed; otherwise, each will be waited individually.
+        """
+        cors = []
         for hook in cls._event_hooks.get(event, []):
-            val = hook(*args, **kwargs)
+            val = hook(cls, *args, **kwargs)
             if iscoroutine(val):
-                await val
+                if kwargs.get('parallel_hooks', False):
+                    cors.append(val)
+                else:
+                    await val
+        if len(cors):
+            await gather(cors)
 
     @staticmethod
     def create_property(name) -> property:
@@ -915,28 +936,33 @@ class AsyncSqlModel:
         return await cls().query_builder_class(model=cls).find(id)
 
     @classmethod
-    async def insert(cls, data: dict, /, *, suppress_events: bool = False) -> Optional[AsyncSqlModel]:
+    async def insert(cls, data: dict, /, *, suppress_events: bool = False,
+                     parallel_events: bool = False) -> Optional[AsyncSqlModel]:
         """Insert a new record to the datastore. Return instance. Raises
             TypeError if data is not a dict.
         """
         if not suppress_events:
-            await cls.invoke_hooks('before_insert', data)
+            await cls.invoke_hooks('before_insert', data, parallel_events=parallel_events)
         tert(isinstance(data, dict), 'data must be dict')
         if cls.id_column not in data:
             data[cls.id_column] = cls.generate_id()
 
         val = await cls().query_builder_class(model=cls).insert(data)
         if not suppress_events:
-            await cls.invoke_hooks('after_insert', data)
+            await cls.invoke_hooks('after_insert', data, parallel_events=parallel_events)
         return val
 
     @classmethod
-    async def insert_many(cls, items: list[dict], /, *, suppress_events: bool = False) -> int:
+    async def insert_many(cls, items: list[dict], /, *,
+                          suppress_events: bool = False,
+                          parallel_events: bool = False) -> int:
         """Insert a batch of records and return the number of items
             inserted. Raises TypeError if items is not list[dict].
         """
         if not suppress_events:
-            await cls.invoke_hooks('before_insert_many', items)
+            await cls.invoke_hooks(
+                'before_insert_many', items, parallel_events=parallel_events
+            )
         tert(isinstance(items, list), 'items must be type list[dict]')
         for item in items:
             tert(isinstance(item, dict), 'items must be type list[dict]')
@@ -945,18 +971,23 @@ class AsyncSqlModel:
 
         val = await cls().query_builder_class(model=cls).insert_many(items)
         if not suppress_events:
-            await cls.invoke_hooks('after_insert_many', items, val)
+            await cls.invoke_hooks(
+                'after_insert_many', items, val, parallel_events=parallel_events
+            )
         return val
 
     async def update(self, updates: dict, conditions: dict = None, /, *,
-                     suppress_events: bool = False) -> AsyncSqlModel:
+                     suppress_events: bool = False,
+                     parallel_events: bool = False) -> AsyncSqlModel:
         """Persist the specified changes to the datastore. Return self
             in monad pattern. Raises TypeError or ValueError for invalid
             updates or conditions (self.data must include the id to
             update or conditions must be specified).
         """
         if not suppress_events:
-            await self.invoke_hooks('before_update', self, updates, conditions)
+            await self.invoke_hooks(
+                'before_update', self, updates, conditions, parallel_events=parallel_events
+            )
         tert(type(updates) is dict, 'updates must be dict')
         tert (type(conditions) is dict or conditions is None,
             'conditions must be dict or None')
@@ -982,46 +1013,50 @@ class AsyncSqlModel:
         await self.query().update(updates, conditions)
 
         if not suppress_events:
-            await self.invoke_hooks('after_update', self, updates, conditions)
+            await self.invoke_hooks(
+                'after_update', self, updates, conditions, parallel_events=parallel_events)
 
         return self
 
-    async def save(self, /, *, suppress_events: bool = False) -> AsyncSqlModel:
+    async def save(self, /, *, suppress_events: bool = False,
+                   parallel_events: bool = False) -> AsyncSqlModel:
         """Persist to the datastore. Return self in monad pattern.
             Calls insert or update and raises appropriate errors.
         """
         if not suppress_events:
-            await self.invoke_hooks('before_save', self)
+            await self.invoke_hooks('before_save', self, parallel_events=parallel_events)
         if self.id_column in self.data:
             if await self.find(self.data[self.id_column]) is not None:
                 return await self.update({})
         val = await self.insert(self.data)
         if not suppress_events:
-            await self.invoke_hooks('after_save', self, val)
+            await self.invoke_hooks('after_save', self, val, parallel_events=parallel_events)
         return val
 
-    async def delete(self, /, *, suppress_events: bool = False) -> None:
+    async def delete(self, /, *, suppress_events: bool = False,
+                     parallel_events: bool = False) -> None:
         """Delete the record."""
         if not suppress_events:
-            await self.invoke_hooks('before_delete', self)
+            await self.invoke_hooks('before_delete', self, parallel_events=parallel_events)
         if self.id_column in self.data:
             await self.query().equal(self.id_column, self.data[self.id_column]).delete()
         if not suppress_events:
-            await self.invoke_hooks('after_delete', self)
+            await self.invoke_hooks('after_delete', self, parallel_events=parallel_events)
 
-    async def reload(self, /, *, suppress_events: bool = False) -> AsyncSqlModel:
+    async def reload(self, /, *, suppress_events: bool = False,
+                     parallel_events: bool = False) -> AsyncSqlModel:
         """Reload values from datastore. Return self in monad pattern.
             Raises UsageError if id is not set in self.data.
         """
         if not suppress_events:
-            await self.invoke_hooks('before_reload', self)
+            await self.invoke_hooks('before_reload', self, parallel_events=parallel_events)
         tressa(self.id_column in self.data,
                'id_column must be set in self.data to reload from db')
         reloaded = await self.find(self.data[self.id_column])
         if reloaded:
             self.data = reloaded.data
         if not suppress_events:
-            await self.invoke_hooks('after_reload', self)
+            await self.invoke_hooks('after_reload', self, parallel_events=parallel_events)
         return self
 
     @classmethod
@@ -1059,22 +1094,35 @@ class AsyncDeletedModel(AsyncSqlModel):
         super().__init__(data)
 
     @classmethod
-    async def insert(cls, data: dict) -> AsyncSqlModel | None:
+    async def insert(cls, data: dict, /, *,
+                     suppress_events: bool = False,
+                     parallel_events: bool = False) -> AsyncSqlModel | None:
+        if not suppress_events:
+            await cls.invoke_hooks('before_insert', data, parallel_events=parallel_events)
         if 'timestamp' not in data:
             data['timestamp'] = str(int(time()))
-        return await super().insert(data)
+        val = await super().insert(data, suppress_events=True) # no duplicate events
+        if not suppress_events:
+            await cls.invoke_hooks('after_insert', data, val, parallel_events=parallel_events)
+        return val
 
-    async def restore(self, inject: dict = {}) -> AsyncSqlModel:
+    async def restore(self, inject: dict = {}, /, *,
+                      suppress_events: bool = False,
+                      parallel_events: bool = False) -> AsyncSqlModel:
         """Restore a deleted record, remove from deleted_records, and
             return the restored model. Raises ValueError if model_class
             cannot be found. Raises TypeError if model_class is not a
             subclass of AsyncSqlModel. Uses packify.unpack to unpack the
             record. Raises TypeError if packed record is not a dict.
         """
+        if not suppress_events:
+            await self.invoke_hooks(
+                'before_restore', self, inject, parallel_events=parallel_events
+            )
         dependencies = {**globals(), **inject}
         vert(self.data['model_class'] in dependencies,
             'model_class must be accessible')
-        model_class: AsyncSqlModel = dependencies[self.data['model_class']]
+        model_class: type[AsyncSqlModel] = dependencies[self.data['model_class']]
         tert(issubclass(model_class, AsyncSqlModel),
             'related_model must inherit from AsyncSqlModel')
 
@@ -1086,6 +1134,11 @@ class AsyncDeletedModel(AsyncSqlModel):
 
         model = await model_class.insert(decoded)
         await self.delete()
+
+        if not suppress_events:
+            await self.invoke_hooks(
+                'after_restore', self, inject, model, parallel_events=parallel_events
+            )
 
         return model
 
@@ -1117,30 +1170,46 @@ class AsyncHashedModel(AsyncSqlModel):
         return sha256(preimage).digest().hex()
 
     @classmethod
-    async def insert(cls, data: dict) -> Optional[AsyncHashedModel]:
+    async def insert(cls, data: dict, /, *,
+                     suppress_events: bool = False,
+                     parallel_events: bool = False) -> Optional[AsyncHashedModel]:
         """Insert a new record to the datastore. Return instance. Raises
             TypeError for non-dict data or unencodable type (calls
             cls.generate_id, which calls packify.pack).
         """
+        if not suppress_events:
+            await cls.invoke_hooks('before_insert', data, parallel_events=parallel_events)
         tert(isinstance(data, dict), 'data must be dict')
         data[cls.id_column] = cls.generate_id(data)
 
-        return await cls.query().insert(data)
+        val = await cls.query().insert(data)
+        if not suppress_events:
+            await cls.invoke_hooks('after_insert', data, val, parallel_events=parallel_events)
+        return val
 
     @classmethod
-    async def insert_many(cls, items: list[dict]) -> int:
+    async def insert_many(cls, items: list[dict], /, *,
+                          suppress_events: bool = False,
+                          parallel_events: bool = False) -> int:
         """Insert a batch of records and return the number of items
             inserted. Raises TypeError for invalid items or unencodable
             value (calls cls.generate_id, which calls packify.pack).
         """
+        if not suppress_events:
+            await cls.invoke_hooks('before_insert_many', items, parallel_events=parallel_events)
         tert(isinstance(items, list), 'items must be type list[dict]')
         for item in items:
             tert(isinstance(item, dict), 'items must be type list[dict]')
             item[cls.id_column] = cls.generate_id(item)
 
-        return await cls.query().insert_many(items)
+        vals = await cls.query().insert_many(items)
+        if not suppress_events:
+            await cls.invoke_hooks('after_insert_many', items, vals, parallel_events=parallel_events)
+        return vals
 
-    async def update(self, updates: dict) -> AsyncHashedModel:
+    async def update(self, updates: dict, /, *,
+                     suppress_events: bool = False,
+                     parallel_events: bool = False) -> AsyncHashedModel:
         """Persist the specified changes to the datastore, creating a
             new record in the process unless the changes were to the
             hash-excluded columns. Update and return self in monad
@@ -1148,6 +1217,10 @@ class AsyncHashedModel(AsyncSqlModel):
             Did not need to overwrite the save method because save calls
             update or insert.
         """
+        if not suppress_events:
+            await self.invoke_hooks(
+                'before_update', self, updates, parallel_events=parallel_events
+            )
         tert(type(updates) is dict, 'updates must be dict')
 
         # merge data into updates
@@ -1162,6 +1235,10 @@ class AsyncHashedModel(AsyncSqlModel):
         if not self.data[self.id_column]:
             instance = await self.insert(updates)
             self.data = instance.data
+            if not suppress_events:
+                await self.invoke_hooks(
+                    'after_update', self, updates, parallel_events=parallel_events
+                )
             return self
 
         # if a committed value is changed, delete old, insert new, and return
@@ -1170,17 +1247,30 @@ class AsyncHashedModel(AsyncSqlModel):
             instance = await self.insert(updates)
             await self.delete()
             self.data = instance.data
+            if not suppress_events:
+                await self.invoke_hooks(
+                    'after_update', self, updates, parallel_events=parallel_events
+                )
             return self
 
         # update uncommitted value and return
         await self.query({self.id_column: self.id}).update(updates)
+        if not suppress_events:
+            await self.invoke_hooks(
+                'after_update', self, updates, parallel_events=parallel_events
+            )
         return self
 
-    async def delete(self) -> AsyncDeletedModel:
+    async def delete(self, /, *, suppress_events: bool = False,
+                     parallel_events: bool = False) -> AsyncDeletedModel:
         """Delete the model, putting it in the deleted_records table,
             then return the AsyncDeletedModel. Raises packify.UsageError for
             unserializable data.
         """
+        if not suppress_events:
+            await self.invoke_hooks(
+                'before_delete', self, parallel_events=parallel_events
+            )
         model_class = self.__class__.__name__
         record_id = self.data[self.id_column]
         record = packify.pack(self.data)
@@ -1188,8 +1278,12 @@ class AsyncHashedModel(AsyncSqlModel):
             'model_class': model_class,
             'record_id': record_id,
             'record': record
-        })
-        await super().delete()
+        }, suppress_events=suppress_events)
+        await super().delete(suppress_events=True) # no duplicate events
+        if not suppress_events:
+            await self.invoke_hooks(
+                'after_delete', self, deleted, parallel_events=parallel_events
+            )
         return deleted
 
 
@@ -1240,6 +1334,13 @@ class AsyncAttachment(AsyncHashedModel):
         return self
 
     @classmethod
-    async def insert(cls, data: dict) -> Optional[AsyncAttachment]:
+    async def insert(cls, data: dict, /, *,
+                     suppress_events: bool = False,
+                     parallel_events: bool = False) -> Optional[AsyncAttachment]:
         # """Redefined for better LSP support."""
-        return await super().insert(data)
+        if not suppress_events:
+            await cls.invoke_hooks('before_insert', data, parallel_events=parallel_events)
+        val = await super().insert(data, suppress_events=True) # no duplicate events
+        if not suppress_events:
+            await cls.invoke_hooks('after_insert', data, val, parallel_events=parallel_events)
+        return val

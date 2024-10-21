@@ -106,6 +106,30 @@ class ModelProtocol(Protocol):
         """Dict for storing model data."""
         ...
 
+    @classmethod
+    def add_hook(cls, event: str, hook: Callable):
+        """Add the hook for the event."""
+        ...
+
+    @classmethod
+    def remove_hook(cls, event: str, hook: Callable):
+        """Remove the hook for the event."""
+        ...
+
+    @classmethod
+    def clear_hooks(cls, event: str = None):
+        """Remove all hooks for an event. If no event is specified,
+            clear all hooks for all events.
+        """
+        ...
+
+    @classmethod
+    def invoke_hooks(cls, event: str, *args, **kwargs):
+        """Invoke the hooks for the event, passing cls, *args, and
+            **kwargs.
+        """
+        ...
+
     def __hash__(self) -> int:
         """Allow inclusion in sets."""
         ...

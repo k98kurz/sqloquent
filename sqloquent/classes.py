@@ -847,6 +847,8 @@ class SqlModel:
     @classmethod
     def add_hook(cls, event: str, hook: Callable):
         """Add the hook for the event."""
+        if cls is not SqlModel and cls._event_hooks is SqlModel._event_hooks:
+            cls._event_hooks = {} # give each class its own event hooks dict
         if event not in cls._event_hooks:
             cls._event_hooks[event] = []
         if hook not in cls._event_hooks[event]:
@@ -855,23 +857,33 @@ class SqlModel:
     @classmethod
     def remove_hook(cls, event: str, hook: Callable):
         """Remove the hook for the event."""
+        if cls is not SqlModel and cls._event_hooks is SqlModel._event_hooks:
+            cls._event_hooks = {} # give each class its own event hooks dict
         if event not in cls._event_hooks:
             return
         if hook in cls._event_hooks[event]:
             cls._event_hooks[event].remove(hook)
 
     @classmethod
-    def clear_hooks(cls, event: str):
-        """Remove all hooks for an event."""
+    def clear_hooks(cls, event: str = None):
+        """Remove all hooks for an event. If no event is specified,
+            clear all hooks for all events.
+        """
+        if cls is not SqlModel and cls._event_hooks is SqlModel._event_hooks:
+            cls._event_hooks = {} # give each class its own event hooks dict
+        if event is None:
+            return cls._event_hooks.clear()
         if event not in cls._event_hooks:
             return
         del cls._event_hooks[event]
 
     @classmethod
     def invoke_hooks(cls, event: str, *args, **kwargs):
-        """Invoke the hooks for the event, passing args and kwargs."""
+        """Invoke the hooks for the event, passing cls, *args, and
+            **kwargs.
+        """
         for hook in cls._event_hooks.get(event, []):
-            hook(*args, **kwargs)
+            hook(cls, *args, **kwargs)
 
     @staticmethod
     def create_property(name) -> property:
@@ -1075,22 +1087,29 @@ class DeletedModel(SqlModel):
         super().__init__(data)
 
     @classmethod
-    def insert(cls, data: dict) -> SqlModel | None:
+    def insert(cls, data: dict, /, *, suppress_events: bool = False) -> SqlModel | None:
+        if not suppress_events:
+            cls.invoke_hooks('before_insert', data)
         if 'timestamp' not in data:
             data['timestamp'] = str(int(time()))
-        return super().insert(data)
+        val = super().insert(data, suppress_events=True) # no duplicate events
+        if not suppress_events:
+            cls.invoke_hooks('after_insert', data, val)
+        return val
 
-    def restore(self, inject: dict = {}) -> SqlModel:
+    def restore(self, inject: dict = {}, /, *, suppress_events: bool = False) -> SqlModel:
         """Restore a deleted record, remove from deleted_records, and
             return the restored model. Raises ValueError if model_class
             cannot be found. Raises TypeError if model_class is not a
             subclass of SqlModel. Uses packify.unpack to unpack the
             record. Raises TypeError if packed record is not a dict.
         """
+        if not suppress_events:
+            self.invoke_hooks('before_restore', self, inject)
         dependencies = {**globals(), **inject}
         vert(self.data['model_class'] in dependencies,
             'model_class must be accessible')
-        model_class = dependencies[self.data['model_class']]
+        model_class: type[SqlModel] = dependencies[self.data['model_class']]
         tert(issubclass(model_class, SqlModel),
             'related_model must inherit from SqlModel')
 
@@ -1102,6 +1121,9 @@ class DeletedModel(SqlModel):
 
         model = model_class.insert(decoded)
         self.delete()
+
+        if not suppress_events:
+            self.invoke_hooks('after_restore', self, inject, model)
 
         return model
 
@@ -1133,30 +1155,40 @@ class HashedModel(SqlModel):
         return sha256(preimage).digest().hex()
 
     @classmethod
-    def insert(cls, data: dict) -> Optional[HashedModel]:
+    def insert(cls, data: dict, /, *, suppress_events: bool = False) -> Optional[HashedModel]:
         """Insert a new record to the datastore. Return instance. Raises
             TypeError for non-dict data or unencodable type (calls
             cls.generate_id, which calls packify.pack).
         """
+        if not suppress_events:
+            cls.invoke_hooks('before_insert', data)
         tert(isinstance(data, dict), 'data must be dict')
         data[cls.id_column] = cls.generate_id(data)
 
-        return cls.query().insert(data)
+        val = cls.query().insert(data)
+        if not suppress_events:
+            cls.invoke_hooks('after_insert', data, val)
+        return val
 
     @classmethod
-    def insert_many(cls, items: list[dict]) -> int:
+    def insert_many(cls, items: list[dict], /, *, suppress_events: bool = False) -> int:
         """Insert a batch of records and return the number of items
             inserted. Raises TypeError for invalid items or unencodable
             value (calls cls.generate_id, which calls packify.pack).
         """
+        if not suppress_events:
+            cls.invoke_hooks('before_insert_many', items)
         tert(isinstance(items, list), 'items must be type list[dict]')
         for item in items:
             tert(isinstance(item, dict), 'items must be type list[dict]')
             item[cls.id_column] = cls.generate_id(item)
 
-        return cls.query().insert_many(items)
+        vals = cls.query().insert_many(items)
+        if not suppress_events:
+            cls.invoke_hooks('before_insert_many', items, vals)
+        return vals
 
-    def update(self, updates: dict) -> HashedModel:
+    def update(self, updates: dict, /, *, suppress_events: bool = False) -> HashedModel:
         """Persist the specified changes to the datastore, creating a
             new record in the process unless the changes were to the
             hash-excluded columns. Update and return self in monad
@@ -1164,6 +1196,8 @@ class HashedModel(SqlModel):
             Did not need to overwrite the save method because save calls
             update or insert.
         """
+        if not suppress_events:
+            self.invoke_hooks('before_update', self, updates)
         tert(type(updates) is dict, 'updates must be dict')
 
         # merge data into updates
@@ -1177,6 +1211,8 @@ class HashedModel(SqlModel):
         # insert new record and return
         if not self.data[self.id_column]:
             instance = self.insert(updates)
+            if not suppress_events:
+                self.invoke_hooks('after_update', self, updates)
             self.data = instance.data
             return self
 
@@ -1186,17 +1222,23 @@ class HashedModel(SqlModel):
             instance = self.insert(updates)
             self.delete()
             self.data = instance.data
+            if not suppress_events:
+                self.invoke_hooks('after_update', self, updates)
             return self
 
         # update uncommitted value and return
         self.query({self.id_column: self.id}).update(updates)
+        if not suppress_events:
+            self.invoke_hooks('after_update', self, updates)
         return self
 
-    def delete(self) -> DeletedModel:
+    def delete(self, /, *, suppress_events: bool = False) -> DeletedModel:
         """Delete the model, putting it in the deleted_records table,
             then return the DeletedModel. Raises packify.UsageError for
             unserializable data.
         """
+        if not suppress_events:
+            self.invoke_hooks('before_delete', self)
         model_class = self.__class__.__name__
         record_id = self.data[self.id_column]
         record = packify.pack(self.data)
@@ -1204,8 +1246,10 @@ class HashedModel(SqlModel):
             'model_class': model_class,
             'record_id': record_id,
             'record': record
-        })
-        super().delete()
+        }, suppress_events=suppress_events)
+        super().delete(suppress_events=True) # no duplicate events
+        if not suppress_events:
+            self.invoke_hooks('after_delete', self, deleted)
         return deleted
 
 
@@ -1256,6 +1300,11 @@ class Attachment(HashedModel):
         return self
 
     @classmethod
-    def insert(cls, data: dict) -> Optional[Attachment]:
-        """Redefined for better LSP support."""
-        return super().insert(data)
+    def insert(cls, data: dict, /, *, suppress_events: bool = False) -> Optional[Attachment]:
+        # """Redefined for better LSP support."""
+        if not suppress_events:
+            cls.invoke_hooks('before_insert', data)
+        val = super().insert(data, suppress_events=True) # no duplicate events
+        if not suppress_events:
+            cls.invoke_hooks('after_insert', data, val)
+        return val

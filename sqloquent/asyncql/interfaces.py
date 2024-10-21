@@ -15,6 +15,7 @@ from types import TracebackType
 from typing import (
     Any,
     AsyncGenerator,
+    Callable,
     Iterable,
     Optional,
     Protocol,
@@ -104,6 +105,32 @@ class AsyncModelProtocol(Protocol):
         """Dict for storing model data."""
         ...
 
+    @classmethod
+    def add_hook(cls, event: str, hook: Callable):
+        """Add the hook for the event."""
+        ...
+
+    @classmethod
+    def remove_hook(cls, event: str, hook: Callable):
+        """Remove the hook for the event."""
+        ...
+
+    @classmethod
+    def clear_hooks(cls, event: str = None):
+        """Remove all hooks for an event. If no event is specified,
+            clear all hooks for all events.
+        """
+        ...
+
+    @classmethod
+    def invoke_hooks(cls, event: str, *args, **kwargs):
+        """Invoke the hooks for the event, passing cls, *args, and
+            **kwargs. if parallel_hooks=True is passed in the kwargs,
+            all coroutines returned from hooks will be awaited
+            concurrently (with `asyncio.gather`) after non-async hooks
+            have executed; otherwise, each will be waited individually.
+        """
+        ...
     def __hash__(self) -> int:
         """Allow inclusion in sets."""
         ...

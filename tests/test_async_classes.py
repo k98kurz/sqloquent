@@ -49,6 +49,10 @@ class TestClasses(unittest.TestCase):
 
     def tearDown(self) -> None:
         """Close cursor and delete test database."""
+        async_classes.AsyncSqlModel.clear_hooks()
+        async_classes.AsyncHashedModel.clear_hooks()
+        async_classes.AsyncDeletedModel.clear_hooks()
+        async_classes.AsyncAttachment.clear_hooks()
         q = "select name from sqlite_master where type='table'"
         run(self.cursor.execute(q))
         results = run(self.cursor.fetchall())
@@ -266,7 +270,7 @@ class TestClasses(unittest.TestCase):
         assert len(log) == 0
         run(async_classes.AsyncSqlModel.invoke_hooks('test', 1, 2, three=3))
         assert len(log) == 1, log
-        assert log[0][0] == (1, 2), log
+        assert log[0][0] == (async_classes.AsyncSqlModel, 1, 2), log
         assert log[0][1] == {'three': 3}, log
         async_classes.AsyncSqlModel.remove_hook('test', addlog)
         log.pop()
@@ -1398,6 +1402,72 @@ class TestClasses(unittest.TestCase):
         same = run(HashedSubclass.find(original.id))
         assert same.column2 == 'something else', same
 
+    def test_AsyncHashedModel_event_hooks(self):
+        log = []
+        def addlog(*args, **kwargs):
+            log.append((args, kwargs))
+        count = 0
+        def next_details():
+            nonlocal count
+            count += 1
+            return f'test {count}'
+
+        # insert
+        async_classes.AsyncHashedModel.add_hook('before_insert', addlog)
+        async_classes.AsyncHashedModel.add_hook('after_insert', addlog)
+        assert len(log) == 0, 'invalid test precondition'
+        run(async_classes.AsyncHashedModel.insert({'details': next_details()}))
+        assert len(log) == 2
+        run(async_classes.AsyncHashedModel.insert({'details': next_details()}, suppress_events=True))
+        assert len(log) == 2
+        async_classes.AsyncHashedModel.clear_hooks('before_insert')
+        async_classes.AsyncHashedModel.clear_hooks('after_insert')
+        run(async_classes.AsyncHashedModel.insert({'details': next_details()}))
+        assert len(log) == 2
+        log.clear()
+
+        # insert many
+        async_classes.AsyncHashedModel.add_hook('before_insert_many', addlog)
+        async_classes.AsyncHashedModel.add_hook('after_insert_many', addlog)
+        assert len(log) == 0, 'invalid test precondition'
+        run(async_classes.AsyncHashedModel.insert_many([{'details': next_details()}]))
+        assert len(log) == 2
+        run(async_classes.AsyncHashedModel.insert_many([{'details': next_details()}], suppress_events=True))
+        assert len(log) == 2
+        async_classes.AsyncHashedModel.clear_hooks('before_insert_many')
+        async_classes.AsyncHashedModel.clear_hooks('after_insert_many')
+        run(async_classes.AsyncHashedModel.insert_many([{'details': next_details()}]))
+        assert len(log) == 2
+        log.clear()
+
+        # update
+        model = run(async_classes.AsyncHashedModel.query().order_by('details').first())
+        async_classes.AsyncHashedModel.add_hook('before_update', addlog)
+        async_classes.AsyncHashedModel.add_hook('after_update', addlog)
+        assert len(log) == 0, 'invalid test precondition'
+        model = run(model.update({'details': next_details()}))
+        assert len(log) == 2, len(log)
+        model = run(model.update({'details': next_details()}, suppress_events=True))
+        assert len(log) == 2, len(log)
+        async_classes.AsyncHashedModel.clear_hooks('before_update')
+        async_classes.AsyncHashedModel.clear_hooks('after_update')
+        model = run(model.update({'details': next_details()}))
+        assert len(log) == 2, len(log)
+        log.clear()
+
+        # delete
+        async_classes.AsyncHashedModel.add_hook('before_delete', addlog)
+        async_classes.AsyncHashedModel.add_hook('after_delete', addlog)
+        assert len(log) == 0, 'invalid test precondition'
+        run(run(async_classes.AsyncHashedModel.query().first()).delete())
+        assert len(log) == 2, len(log)
+        run(run(async_classes.AsyncHashedModel.query().first()).delete(suppress_events=True))
+        assert len(log) == 2, len(log)
+        async_classes.AsyncHashedModel.clear_hooks()
+        run(run(async_classes.AsyncHashedModel.query().first()).delete())
+        assert len(log) == 2, len(log)
+
+
     # AsyncDeletedModel tests
     def test_AsyncDeletedModel_issubclass_of_SqlModel(self):
         assert issubclass(async_classes.AsyncDeletedModel, async_classes.AsyncSqlModel)
@@ -1450,6 +1520,44 @@ class TestClasses(unittest.TestCase):
         with self.assertRaises(TypeError) as e:
             run(deleted.restore())
         assert str(e.exception) == 'related_model must inherit from AsyncSqlModel'
+
+    def test_AsyncDeletedModel_event_hooks(self):
+        log = []
+        def make_handler(name):
+            def addlog(cls, *args, **kwargs):
+                log.append((name, args, kwargs))
+            return addlog
+
+        # insert
+        async_classes.AsyncDeletedModel.add_hook('before_insert', make_handler('before_insert'))
+        async_classes.AsyncDeletedModel.add_hook('after_insert', make_handler('after_insert'))
+        model = run(async_classes.AsyncHashedModel.insert({'details': 'test'}))
+        assert len(log) == 0, 'invalid test precondition'
+        deleted = run(model.delete())
+        assert len(log) == 2, '\n'.join([repr(l) for l in log])
+        model: async_classes.AsyncHashedModel = run(deleted.restore())
+        deleted = run(model.delete(suppress_events=True))
+        assert len(log) == 2, '\n'.join([repr(l) for l in log])
+        model = run(deleted.restore())
+        async_classes.AsyncDeletedModel.clear_hooks()
+        deleted = run(model.delete())
+        assert len(log) == 2, '\n'.join([repr(l) for l in log])
+        log.clear()
+
+        # restore
+        async_classes.AsyncDeletedModel.add_hook('before_restore', make_handler('before_restore'))
+        async_classes.AsyncDeletedModel.add_hook('after_restore', make_handler('after_restore'))
+        assert len(log) == 0, 'invalid test precondition'
+        model = run(deleted.restore())
+        assert len(log) == 2
+        deleted = run(model.delete())
+        model = run(deleted.restore(suppress_events=True))
+        assert len(log) == 2
+        deleted = run(model.delete())
+        async_classes.AsyncDeletedModel.clear_hooks()
+        model = run(deleted.restore())
+        assert len(log) == 2
+        async_classes.AsyncDeletedModel.clear_hooks()
 
 
     # AsyncAttachment tests
@@ -1522,6 +1630,36 @@ class TestClasses(unittest.TestCase):
 
         related = run(attachment.related(True))
         assert isinstance(related, async_classes.AsyncSqlModel)
+
+    def test_AsyncAttachment_insert_event_hook(self):
+        log = []
+        def make_handler(name):
+            def addlog(cls, *args, **kwargs):
+                log.append((name, args, kwargs))
+            return addlog
+
+        async_classes.AsyncAttachment.add_hook('before_insert', make_handler('before_insert'))
+        async_classes.AsyncAttachment.add_hook('after_insert', make_handler('before_insert'))
+        assert len(log) == 0, 'invalid test precondition'
+        run(async_classes.AsyncAttachment.insert({
+            'related_model': 'HashedModel',
+            'related_id': 'abcdef',
+            'details': 'something testy'
+        }))
+        assert len(log) == 2, len(log)
+        run(async_classes.AsyncAttachment.insert({
+            'related_model': 'HashedModel',
+            'related_id': 'abcdef',
+            'details': 'something testy2'
+        }, suppress_events=True))
+        assert len(log) == 2, len(log)
+        async_classes.AsyncAttachment.clear_hooks()
+        run(async_classes.AsyncAttachment.insert({
+            'related_model': 'HashedModel',
+            'related_id': 'abcdef',
+            'details': 'something testy3'
+        }))
+        assert len(log) == 2, len(log)
 
 
 if __name__ == '__main__':
