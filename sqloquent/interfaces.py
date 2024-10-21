@@ -122,30 +122,31 @@ class ModelProtocol(Protocol):
         ...
 
     @classmethod
-    def insert(cls, data: dict) -> Optional[ModelProtocol]:
+    def insert(cls, data: dict, /, *, suppress_events: bool = False) -> Optional[ModelProtocol]:
         """Insert a new record to the datastore. Return instance."""
         ...
 
     @classmethod
-    def insert_many(cls, items: list[dict]) -> int:
+    def insert_many(cls, items: list[dict], /, *, suppress_events: bool = False) -> int:
         """Insert a batch of records and return the number of items inserted."""
         ...
 
-    def update(self, updates: dict, conditions: dict = None) -> ModelProtocol:
+    def update(self, updates: dict, conditions: dict = None, /, *,
+               suppress_events: bool = False) -> ModelProtocol:
         """Persist the specified changes to the datastore. Return self
             in monad pattern.
         """
         ...
 
-    def save(self) -> ModelProtocol:
+    def save(self, /, *, suppress_events: bool = False) -> ModelProtocol:
         """Persist to the datastore. Return self in monad pattern."""
         ...
 
-    def delete(self) -> None:
+    def delete(self, /, *, suppress_events: bool = False) -> None:
         """Delete the record."""
         ...
 
-    def reload(self) -> ModelProtocol:
+    def reload(self, /, *, suppress_events: bool = False) -> ModelProtocol:
         """Reload values from datastore. Return self in monad pattern."""
         ...
 

@@ -285,7 +285,9 @@ class TestClasses(unittest.TestCase):
         async_classes.AsyncSqlModel.add_hook('after_insert', addlog)
         run(async_classes.AsyncSqlModel.insert({'name': 'foobar'}))
         assert len(log) == 2, log
-        log.pop(); log.pop()
+        run(async_classes.AsyncSqlModel.insert({'name': 'foobar'}, suppress_events = True))
+        assert len(log) == 2, log
+        log.clear()
         async_classes.AsyncSqlModel.remove_hook('before_insert', addlog)
         async_classes.AsyncSqlModel.remove_hook('after_insert', addlog)
 
@@ -296,7 +298,9 @@ class TestClasses(unittest.TestCase):
         async_classes.AsyncSqlModel.add_hook('after_insert_many', addlog)
         run(async_classes.AsyncSqlModel.insert_many([{'name': 'foobar'}]))
         assert len(log) == 2, log
-        log.pop(); log.pop()
+        run(async_classes.AsyncSqlModel.insert_many([{'name': 'foobar'}], suppress_events = True))
+        assert len(log) == 2, log
+        log.clear()
         async_classes.AsyncSqlModel.remove_hook('before_insert_many', addlog)
         async_classes.AsyncSqlModel.remove_hook('after_insert_many', addlog)
 
@@ -308,7 +312,9 @@ class TestClasses(unittest.TestCase):
         async_classes.AsyncSqlModel.add_hook('after_update', addlog)
         run(item.update({'name': 'foobar'}))
         assert len(log) == 2, log
-        log.pop(); log.pop()
+        run(item.update({'name': 'foobar'}, suppress_events = True))
+        assert len(log) == 2, log
+        log.clear()
         async_classes.AsyncSqlModel.remove_hook('before_update', addlog)
         async_classes.AsyncSqlModel.remove_hook('after_update', addlog)
 
@@ -321,7 +327,9 @@ class TestClasses(unittest.TestCase):
         async_classes.AsyncSqlModel.add_hook('after_delete', addlog)
         run(item.delete())
         assert len(log) == 2, log
-        log.pop(); log.pop()
+        run(item.delete(suppress_events = True))
+        assert len(log) == 2, log
+        log.clear()
         async_classes.AsyncSqlModel.remove_hook('before_delete', addlog)
         async_classes.AsyncSqlModel.remove_hook('after_delete', addlog)
 
@@ -334,7 +342,9 @@ class TestClasses(unittest.TestCase):
         async_classes.AsyncSqlModel.add_hook('after_reload', addlog)
         run(item.reload())
         assert len(log) == 2, log
-        log.pop(); log.pop()
+        run(item.reload(suppress_events = True))
+        assert len(log) == 2, log
+        log.clear()
         async_classes.AsyncSqlModel.remove_hook('before_reload', addlog)
         async_classes.AsyncSqlModel.remove_hook('after_reload', addlog)
 

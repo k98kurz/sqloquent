@@ -120,30 +120,33 @@ class AsyncModelProtocol(Protocol):
         ...
 
     @classmethod
-    async def insert(cls, data: dict) -> Optional[AsyncModelProtocol]:
+    async def insert(cls, data: dict, /, *,
+                     suppress_events: bool = False) -> Optional[AsyncModelProtocol]:
         """Insert a new record to the datastore. Return instance."""
         ...
 
     @classmethod
-    async def insert_many(cls, items: list[dict]) -> int:
+    async def insert_many(cls, items: list[dict], /, *,
+                          suppress_events: bool = False) -> int:
         """Insert a batch of records and return the number of items inserted."""
         ...
 
-    async def update(self, updates: dict, conditions: dict = None) -> AsyncModelProtocol:
+    async def update(self, updates: dict, conditions: dict = None, /, *,
+                     suppress_events: bool = False) -> AsyncModelProtocol:
         """Persist the specified changes to the datastore. Return self
             in monad pattern.
         """
         ...
 
-    async def save(self) -> AsyncModelProtocol:
+    async def save(self, /, *, suppress_events: bool = False) -> AsyncModelProtocol:
         """Persist to the datastore. Return self in monad pattern."""
         ...
 
-    async def delete(self) -> None:
+    async def delete(self, /, *, suppress_events: bool = False) -> None:
         """Delete the record."""
         ...
 
-    async def reload(self) -> AsyncModelProtocol:
+    async def reload(self, /, *, suppress_events: bool = False) -> AsyncModelProtocol:
         """Reload values from datastore. Return self in monad pattern."""
         ...
 

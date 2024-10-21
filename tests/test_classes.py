@@ -285,7 +285,9 @@ class TestClasses(unittest.TestCase):
         classes.SqlModel.add_hook('after_insert', addlog)
         classes.SqlModel.insert({'name': 'foobar'})
         assert len(log) == 2, log
-        log.pop(); log.pop()
+        classes.SqlModel.insert({'name': 'foobar'}, suppress_events = True)
+        assert len(log) == 2, log
+        log.clear()
         classes.SqlModel.remove_hook('before_insert', addlog)
         classes.SqlModel.remove_hook('after_insert', addlog)
 
@@ -296,7 +298,9 @@ class TestClasses(unittest.TestCase):
         classes.SqlModel.add_hook('after_insert_many', addlog)
         classes.SqlModel.insert_many([{'name': 'foobar'}])
         assert len(log) == 2, log
-        log.pop(); log.pop()
+        classes.SqlModel.insert_many([{'name': 'foobar'}], suppress_events = True)
+        assert len(log) == 2, log
+        log.clear()
         classes.SqlModel.remove_hook('before_insert_many', addlog)
         classes.SqlModel.remove_hook('after_insert_many', addlog)
 
@@ -308,7 +312,9 @@ class TestClasses(unittest.TestCase):
         classes.SqlModel.add_hook('after_update', addlog)
         item.update({'name': 'foobar'})
         assert len(log) == 2, log
-        log.pop(); log.pop()
+        item.update({'name': 'foobar'}, suppress_events = True)
+        assert len(log) == 2, log
+        log.clear()
         classes.SqlModel.remove_hook('before_update', addlog)
         classes.SqlModel.remove_hook('after_update', addlog)
 
@@ -321,7 +327,9 @@ class TestClasses(unittest.TestCase):
         classes.SqlModel.add_hook('after_delete', addlog)
         item.delete()
         assert len(log) == 2, log
-        log.pop(); log.pop()
+        item.delete(suppress_events = True)
+        assert len(log) == 2, log
+        log.clear()
         classes.SqlModel.remove_hook('before_delete', addlog)
         classes.SqlModel.remove_hook('after_delete', addlog)
 
@@ -334,7 +342,9 @@ class TestClasses(unittest.TestCase):
         classes.SqlModel.add_hook('after_reload', addlog)
         item.reload()
         assert len(log) == 2, log
-        log.pop(); log.pop()
+        item.reload(suppress_events = True)
+        assert len(log) == 2, log
+        log.clear()
         classes.SqlModel.remove_hook('before_reload', addlog)
         classes.SqlModel.remove_hook('after_reload', addlog)
 
