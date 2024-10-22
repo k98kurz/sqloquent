@@ -879,7 +879,7 @@ class AsyncSqlModel:
         """Find a record by its id and return it. Return None if it does
             not exist.
         """
-        return await cls().query_builder_class(model=cls).find(id)
+        return await cls().query().find(id)
 
     @classmethod
     async def insert(cls, data: dict) -> Optional[AsyncSqlModel]:
@@ -890,7 +890,7 @@ class AsyncSqlModel:
         if cls.id_column not in data:
             data[cls.id_column] = cls.generate_id()
 
-        return await cls().query_builder_class(model=cls).insert(data)
+        return await cls().query().insert(data)
 
     @classmethod
     async def insert_many(cls, items: list[dict]) -> int:
@@ -903,7 +903,7 @@ class AsyncSqlModel:
             if cls.id_column not in item:
                 item[cls.id_column] = cls.generate_id()
 
-        return await cls().query_builder_class(model=cls).insert_many(items)
+        return await cls().query().insert_many(items)
 
     async def update(self, updates: dict, conditions: dict = None) -> AsyncSqlModel:
         """Persist the specified changes to the datastore. Return self

@@ -1,3 +1,8 @@
+## 0.4.7
+
+- Fix: fixed bugs with passing connection_info properly to query builder from
+`SqlModel` and `AsyncSqlModel`
+
 ## 0.4.6
 
 - Fix: corrected `HashedModel.update` and `AsyncHashedModel.update` to properly
