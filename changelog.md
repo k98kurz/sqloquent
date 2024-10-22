@@ -1,3 +1,7 @@
+## 0.5.0
+
+- Added event hook system to `SqlModel` and subclasses
+
 ## 0.4.6
 
 - Fix: corrected `HashedModel.update` and `AsyncHashedModel.update` to properly
