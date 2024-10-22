@@ -933,7 +933,7 @@ class AsyncSqlModel:
         """Find a record by its id and return it. Return None if it does
             not exist.
         """
-        return await cls().query_builder_class(model=cls).find(id)
+        return await cls().query().find(id)
 
     @classmethod
     async def insert(cls, data: dict, /, *, suppress_events: bool = False,
@@ -947,7 +947,7 @@ class AsyncSqlModel:
         if cls.id_column not in data:
             data[cls.id_column] = cls.generate_id()
 
-        val = await cls().query_builder_class(model=cls).insert(data)
+        val = await cls().query().insert(data)
         if not suppress_events:
             await cls.invoke_hooks('after_insert', data, parallel_events=parallel_events)
         return val
@@ -969,7 +969,7 @@ class AsyncSqlModel:
             if cls.id_column not in item:
                 item[cls.id_column] = cls.generate_id()
 
-        val = await cls().query_builder_class(model=cls).insert_many(items)
+        val = await cls().query().insert_many(items)
         if not suppress_events:
             await cls.invoke_hooks(
                 'after_insert_many', items, val, parallel_events=parallel_events

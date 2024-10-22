@@ -937,7 +937,7 @@ class SqlModel:
         """Find a record by its id and return it. Return None if it does
             not exist.
         """
-        return cls().query_builder_class(model=cls).find(id)
+        return cls().query().find(id)
 
     @classmethod
     def insert(cls, data: dict, /, *, suppress_events: bool = False) -> Optional[SqlModel]:
@@ -950,7 +950,7 @@ class SqlModel:
         if cls.id_column not in data:
             data[cls.id_column] = cls.generate_id()
 
-        val = cls().query_builder_class(model=cls).insert(data)
+        val = cls().query().insert(data)
         if not suppress_events:
             cls.invoke_hooks('after_insert', data, val)
         return val
@@ -968,7 +968,7 @@ class SqlModel:
             if cls.id_column not in item:
                 item[cls.id_column] = cls.generate_id()
 
-        val = cls().query_builder_class(model=cls).insert_many(items)
+        val = cls().query().insert_many(items)
         if not suppress_events:
             cls.invoke_hooks('after_insert_many', items, val)
         return val
