@@ -4,8 +4,8 @@
 
 ## 0.4.7
 
-- Fix: fixed bugs with passing connection_info properly to query builder from
-`SqlModel` and `AsyncSqlModel`
+- Patch: updated `SqlModel` and `AsyncSqlModel` thinking there was a bug, but
+there was not actually a bug .__.
 
 ## 0.4.6
 
