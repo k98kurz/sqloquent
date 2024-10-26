@@ -818,7 +818,7 @@ class SqlModel:
     query_builder_class: Type[QueryBuilderProtocol] = SqlQueryBuilder
     connection_info: str = ''
     data: dict
-    _event_hooks: dict[str, list[Callable]] = {}
+    _event_hooks: dict[str, list[Callable]] = {'class': 'SqlModel'}
 
     def __init__(self, data: dict = {}) -> None:
         """Initialize the instance. Raises TypeError or ValueError if
@@ -847,8 +847,8 @@ class SqlModel:
     @classmethod
     def add_hook(cls, event: str, hook: Callable):
         """Add the hook for the event."""
-        if cls is not SqlModel and cls._event_hooks is SqlModel._event_hooks:
-            cls._event_hooks = {} # give each class its own event hooks dict
+        if cls._event_hooks.get('class', None) != cls.__name__:
+            cls._event_hooks = {'class': cls.__name__} # give each class its own event hooks dict
         if event not in cls._event_hooks:
             cls._event_hooks[event] = []
         if hook not in cls._event_hooks[event]:
@@ -857,8 +857,8 @@ class SqlModel:
     @classmethod
     def remove_hook(cls, event: str, hook: Callable):
         """Remove the hook for the event."""
-        if cls is not SqlModel and cls._event_hooks is SqlModel._event_hooks:
-            cls._event_hooks = {} # give each class its own event hooks dict
+        if cls._event_hooks.get('class', None) != cls.__name__:
+            cls._event_hooks = {'class': cls.__name__} # give each class its own event hooks dict
         if event not in cls._event_hooks:
             return
         if hook in cls._event_hooks[event]:
@@ -869,8 +869,8 @@ class SqlModel:
         """Remove all hooks for an event. If no event is specified,
             clear all hooks for all events.
         """
-        if cls is not SqlModel and cls._event_hooks is SqlModel._event_hooks:
-            cls._event_hooks = {} # give each class its own event hooks dict
+        if cls._event_hooks.get('class', None) != cls.__name__:
+            cls._event_hooks = {'class': cls.__name__} # give each class its own event hooks dict
         if event is None:
             return cls._event_hooks.clear()
         if event not in cls._event_hooks:
@@ -882,6 +882,8 @@ class SqlModel:
         """Invoke the hooks for the event, passing cls, *args, and
             **kwargs.
         """
+        if cls._event_hooks.get('class', None) != cls.__name__:
+            cls._event_hooks = {'class': cls.__name__} # give each class its own event hooks dict
         for hook in cls._event_hooks.get(event, []):
             hook(cls, *args, **kwargs)
 

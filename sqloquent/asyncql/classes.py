@@ -803,7 +803,7 @@ class AsyncSqlModel:
     query_builder_class: Type[AsyncQueryBuilderProtocol] = AsyncSqlQueryBuilder
     connection_info: str = ''
     data: dict
-    _event_hooks: dict[str, list[Callable]] = {}
+    _event_hooks: dict[str, list[Callable]] = {'class': 'AsyncSqlModel'}
 
     def __init__(self, data: dict = {}) -> None:
         """Initialize the instance. Raises TypeError or ValueError if
@@ -832,8 +832,8 @@ class AsyncSqlModel:
     @classmethod
     def add_hook(cls, event: str, hook: Callable):
         """Add the hook for the event."""
-        if cls is not AsyncSqlModel and cls._event_hooks is AsyncSqlModel._event_hooks:
-            cls._event_hooks = {} # give each class its own event hooks dict
+        if cls._event_hooks.get('class', None) != cls.__name__:
+            cls._event_hooks = {f'class': cls.__name__} # give each class its own event hooks dict
         if event not in cls._event_hooks:
             cls._event_hooks[event] = []
         if hook not in cls._event_hooks[event]:
@@ -842,8 +842,8 @@ class AsyncSqlModel:
     @classmethod
     def remove_hook(cls, event: str, hook: Callable):
         """Remove the hook for the event."""
-        if cls is not AsyncSqlModel and cls._event_hooks is AsyncSqlModel._event_hooks:
-            cls._event_hooks = {} # give each class its own event hooks dict
+        if cls._event_hooks.get('class', None) != cls.__name__:
+            cls._event_hooks = {f'class': cls.__name__} # give each class its own event hooks dict
         if event not in cls._event_hooks:
             return
         if hook in cls._event_hooks[event]:
@@ -854,8 +854,8 @@ class AsyncSqlModel:
         """Remove all hooks for an event. If no event is specified,
             clear all hooks for all events.
         """
-        if cls is not AsyncSqlModel and cls._event_hooks is AsyncSqlModel._event_hooks:
-            cls._event_hooks = {} # give each class its own event hooks dict
+        if cls._event_hooks.get('class', None) != cls.__name__:
+            cls._event_hooks = {f'class': cls.__name__} # give each class its own event hooks dict
         if event is None:
             return cls._event_hooks.clear()
         if event not in cls._event_hooks:
@@ -870,6 +870,8 @@ class AsyncSqlModel:
             concurrently (with `asyncio.gather`) after non-async hooks
             have executed; otherwise, each will be waited individually.
         """
+        if cls._event_hooks.get('class', None) != cls.__name__:
+            cls._event_hooks = {f'class': cls.__name__} # give each class its own event hooks dict
         cors = []
         for hook in cls._event_hooks.get(event, []):
             val = hook(cls, *args, **kwargs)

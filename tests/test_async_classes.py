@@ -16,7 +16,7 @@ async def connect(path):
     return await aiosqlite.connect(path)
 
 
-class TestClasses(unittest.TestCase):
+class TestAsyncClasses(unittest.TestCase):
     db: aiosqlite.Connection = None
     cursor: aiosqlite.Cursor = None
 
@@ -1412,7 +1412,13 @@ class TestClasses(unittest.TestCase):
             count += 1
             return f'test {count}'
 
-        # insert
+        class HashedSubclass(async_classes.AsyncHashedModel):
+            table = 'hashed_subclass'
+            columns = ('id', 'column1', 'column2')
+            column1: str
+            column2: str
+
+        # insert; no event on subclass
         async_classes.AsyncHashedModel.add_hook('before_insert', addlog)
         async_classes.AsyncHashedModel.add_hook('after_insert', addlog)
         assert len(log) == 0, 'invalid test precondition'
@@ -1420,9 +1426,27 @@ class TestClasses(unittest.TestCase):
         assert len(log) == 2
         run(async_classes.AsyncHashedModel.insert({'details': next_details()}, suppress_events=True))
         assert len(log) == 2
+        run(HashedSubclass.insert({'column1': next_details()}))
+        assert len(log) == 2, len(log)
         async_classes.AsyncHashedModel.clear_hooks('before_insert')
         async_classes.AsyncHashedModel.clear_hooks('after_insert')
         run(async_classes.AsyncHashedModel.insert({'details': next_details()}))
+        assert len(log) == 2
+        log.clear()
+
+        # insert; event on subclass only
+        HashedSubclass.add_hook('before_insert', addlog)
+        HashedSubclass.add_hook('after_insert', addlog)
+        assert len(log) == 0, 'invalid test precondition'
+        run(async_classes.AsyncHashedModel.insert({'column1': next_details()}))
+        assert len(log) == 0
+        run(HashedSubclass.insert({'column1': next_details()}))
+        assert len(log) == 2
+        run(HashedSubclass.insert({'column1': next_details()}, suppress_events=True))
+        assert len(log) == 2
+        HashedSubclass.clear_hooks('before_insert')
+        HashedSubclass.clear_hooks('after_insert')
+        run(HashedSubclass.insert({'column1': next_details()}))
         assert len(log) == 2
         log.clear()
 

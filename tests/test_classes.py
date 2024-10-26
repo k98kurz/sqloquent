@@ -1398,7 +1398,13 @@ class TestClasses(unittest.TestCase):
             count += 1
             return f'test {count}'
 
-        # insert
+        class HashedSubclass(classes.HashedModel):
+            table = 'hashed_subclass'
+            columns = ('id', 'column1', 'column2')
+            column1: str
+            column2: str
+
+        # insert; no event on subclass
         classes.HashedModel.add_hook('before_insert', addlog)
         classes.HashedModel.add_hook('after_insert', addlog)
         assert len(log) == 0, 'invalid test precondition'
@@ -1406,9 +1412,27 @@ class TestClasses(unittest.TestCase):
         assert len(log) == 2
         classes.HashedModel.insert({'details': next_details()}, suppress_events=True)
         assert len(log) == 2
+        HashedSubclass.insert({'column1': next_details()})
+        assert len(log) == 2, len(log)
         classes.HashedModel.clear_hooks('before_insert')
         classes.HashedModel.clear_hooks('after_insert')
         classes.HashedModel.insert({'details': next_details()})
+        assert len(log) == 2
+        log.clear()
+
+        # insert; event on subclass only
+        HashedSubclass.add_hook('before_insert', addlog)
+        HashedSubclass.add_hook('after_insert', addlog)
+        assert len(log) == 0, 'invalid test precondition'
+        classes.HashedModel.insert({'details': next_details()})
+        assert len(log) == 0
+        HashedSubclass.insert({'column1': next_details()})
+        assert len(log) == 2
+        HashedSubclass.insert({'column1': next_details()}, suppress_events=True)
+        assert len(log) == 2
+        HashedSubclass.clear_hooks('before_insert')
+        HashedSubclass.clear_hooks('after_insert')
+        HashedSubclass.insert({'column1': next_details()})
         assert len(log) == 2
         log.clear()
 
