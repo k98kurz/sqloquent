@@ -20,6 +20,7 @@ General model for mapping a SQL row to an in-memory object.
 - query_builder_class: Type[QueryBuilderProtocol]
 - connection_info: str
 - data: dict
+- _event_hooks: dict[str, list[Callable]]
 
 #### Methods
 
@@ -42,6 +43,23 @@ other.data (calls cls.__hash__ which calls packify.pack).
 
 Pretty str representation.
 
+##### `@classmethod add_hook(event: str, hook: Callable):`
+
+Add the hook for the event.
+
+##### `@classmethod remove_hook(event: str, hook: Callable):`
+
+Remove the hook for the event.
+
+##### `@classmethod clear_hooks(event: str = None):`
+
+Remove all hooks for an event. If no event is specified, clear all hooks for all
+events.
+
+##### `@classmethod invoke_hooks(event: str):`
+
+Invoke the hooks for the event, passing cls, *args, and **kwargs.
+
 ##### `@staticmethod create_property() -> property:`
 
 Create a dynamic property for the column with the given name.
@@ -58,32 +76,32 @@ Generates and returns a hexadecimal UUID4.
 
 Find a record by its id and return it. Return None if it does not exist.
 
-##### `@classmethod insert(data: dict) -> Optional[SqlModel]:`
+##### `@classmethod insert(data: dict, /, *, suppress_events: bool = False) -> Optional[SqlModel]:`
 
 Insert a new record to the datastore. Return instance. Raises TypeError if data
 is not a dict.
 
-##### `@classmethod insert_many(items: list[dict]) -> int:`
+##### `@classmethod insert_many(items: list[dict], /, *, suppress_events: bool = False) -> int:`
 
 Insert a batch of records and return the number of items inserted. Raises
 TypeError if items is not list[dict].
 
-##### `update(updates: dict, conditions: dict = None) -> SqlModel:`
+##### `update(updates: dict, conditions: dict = None, /, *, suppress_events: bool = False) -> SqlModel:`
 
 Persist the specified changes to the datastore. Return self in monad pattern.
 Raises TypeError or ValueError for invalid updates or conditions (self.data must
 include the id to update or conditions must be specified).
 
-##### `save() -> SqlModel:`
+##### `save(/, *, suppress_events: bool = False) -> SqlModel:`
 
 Persist to the datastore. Return self in monad pattern. Calls insert or update
 and raises appropriate errors.
 
-##### `delete() -> None:`
+##### `delete(/, *, suppress_events: bool = False) -> None:`
 
 Delete the record.
 
-##### `reload() -> SqlModel:`
+##### `reload(/, *, suppress_events: bool = False) -> SqlModel:`
 
 Reload values from datastore. Return self in monad pattern. Raises UsageError if
 id is not set in self.data.
@@ -337,6 +355,7 @@ Model for preserving and restoring deleted HashedModel records.
 - query_builder_class: Type[QueryBuilderProtocol]
 - connection_info: str
 - data: dict
+- _event_hooks: dict[str, list[Callable]]
 - model_class: str
 - record_id: str
 - record: bytes
@@ -346,9 +365,12 @@ Model for preserving and restoring deleted HashedModel records.
 
 ##### `__init__(data: dict = {}) -> None:`
 
-##### `@classmethod insert(data: dict) -> SqlModel | None:`
+##### `@classmethod insert(data: dict, /, *, suppress_events: bool = False) -> SqlModel | None:`
 
-##### `restore(inject: dict = {}) -> SqlModel:`
+Insert a new record to the datastore. Return instance. Raises TypeError if data
+is not a dict. Automatically sets a timestamp if one is not supplied.
+
+##### `restore(inject: dict = {}, /, *, suppress_events: bool = False) -> SqlModel:`
 
 Restore a deleted record, remove from deleted_records, and return the restored
 model. Raises ValueError if model_class cannot be found. Raises TypeError if
@@ -369,6 +391,7 @@ Model for interacting with sql database using sha256 for id.
 - query_builder_class: Type[QueryBuilderProtocol]
 - connection_info: str
 - data: dict
+- _event_hooks: dict[str, list[Callable]]
 - columns_excluded_from_hash: tuple[str]
 - details: bytes
 
@@ -381,26 +404,26 @@ type (calls packify.pack). Any columns not present in the data dict will be set
 to None. Any columns in the columns_excluded_from_hash tuple will be excluded
 from the sha256 hash.
 
-##### `@classmethod insert(data: dict) -> Optional[HashedModel]:`
+##### `@classmethod insert(data: dict, /, *, suppress_events: bool = False) -> Optional[HashedModel]:`
 
 Insert a new record to the datastore. Return instance. Raises TypeError for
 non-dict data or unencodable type (calls cls.generate_id, which calls
 packify.pack).
 
-##### `@classmethod insert_many(items: list[dict]) -> int:`
+##### `@classmethod insert_many(items: list[dict], /, *, suppress_events: bool = False) -> int:`
 
 Insert a batch of records and return the number of items inserted. Raises
 TypeError for invalid items or unencodable value (calls cls.generate_id, which
 calls packify.pack).
 
-##### `update(updates: dict) -> HashedModel:`
+##### `update(updates: dict, /, *, suppress_events: bool = False) -> HashedModel:`
 
 Persist the specified changes to the datastore, creating a new record in the
 process unless the changes were to the hash-excluded columns. Update and return
 self in monad pattern. Raises TypeError or ValueError for invalid updates. Did
 not need to overwrite the save method because save calls update or insert.
 
-##### `delete() -> DeletedModel:`
+##### `delete(/, *, suppress_events: bool = False) -> DeletedModel:`
 
 Delete the model, putting it in the deleted_records table, then return the
 DeletedModel. Raises packify.UsageError for unserializable data.
@@ -419,6 +442,7 @@ Class for attaching immutable details to a record.
 - query_builder_class: Type[QueryBuilderProtocol]
 - connection_info: str
 - data: dict
+- _event_hooks: dict[str, list[Callable]]
 - columns_excluded_from_hash: tuple[str]
 - details: bytes | None
 - related_model: str
@@ -446,9 +470,7 @@ Set the details column using either supplied data or by packifying
 self._details. Return self in monad pattern. Raises packify.UsageError or
 TypeError if details contains unseriazliable type.
 
-##### `@classmethod insert(data: dict) -> Optional[Attachment]:`
-
-Redefined for better LSP support.
+##### `@classmethod insert(data: dict, /, *, suppress_events: bool = False) -> Optional[Attachment]:`
 
 ### `Row`
 
@@ -589,31 +611,48 @@ Allow inclusion in sets.
 
 Return True if types and hashes are equal, else False.
 
+##### `@classmethod add_hook(event: str, hook: Callable):`
+
+Add the hook for the event.
+
+##### `@classmethod remove_hook(event: str, hook: Callable):`
+
+Remove the hook for the event.
+
+##### `@classmethod clear_hooks(event: str = None):`
+
+Remove all hooks for an event. If no event is specified, clear all hooks for all
+events.
+
+##### `@classmethod invoke_hooks(event: str):`
+
+Invoke the hooks for the event, passing cls, *args, and **kwargs.
+
 ##### `@classmethod find(id: Any) -> Optional[ModelProtocol]:`
 
 Find a record by its id and return it. Return None if it does not exist.
 
-##### `@classmethod insert(data: dict) -> Optional[ModelProtocol]:`
+##### `@classmethod insert(data: dict, /, *, suppress_events: bool = False) -> Optional[ModelProtocol]:`
 
 Insert a new record to the datastore. Return instance.
 
-##### `@classmethod insert_many(items: list[dict]) -> int:`
+##### `@classmethod insert_many(items: list[dict], /, *, suppress_events: bool = False) -> int:`
 
 Insert a batch of records and return the number of items inserted.
 
-##### `update(updates: dict, conditions: dict = None) -> ModelProtocol:`
+##### `update(updates: dict, conditions: dict = None, /, *, suppress_events: bool = False) -> ModelProtocol:`
 
 Persist the specified changes to the datastore. Return self in monad pattern.
 
-##### `save() -> ModelProtocol:`
+##### `save(/, *, suppress_events: bool = False) -> ModelProtocol:`
 
 Persist to the datastore. Return self in monad pattern.
 
-##### `delete() -> None:`
+##### `delete(/, *, suppress_events: bool = False) -> None:`
 
 Delete the record.
 
-##### `reload() -> ModelProtocol:`
+##### `reload(/, *, suppress_events: bool = False) -> ModelProtocol:`
 
 Reload values from datastore. Return self in monad pattern.
 

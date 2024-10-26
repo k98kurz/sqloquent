@@ -474,9 +474,9 @@ class ModelB(SqlModel):
 
 #### Model Event Hooks
 
-As of v0.5.0, `SqlModel`, `HashedModel`, `DeletedModel`, `AsyncSqlModel`,
-`AsyncHashedModel`, and `AsyncDeletedModel` have an event hook system. Each has
-the following class methods:
+As of v0.5.0, `SqlModel`, `HashedModel`, `DeletedModel`, `Attachment`,
+`AsyncSqlModel`, `AsyncHashedModel`, `AsyncDeletedModel`, and `AsyncAttachment`
+have an event hook system. Each has the following class methods:
 
 - `add_hook(event: str, hook: Callable)`
 - `remove_hook(event: str, hook: Callable)`
@@ -486,6 +486,9 @@ the following class methods:
 The async version of `invoke_hooks` will detect when an event handler returns a
 coroutine and will await them if `parallel_events=True` is passed in (relevant
 other methods as described below have `parallel_events=False` default argument).
+Additionally, these methods contain checks to ensure that subclasses will have
+their own `_event_hooks` dictionary to avoid conflicts with parent classes (i.e.
+so that every class has its own unique event hooks).
 
 The following events are shared by all models:
 

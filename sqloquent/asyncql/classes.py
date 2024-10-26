@@ -1099,6 +1099,10 @@ class AsyncDeletedModel(AsyncSqlModel):
     async def insert(cls, data: dict, /, *,
                      suppress_events: bool = False,
                      parallel_events: bool = False) -> AsyncSqlModel | None:
+        """Insert a new record to the datastore. Return instance. Raises
+            TypeError if data is not a dict. Automatically sets a
+            timestamp if one is not supplied.
+        """
         if not suppress_events:
             await cls.invoke_hooks('before_insert', data, parallel_events=parallel_events)
         if 'timestamp' not in data:

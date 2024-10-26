@@ -97,31 +97,51 @@ Allow inclusion in sets.
 
 Return True if types and hashes are equal, else False.
 
+##### `@classmethod add_hook(event: str, hook: Callable):`
+
+Add the hook for the event.
+
+##### `@classmethod remove_hook(event: str, hook: Callable):`
+
+Remove the hook for the event.
+
+##### `@classmethod clear_hooks(event: str = None):`
+
+Remove all hooks for an event. If no event is specified, clear all hooks for all
+events.
+
+##### `@classmethod invoke_hooks(event: str):`
+
+Invoke the hooks for the event, passing cls, *args, and **kwargs. if
+parallel_hooks=True is passed in the kwargs, all coroutines returned from hooks
+will be awaited concurrently (with `asyncio.gather`) after non-async hooks have
+executed; otherwise, each will be waited individually.
+
 ##### `@classmethod async find(id: Any) -> Optional[AsyncModelProtocol]:`
 
 Find a record by its id and return it. Return None if it does not exist.
 
-##### `@classmethod async insert(data: dict) -> Optional[AsyncModelProtocol]:`
+##### `@classmethod async insert(data: dict, /, *, suppress_events: bool = False) -> Optional[AsyncModelProtocol]:`
 
 Insert a new record to the datastore. Return instance.
 
-##### `@classmethod async insert_many(items: list[dict]) -> int:`
+##### `@classmethod async insert_many(items: list[dict], /, *, suppress_events: bool = False) -> int:`
 
 Insert a batch of records and return the number of items inserted.
 
-##### `async update(updates: dict, conditions: dict = None) -> AsyncModelProtocol:`
+##### `async update(updates: dict, conditions: dict = None, /, *, suppress_events: bool = False) -> AsyncModelProtocol:`
 
 Persist the specified changes to the datastore. Return self in monad pattern.
 
-##### `async save() -> AsyncModelProtocol:`
+##### `async save(/, *, suppress_events: bool = False) -> AsyncModelProtocol:`
 
 Persist to the datastore. Return self in monad pattern.
 
-##### `async delete() -> None:`
+##### `async delete(/, *, suppress_events: bool = False) -> None:`
 
 Delete the record.
 
-##### `async reload() -> AsyncModelProtocol:`
+##### `async reload(/, *, suppress_events: bool = False) -> AsyncModelProtocol:`
 
 Reload values from datastore. Return self in monad pattern.
 
@@ -428,6 +448,7 @@ General model for mapping a SQL row to an in-memory object.
 - query_builder_class: Type[AsyncQueryBuilderProtocol]
 - connection_info: str
 - data: dict
+- _event_hooks: dict[str, list[Callable]]
 
 #### Methods
 
@@ -450,6 +471,26 @@ other.data (calls cls.__hash__ which calls packify.pack).
 
 Pretty str representation.
 
+##### `@classmethod add_hook(event: str, hook: Callable):`
+
+Add the hook for the event.
+
+##### `@classmethod remove_hook(event: str, hook: Callable):`
+
+Remove the hook for the event.
+
+##### `@classmethod clear_hooks(event: str = None):`
+
+Remove all hooks for an event. If no event is specified, clear all hooks for all
+events.
+
+##### `@classmethod async invoke_hooks(event: str):`
+
+Invoke the hooks for the event, passing cls, *args, and **kwargs. if
+parallel_hooks=True is passed in the kwargs, all coroutines returned from hooks
+will be awaited concurrently (with `asyncio.gather`) after non-async hooks have
+executed; otherwise, each will be waited individually.
+
 ##### `@staticmethod create_property() -> property:`
 
 Create a dynamic property for the column with the given name.
@@ -466,32 +507,32 @@ Generates and returns a hexadecimal UUID4.
 
 Find a record by its id and return it. Return None if it does not exist.
 
-##### `@classmethod async insert(data: dict) -> Optional[AsyncSqlModel]:`
+##### `@classmethod async insert(data: dict, /, *, parallel_events: bool = False, suppress_events: bool = False) -> Optional[AsyncSqlModel]:`
 
 Insert a new record to the datastore. Return instance. Raises TypeError if data
 is not a dict.
 
-##### `@classmethod async insert_many(items: list[dict]) -> int:`
+##### `@classmethod async insert_many(items: list[dict], /, *, parallel_events: bool = False, suppress_events: bool = False) -> int:`
 
 Insert a batch of records and return the number of items inserted. Raises
 TypeError if items is not list[dict].
 
-##### `async update(updates: dict, conditions: dict = None) -> AsyncSqlModel:`
+##### `async update(updates: dict, conditions: dict = None, /, *, parallel_events: bool = False, suppress_events: bool = False) -> AsyncSqlModel:`
 
 Persist the specified changes to the datastore. Return self in monad pattern.
 Raises TypeError or ValueError for invalid updates or conditions (self.data must
 include the id to update or conditions must be specified).
 
-##### `async save() -> AsyncSqlModel:`
+##### `async save(/, *, parallel_events: bool = False, suppress_events: bool = False) -> AsyncSqlModel:`
 
 Persist to the datastore. Return self in monad pattern. Calls insert or update
 and raises appropriate errors.
 
-##### `async delete() -> None:`
+##### `async delete(/, *, parallel_events: bool = False, suppress_events: bool = False) -> None:`
 
 Delete the record.
 
-##### `async reload() -> AsyncSqlModel:`
+##### `async reload(/, *, parallel_events: bool = False, suppress_events: bool = False) -> AsyncSqlModel:`
 
 Reload values from datastore. Return self in monad pattern. Raises UsageError if
 id is not set in self.data.
@@ -750,6 +791,7 @@ Model for preserving and restoring deleted AsyncHashedModel records.
 - query_builder_class: Type[AsyncQueryBuilderProtocol]
 - connection_info: str
 - data: dict
+- _event_hooks: dict[str, list[Callable]]
 - model_class: str
 - record_id: str
 - record: bytes
@@ -759,9 +801,12 @@ Model for preserving and restoring deleted AsyncHashedModel records.
 
 ##### `__init__(data: dict = {}) -> None:`
 
-##### `@classmethod async insert(data: dict) -> AsyncSqlModel | None:`
+##### `@classmethod async insert(data: dict, /, *, parallel_events: bool = False, suppress_events: bool = False) -> AsyncSqlModel | None:`
 
-##### `async restore(inject: dict = {}) -> AsyncSqlModel:`
+Insert a new record to the datastore. Return instance. Raises TypeError if data
+is not a dict. Automatically sets a timestamp if one is not supplied.
+
+##### `async restore(inject: dict = {}, /, *, parallel_events: bool = False, suppress_events: bool = False) -> AsyncSqlModel:`
 
 Restore a deleted record, remove from deleted_records, and return the restored
 model. Raises ValueError if model_class cannot be found. Raises TypeError if
@@ -782,6 +827,7 @@ Model for interacting with sql database using sha256 for id.
 - query_builder_class: Type[AsyncQueryBuilderProtocol]
 - connection_info: str
 - data: dict
+- _event_hooks: dict[str, list[Callable]]
 - columns_excluded_from_hash: tuple[str]
 - details: bytes
 
@@ -794,26 +840,26 @@ type (calls packify.pack). Any columns not present in the data dict will be set
 to None. Any columns in the columns_excluded_from_hash tuple will be excluded
 from the sha256 hash.
 
-##### `@classmethod async insert(data: dict) -> Optional[AsyncHashedModel]:`
+##### `@classmethod async insert(data: dict, /, *, parallel_events: bool = False, suppress_events: bool = False) -> Optional[AsyncHashedModel]:`
 
 Insert a new record to the datastore. Return instance. Raises TypeError for
 non-dict data or unencodable type (calls cls.generate_id, which calls
 packify.pack).
 
-##### `@classmethod async insert_many(items: list[dict]) -> int:`
+##### `@classmethod async insert_many(items: list[dict], /, *, parallel_events: bool = False, suppress_events: bool = False) -> int:`
 
 Insert a batch of records and return the number of items inserted. Raises
 TypeError for invalid items or unencodable value (calls cls.generate_id, which
 calls packify.pack).
 
-##### `async update(updates: dict) -> AsyncHashedModel:`
+##### `async update(updates: dict, /, *, parallel_events: bool = False, suppress_events: bool = False) -> AsyncHashedModel:`
 
 Persist the specified changes to the datastore, creating a new record in the
 process unless the changes were to the hash-excluded columns. Update and return
 self in monad pattern. Raises TypeError or ValueError for invalid updates. Did
 not need to overwrite the save method because save calls update or insert.
 
-##### `async delete() -> AsyncDeletedModel:`
+##### `async delete(/, *, parallel_events: bool = False, suppress_events: bool = False) -> AsyncDeletedModel:`
 
 Delete the model, putting it in the deleted_records table, then return the
 AsyncDeletedModel. Raises packify.UsageError for unserializable data.
@@ -832,6 +878,7 @@ Class for attaching immutable details to a record.
 - query_builder_class: Type[AsyncQueryBuilderProtocol]
 - connection_info: str
 - data: dict
+- _event_hooks: dict[str, list[Callable]]
 - columns_excluded_from_hash: tuple[str]
 - details: bytes | None
 - related_model: str
@@ -859,7 +906,7 @@ Set the details column using either supplied data or by packifying
 self._details. Return self in monad pattern. Raises packify.UsageError or
 TypeError if details contains unseriazliable type.
 
-##### `@classmethod async insert(data: dict) -> Optional[AsyncAttachment]:`
+##### `@classmethod async insert(data: dict, /, *, parallel_events: bool = False, suppress_events: bool = False) -> Optional[AsyncAttachment]:`
 
 ### `AsyncRelation`
 

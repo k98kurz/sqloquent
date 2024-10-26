@@ -82,31 +82,48 @@ Allow inclusion in sets.
 
 Return True if types and hashes are equal, else False.
 
+##### `@classmethod add_hook(event: str, hook: Callable):`
+
+Add the hook for the event.
+
+##### `@classmethod remove_hook(event: str, hook: Callable):`
+
+Remove the hook for the event.
+
+##### `@classmethod clear_hooks(event: str = None):`
+
+Remove all hooks for an event. If no event is specified, clear all hooks for all
+events.
+
+##### `@classmethod invoke_hooks(event: str):`
+
+Invoke the hooks for the event, passing cls, *args, and **kwargs.
+
 ##### `@classmethod find(id: Any) -> Optional[ModelProtocol]:`
 
 Find a record by its id and return it. Return None if it does not exist.
 
-##### `@classmethod insert(data: dict) -> Optional[ModelProtocol]:`
+##### `@classmethod insert(data: dict, /, *, suppress_events: bool = False) -> Optional[ModelProtocol]:`
 
 Insert a new record to the datastore. Return instance.
 
-##### `@classmethod insert_many(items: list[dict]) -> int:`
+##### `@classmethod insert_many(items: list[dict], /, *, suppress_events: bool = False) -> int:`
 
 Insert a batch of records and return the number of items inserted.
 
-##### `update(updates: dict, conditions: dict = None) -> ModelProtocol:`
+##### `update(updates: dict, conditions: dict = None, /, *, suppress_events: bool = False) -> ModelProtocol:`
 
 Persist the specified changes to the datastore. Return self in monad pattern.
 
-##### `save() -> ModelProtocol:`
+##### `save(/, *, suppress_events: bool = False) -> ModelProtocol:`
 
 Persist to the datastore. Return self in monad pattern.
 
-##### `delete() -> None:`
+##### `delete(/, *, suppress_events: bool = False) -> None:`
 
 Delete the record.
 
-##### `reload() -> ModelProtocol:`
+##### `reload(/, *, suppress_events: bool = False) -> ModelProtocol:`
 
 Reload values from datastore. Return self in monad pattern.
 

@@ -1090,6 +1090,10 @@ class DeletedModel(SqlModel):
 
     @classmethod
     def insert(cls, data: dict, /, *, suppress_events: bool = False) -> SqlModel | None:
+        """Insert a new record to the datastore. Return instance. Raises
+            TypeError if data is not a dict. Automatically sets a
+            timestamp if one is not supplied.
+        """
         if not suppress_events:
             cls.invoke_hooks('before_insert', data)
         if 'timestamp' not in data:

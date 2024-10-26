@@ -79,31 +79,51 @@ Allow inclusion in sets.
 
 Return True if types and hashes are equal, else False.
 
+##### `@classmethod add_hook(event: str, hook: Callable):`
+
+Add the hook for the event.
+
+##### `@classmethod remove_hook(event: str, hook: Callable):`
+
+Remove the hook for the event.
+
+##### `@classmethod clear_hooks(event: str = None):`
+
+Remove all hooks for an event. If no event is specified, clear all hooks for all
+events.
+
+##### `@classmethod invoke_hooks(event: str):`
+
+Invoke the hooks for the event, passing cls, *args, and **kwargs. if
+parallel_hooks=True is passed in the kwargs, all coroutines returned from hooks
+will be awaited concurrently (with `asyncio.gather`) after non-async hooks have
+executed; otherwise, each will be waited individually.
+
 ##### `@classmethod async find(id: Any) -> Optional[AsyncModelProtocol]:`
 
 Find a record by its id and return it. Return None if it does not exist.
 
-##### `@classmethod async insert(data: dict) -> Optional[AsyncModelProtocol]:`
+##### `@classmethod async insert(data: dict, /, *, suppress_events: bool = False) -> Optional[AsyncModelProtocol]:`
 
 Insert a new record to the datastore. Return instance.
 
-##### `@classmethod async insert_many(items: list[dict]) -> int:`
+##### `@classmethod async insert_many(items: list[dict], /, *, suppress_events: bool = False) -> int:`
 
 Insert a batch of records and return the number of items inserted.
 
-##### `async update(updates: dict, conditions: dict = None) -> AsyncModelProtocol:`
+##### `async update(updates: dict, conditions: dict = None, /, *, suppress_events: bool = False) -> AsyncModelProtocol:`
 
 Persist the specified changes to the datastore. Return self in monad pattern.
 
-##### `async save() -> AsyncModelProtocol:`
+##### `async save(/, *, suppress_events: bool = False) -> AsyncModelProtocol:`
 
 Persist to the datastore. Return self in monad pattern.
 
-##### `async delete() -> None:`
+##### `async delete(/, *, suppress_events: bool = False) -> None:`
 
 Delete the record.
 
-##### `async reload() -> AsyncModelProtocol:`
+##### `async reload(/, *, suppress_events: bool = False) -> AsyncModelProtocol:`
 
 Reload values from datastore. Return self in monad pattern.
 
