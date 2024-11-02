@@ -86,6 +86,8 @@ Interface showing how an async model should function.
 - id_column: Str with the name of the id column.
 - columns: Tuple of str column names.
 - data: Dict for storing model data.
+- data_original: Read-only MappingProxyType for storing original data values for
+change tracking.
 
 #### Methods
 
@@ -448,6 +450,7 @@ General model for mapping a SQL row to an in-memory object.
 - query_builder_class: Type[AsyncQueryBuilderProtocol]
 - connection_info: str
 - data: dict
+- data_original: MappingProxyType
 - _event_hooks: dict[str, list[Callable]]
 
 #### Methods
@@ -791,6 +794,7 @@ Model for preserving and restoring deleted AsyncHashedModel records.
 - query_builder_class: Type[AsyncQueryBuilderProtocol]
 - connection_info: str
 - data: dict
+- data_original: MappingProxyType
 - _event_hooks: dict[str, list[Callable]]
 - model_class: str
 - record_id: str
@@ -827,6 +831,7 @@ Model for interacting with sql database using sha256 for id.
 - query_builder_class: Type[AsyncQueryBuilderProtocol]
 - connection_info: str
 - data: dict
+- data_original: MappingProxyType
 - _event_hooks: dict[str, list[Callable]]
 - columns_excluded_from_hash: tuple[str]
 - details: bytes
@@ -878,6 +883,7 @@ Class for attaching immutable details to a record.
 - query_builder_class: Type[AsyncQueryBuilderProtocol]
 - connection_info: str
 - data: dict
+- data_original: MappingProxyType
 - _event_hooks: dict[str, list[Callable]]
 - columns_excluded_from_hash: tuple[str]
 - details: bytes | None
@@ -905,8 +911,6 @@ Decode packed bytes to dict.
 Set the details column using either supplied data or by packifying
 self._details. Return self in monad pattern. Raises packify.UsageError or
 TypeError if details contains unseriazliable type.
-
-##### `@classmethod async insert(data: dict, /, *, parallel_events: bool = False, suppress_events: bool = False) -> Optional[AsyncAttachment]:`
 
 ### `AsyncRelation`
 

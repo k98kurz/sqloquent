@@ -1,8 +1,10 @@
 # sqloquent
 
-The majority of useful features are exposed from the root level of the package,
-and the rest from sqloquent.asyncql, sqloquent.tools, or from invoking the tools
-through the CLI.
+Sqloquent is a package for mapping database records into objects, including life
+cycle event hooks and a relation system (i.e. ORM). It also includes a query
+builder, migration system, and other tools. The majority of useful features are
+exposed from the root level of the package, and the rest from sqloquent.asyncql,
+sqloquent.tools, or from invoking the tools through the CLI.
 
 ## Classes
 
@@ -20,6 +22,7 @@ General model for mapping a SQL row to an in-memory object.
 - query_builder_class: Type[QueryBuilderProtocol]
 - connection_info: str
 - data: dict
+- data_original: MappingProxyType
 - _event_hooks: dict[str, list[Callable]]
 
 #### Methods
@@ -355,6 +358,7 @@ Model for preserving and restoring deleted HashedModel records.
 - query_builder_class: Type[QueryBuilderProtocol]
 - connection_info: str
 - data: dict
+- data_original: MappingProxyType
 - _event_hooks: dict[str, list[Callable]]
 - model_class: str
 - record_id: str
@@ -391,6 +395,7 @@ Model for interacting with sql database using sha256 for id.
 - query_builder_class: Type[QueryBuilderProtocol]
 - connection_info: str
 - data: dict
+- data_original: MappingProxyType
 - _event_hooks: dict[str, list[Callable]]
 - columns_excluded_from_hash: tuple[str]
 - details: bytes
@@ -442,6 +447,7 @@ Class for attaching immutable details to a record.
 - query_builder_class: Type[QueryBuilderProtocol]
 - connection_info: str
 - data: dict
+- data_original: MappingProxyType
 - _event_hooks: dict[str, list[Callable]]
 - columns_excluded_from_hash: tuple[str]
 - details: bytes | None
@@ -469,8 +475,6 @@ Decode packed bytes to dict.
 Set the details column using either supplied data or by packifying
 self._details. Return self in monad pattern. Raises packify.UsageError or
 TypeError if details contains unseriazliable type.
-
-##### `@classmethod insert(data: dict, /, *, suppress_events: bool = False) -> Optional[Attachment]:`
 
 ### `Row`
 
@@ -600,6 +604,8 @@ Interface showing how a model should function.
 - id_column: Str with the name of the id column.
 - columns: Tuple of str column names.
 - data: Dict for storing model data.
+- data_original: Read-only MappingProxyType for storing original data values for
+change tracking.
 
 #### Methods
 
@@ -1564,4 +1570,7 @@ snake_case + '_ids'), it can be specified.
 
 Generate the name for an index from the table, columns, and type.
 
+## Values
+
+- `__version__`: str
 

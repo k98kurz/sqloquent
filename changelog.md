@@ -1,3 +1,14 @@
+## 0.5.2
+
+- Added change tracking to `SqlModel`, `AsyncSqlModel`, and subclasses
+- Added event str as keyword arg for event hook calls: `hook(cls, *args, event=event, **kwargs)`
+- Standardized `invoke_hooks` calls to include all non-event name args as kwargs;
+  - `invoke_hooks` calls callbacks with `(cls, *args, **kwargs)`, but `*args` will be empty
+
+## 0.5.1
+
+- Fixed documentation links in readme
+
 ## 0.5.0
 
 - Added event hook system to `SqlModel` and subclasses

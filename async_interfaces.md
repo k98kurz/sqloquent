@@ -68,6 +68,8 @@ Interface showing how an async model should function.
 - id_column: Str with the name of the id column.
 - columns: Tuple of str column names.
 - data: Dict for storing model data.
+- data_original: Read-only MappingProxyType for storing original data values for
+change tracking.
 
 #### Methods
 
