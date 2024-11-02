@@ -378,30 +378,32 @@ class HasOne(Relation):
                     self.relations[cache_key] = deepcopy(relation)
                     self.relations[cache_key].primary = self
 
-            if self.relations[cache_key].secondary is None:
+            relation = self.relations[cache_key]
+
+            if relation.secondary is None:
                 try:
-                    self.relations[cache_key].reload()
+                    relation.reload()
                 except ValueError:
                     pass
 
-            if self.relations[cache_key].secondary is None:
+            if relation.secondary is None:
                 empty = HasOneWrapped()
                 empty.relations = {}
-                empty.relations[cache_key] = self.relations[cache_key]
+                empty.relations[cache_key] = relation
                 return empty
 
-            if not hasattr(self.relations[cache_key], 'secondary_wrapped') or \
-                self.relations[cache_key].secondary_wrapped is None:
-                self.relations[cache_key].secondary_wrapped = HasOneWrapped(
-                    self.relations[cache_key].secondary
+            if not hasattr(relation, 'secondary_wrapped') or \
+                relation.secondary_wrapped is None:
+                relation.secondary_wrapped = HasOneWrapped(
+                    relation.secondary
                 )
 
-            model = self.relations[cache_key].secondary_wrapped
-            if hasattr(self.relations[cache_key].secondary, 'relations'):
+            model = relation.secondary_wrapped
+            if hasattr(relation.secondary, 'relations'):
                 if not hasattr(model, 'relations'):
                     model.relations = {}
                 if cache_key not in model.relations:
-                    model.relations[cache_key] = self.relations[cache_key]
+                    model.relations[cache_key] = relation
 
             return model
 
