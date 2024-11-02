@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 from sqloquent.interfaces import RowProtocol
-from types import TracebackType
+from types import TracebackType, MappingProxyType
 from typing import (
     Any,
     AsyncGenerator,
@@ -105,6 +105,13 @@ class AsyncModelProtocol(Protocol):
         """Dict for storing model data."""
         ...
 
+    @property
+    def data_original(self) -> MappingProxyType:
+        """Read-only MappingProxyType for storing original data values
+            for change tracking.
+        """
+        ...
+
     @classmethod
     def add_hook(cls, event: str, hook: Callable):
         """Add the hook for the event."""
@@ -131,6 +138,7 @@ class AsyncModelProtocol(Protocol):
             have executed; otherwise, each will be waited individually.
         """
         ...
+
     def __hash__(self) -> int:
         """Allow inclusion in sets."""
         ...

@@ -271,7 +271,7 @@ class TestClasses(unittest.TestCase):
         classes.SqlModel.invoke_hooks('test', 1, 2, three=3)
         assert len(log) == 1, log
         assert log[0][0] == (classes.SqlModel, 1, 2), log
-        assert log[0][1] == {'three': 3}, log
+        assert log[0][1] == {'event': 'test', 'three': 3}, log
         classes.SqlModel.remove_hook('test', addlog)
         log.pop()
         classes.SqlModel.invoke_hooks('test', 'abc', foo='bar')
@@ -351,6 +351,15 @@ class TestClasses(unittest.TestCase):
         log.clear()
         classes.SqlModel.remove_hook('before_reload', addlog)
         classes.SqlModel.remove_hook('after_reload', addlog)
+
+    def test_SqlModel_tracks_changes_properly(self):
+        sm = classes.SqlModel.insert({'name': 'test'})
+        assert sm.data_original['name'] == sm.data['name'] == 'test'
+        sm.name = 'Test'
+        assert sm.data_original['name'] == 'test'
+        assert sm.data['name'] == 'Test'
+        sm.save()
+        assert sm.data_original['name'] == sm.name == 'Test'
 
 
     # JoinedModel test

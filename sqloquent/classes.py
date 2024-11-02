@@ -9,7 +9,7 @@ from .interfaces import (
 from dataclasses import dataclass, field
 from hashlib import sha256
 from time import time
-from types import TracebackType
+from types import MappingProxyType, TracebackType
 from typing import Any, Generator, Optional, Type, Union, Callable
 from uuid import uuid4
 import packify
@@ -818,6 +818,7 @@ class SqlModel:
     query_builder_class: Type[QueryBuilderProtocol] = SqlQueryBuilder
     connection_info: str = ''
     data: dict
+    data_original: MappingProxyType
     _event_hooks: dict[str, list[Callable]] = {'class': 'SqlModel'}
 
     def __init__(self, data: dict = {}) -> None:
@@ -843,6 +844,8 @@ class SqlModel:
                 vert(callable(call),
                     '_post_init_hooks must be a dict mapping names to Callables')
                 call(self)
+
+        self.data_original = MappingProxyType({**self.data})
 
     @classmethod
     def add_hook(cls, event: str, hook: Callable):
@@ -885,7 +888,7 @@ class SqlModel:
         if cls._event_hooks.get('class', None) != cls.__name__:
             cls._event_hooks = {'class': cls.__name__} # give each class its own event hooks dict
         for hook in cls._event_hooks.get(event, []):
-            hook(cls, *args, **kwargs)
+            hook(cls, *args, event=event, **kwargs)
 
     @staticmethod
     def create_property(name) -> property:
@@ -909,7 +912,7 @@ class SqlModel:
         """Allow inclusion in sets. Raises TypeError for unencodable
             type within self.data (calls packify.pack).
         """
-        data = self.encode_value(self.data)
+        data = self.encode_value((self.data, {**self.data_original}))
         return hash(bytes(data, 'utf-8'))
 
     def __eq__(self, other) -> bool:
@@ -947,14 +950,14 @@ class SqlModel:
             TypeError if data is not a dict.
         """
         if not suppress_events:
-            cls.invoke_hooks('before_insert', data)
+            cls.invoke_hooks('before_insert', data=data)
         tert(isinstance(data, dict), 'data must be dict')
         if cls.id_column not in data:
             data[cls.id_column] = cls.generate_id()
 
         val = cls().query().insert(data)
         if not suppress_events:
-            cls.invoke_hooks('after_insert', data, val)
+            cls.invoke_hooks('after_insert', data=data, val=val)
         return val
 
     @classmethod
@@ -963,17 +966,17 @@ class SqlModel:
             inserted. Raises TypeError if items is not list[dict].
         """
         if not suppress_events:
-            cls.invoke_hooks('before_insert_many', items)
+            cls.invoke_hooks('before_insert_many', items=items)
         tert(isinstance(items, list), 'items must be type list[dict]')
         for item in items:
             tert(isinstance(item, dict), 'items must be type list[dict]')
             if cls.id_column not in item:
                 item[cls.id_column] = cls.generate_id()
 
-        val = cls().query().insert_many(items)
+        vals = cls().query().insert_many(items)
         if not suppress_events:
-            cls.invoke_hooks('after_insert_many', items, val)
-        return val
+            cls.invoke_hooks('after_insert_many', items=items, vals=vals)
+        return vals
 
     def update(self, updates: dict, conditions: dict = None, /, *,
                suppress_events: bool = False) -> SqlModel:
@@ -983,7 +986,10 @@ class SqlModel:
             update or conditions must be specified).
         """
         if not suppress_events:
-            self.invoke_hooks('before_update', self, updates, conditions)
+            self.invoke_hooks(
+                'before_update', self=self, updates=updates,
+                conditions=conditions
+            )
         tert(type(updates) is dict, 'updates must be dict')
         tert (type(conditions) is dict or conditions is None,
             'conditions must be dict or None')
@@ -997,7 +1003,7 @@ class SqlModel:
 
         # merge data into updates
         for key in self.data:
-            if key in self.columns:
+            if key in self.columns and self.data[key] != self.data_original.get(key, None):
                 updates[key] = self.data[key]
 
         # parse conditions
@@ -1005,11 +1011,17 @@ class SqlModel:
         if self.id_column in self.data and self.id_column not in conditions:
             conditions[self.id_column] = self.data[self.id_column]
 
+        if not len(updates.keys()):
+            return self
+
         # run update query
         self.query().update(updates, conditions)
+        self.data_original = MappingProxyType({**self.data})
 
         if not suppress_events:
-            self.invoke_hooks('after_update', self, updates, conditions)
+            self.invoke_hooks(
+                'after_update', self=self, updates=updates, conditions=conditions
+            )
 
         return self
 
@@ -1018,40 +1030,50 @@ class SqlModel:
             Calls insert or update and raises appropriate errors.
         """
         if not suppress_events:
-            self.invoke_hooks('before_save', self)
+            self.invoke_hooks('before_save', self=self)
         if self.id_column in self.data:
             if self.find(self.data[self.id_column]) is not None:
                 val = self.update({})
                 if not suppress_events:
-                    self.invoke_hooks('after_save', self, val)
-                return val
+                    self.invoke_hooks('after_save', self=self, val=val)
+                if val:
+                    # ORM compatibility: modify self.data instead of replacing it
+                    for key, value in val.data.items():
+                        self.data[key] = value
+                    self.data_original = val.data_original
+                return self
         val = self.insert(self.data)
         if not suppress_events:
-            self.invoke_hooks('after_save', self, val)
-        return val
+            self.invoke_hooks('after_save', self=self, val=val)
+        # ORM compatibility: modify self.data instead of replacing it
+        for key, value in val.data.items():
+            self.data[key] = value
+        self.data_original = val.data_original
+        return self
 
     def delete(self, /, *, suppress_events: bool = False) -> None:
         """Delete the record."""
         if not suppress_events:
-            self.invoke_hooks('before_delete', self)
+            self.invoke_hooks('before_delete', self=self)
         if self.id_column in self.data:
             self.query().equal(self.id_column, self.data[self.id_column]).delete()
         if not suppress_events:
-            self.invoke_hooks('after_delete', self)
+            self.invoke_hooks('after_delete', self=self)
 
     def reload(self, /, *, suppress_events: bool = False) -> SqlModel:
         """Reload values from datastore. Return self in monad pattern.
             Raises UsageError if id is not set in self.data.
         """
         if not suppress_events:
-            self.invoke_hooks('before_reload', self)
+            self.invoke_hooks('before_reload', self=self)
         tressa(self.id_column in self.data,
                'id_column must be set in self.data to reload from db')
         reloaded = self.find(self.data[self.id_column])
         if reloaded:
             self.data = reloaded.data
+            self.data_original = reloaded.data_original
         if not suppress_events:
-            self.invoke_hooks('after_reload', self)
+            self.invoke_hooks('after_reload', self=self)
         return self
 
     @classmethod
@@ -1095,12 +1117,12 @@ class DeletedModel(SqlModel):
             timestamp if one is not supplied.
         """
         if not suppress_events:
-            cls.invoke_hooks('before_insert', data)
+            cls.invoke_hooks('before_insert', data=data)
         if 'timestamp' not in data:
             data['timestamp'] = str(int(time()))
         val = super().insert(data, suppress_events=True) # no duplicate events
         if not suppress_events:
-            cls.invoke_hooks('after_insert', data, val)
+            cls.invoke_hooks('after_insert', data=data, val=val)
         return val
 
     def restore(self, inject: dict = {}, /, *, suppress_events: bool = False) -> SqlModel:
@@ -1111,7 +1133,7 @@ class DeletedModel(SqlModel):
             record. Raises TypeError if packed record is not a dict.
         """
         if not suppress_events:
-            self.invoke_hooks('before_restore', self, inject)
+            self.invoke_hooks('before_restore', self=self, inject=inject)
         dependencies = {**globals(), **inject}
         vert(self.data['model_class'] in dependencies,
             'model_class must be accessible')
@@ -1129,7 +1151,7 @@ class DeletedModel(SqlModel):
         self.delete()
 
         if not suppress_events:
-            self.invoke_hooks('after_restore', self, inject, model)
+            self.invoke_hooks('after_restore', self=self, inject=inject, model=model)
 
         return model
 
@@ -1167,13 +1189,13 @@ class HashedModel(SqlModel):
             cls.generate_id, which calls packify.pack).
         """
         if not suppress_events:
-            cls.invoke_hooks('before_insert', data)
+            cls.invoke_hooks('before_insert', data=data)
         tert(isinstance(data, dict), 'data must be dict')
         data[cls.id_column] = cls.generate_id(data)
 
         val = cls.query().insert(data)
         if not suppress_events:
-            cls.invoke_hooks('after_insert', data, val)
+            cls.invoke_hooks('after_insert', data=data, val=val)
         return val
 
     @classmethod
@@ -1183,7 +1205,7 @@ class HashedModel(SqlModel):
             value (calls cls.generate_id, which calls packify.pack).
         """
         if not suppress_events:
-            cls.invoke_hooks('before_insert_many', items)
+            cls.invoke_hooks('before_insert_many', items=items)
         tert(isinstance(items, list), 'items must be type list[dict]')
         for item in items:
             tert(isinstance(item, dict), 'items must be type list[dict]')
@@ -1191,7 +1213,7 @@ class HashedModel(SqlModel):
 
         vals = cls.query().insert_many(items)
         if not suppress_events:
-            cls.invoke_hooks('before_insert_many', items, vals)
+            cls.invoke_hooks('before_insert_many', items=items, vals=vals)
         return vals
 
     def update(self, updates: dict, /, *, suppress_events: bool = False) -> HashedModel:
@@ -1203,7 +1225,7 @@ class HashedModel(SqlModel):
             update or insert.
         """
         if not suppress_events:
-            self.invoke_hooks('before_update', self, updates)
+            self.invoke_hooks('before_update', self=self, updates=updates)
         tert(type(updates) is dict, 'updates must be dict')
 
         # merge data into updates
@@ -1218,7 +1240,7 @@ class HashedModel(SqlModel):
         if not self.data[self.id_column]:
             instance = self.insert(updates)
             if not suppress_events:
-                self.invoke_hooks('after_update', self, updates)
+                self.invoke_hooks('after_update', self=self, updates=updates)
             self.data = instance.data
             return self
 
@@ -1227,15 +1249,17 @@ class HashedModel(SqlModel):
         if new_id != self.data[self.id_column]:
             instance = self.insert(updates)
             self.delete()
-            self.data = instance.data
+            # ORM compatibility: modify self.data instead of replacing it
+            for key, value in instance.data.items():
+                self.data[key] = value
             if not suppress_events:
-                self.invoke_hooks('after_update', self, updates)
+                self.invoke_hooks('after_update', self=self, updates=updates)
             return self
 
         # update uncommitted value and return
         self.query({self.id_column: self.id}).update(updates)
         if not suppress_events:
-            self.invoke_hooks('after_update', self, updates)
+            self.invoke_hooks('after_update', self=self, updates=updates)
         return self
 
     def delete(self, /, *, suppress_events: bool = False) -> DeletedModel:
@@ -1244,7 +1268,7 @@ class HashedModel(SqlModel):
             unserializable data.
         """
         if not suppress_events:
-            self.invoke_hooks('before_delete', self)
+            self.invoke_hooks('before_delete', self=self)
         model_class = self.__class__.__name__
         record_id = self.data[self.id_column]
         record = packify.pack(self.data)
@@ -1255,7 +1279,7 @@ class HashedModel(SqlModel):
         }, suppress_events=suppress_events)
         super().delete(suppress_events=True) # no duplicate events
         if not suppress_events:
-            self.invoke_hooks('after_delete', self, deleted)
+            self.invoke_hooks('after_delete', self=self, deleted=deleted)
         return deleted
 
 
@@ -1304,13 +1328,3 @@ class Attachment(HashedModel):
             self._details = details
         self.data['details'] = packify.pack(self._details)
         return self
-
-    @classmethod
-    def insert(cls, data: dict, /, *, suppress_events: bool = False) -> Optional[Attachment]:
-        # """Redefined for better LSP support."""
-        if not suppress_events:
-            cls.invoke_hooks('before_insert', data)
-        val = super().insert(data, suppress_events=True) # no duplicate events
-        if not suppress_events:
-            cls.invoke_hooks('after_insert', data, val)
-        return val

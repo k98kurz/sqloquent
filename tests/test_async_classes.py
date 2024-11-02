@@ -271,7 +271,7 @@ class TestAsyncClasses(unittest.TestCase):
         run(async_classes.AsyncSqlModel.invoke_hooks('test', 1, 2, three=3))
         assert len(log) == 1, log
         assert log[0][0] == (async_classes.AsyncSqlModel, 1, 2), log
-        assert log[0][1] == {'three': 3}, log
+        assert log[0][1] == {'event': 'test', 'three': 3}, log
         async_classes.AsyncSqlModel.remove_hook('test', addlog)
         log.pop()
         run(async_classes.AsyncSqlModel.invoke_hooks('test', 'abc', foo='bar'))
@@ -352,6 +352,14 @@ class TestAsyncClasses(unittest.TestCase):
         async_classes.AsyncSqlModel.remove_hook('before_reload', addlog)
         async_classes.AsyncSqlModel.remove_hook('after_reload', addlog)
 
+    def test_AsyncSqlModel_tracks_changes_properly(self):
+        sm = run(async_classes.AsyncSqlModel.insert({'name': 'test'}))
+        assert sm.data_original['name'] == sm.data['name'] == 'test'
+        sm.name = 'Test'
+        assert sm.data_original['name'] == 'test'
+        assert sm.data['name'] == 'Test'
+        run(sm.save())
+        assert sm.data_original['name'] == sm.name == 'Test'
 
     # async_dynamic_sqlmodel test
     def test_async_dynamic_sqlmodel_returns_type_ModelProtocol(self):

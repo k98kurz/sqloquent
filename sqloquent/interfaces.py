@@ -13,7 +13,7 @@
 
 
 from __future__ import annotations
-from types import TracebackType
+from types import TracebackType, MappingProxyType
 from typing import (
     Any,
     Callable,
@@ -104,6 +104,13 @@ class ModelProtocol(Protocol):
     @property
     def data(self) -> dict:
         """Dict for storing model data."""
+        ...
+
+    @property
+    def data_original(self) -> MappingProxyType:
+        """Read-only MappingProxyType for storing original data values
+            for change tracking.
+        """
         ...
 
     @classmethod
