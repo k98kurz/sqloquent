@@ -409,6 +409,14 @@ class TestAsyncClasses(unittest.TestCase):
         assert len(sqb.params) == 0, 'equal() must not append to params'
         assert sqb.clauses[0] == 'name is null'
 
+        sqb = sqb.reset()
+        assert len(sqb.clauses) == 0, len(sqb.clauses)
+        sqb.is_null(['etc', 'thing'])
+        assert len(sqb.clauses) == 2, len(sqb.clauses)
+        assert len(sqb.params) == 0, len(sqb.params)
+        assert sqb.clauses[0] == 'etc is null'
+        assert sqb.clauses[1] == 'thing is null'
+
     def test_AsyncSqlQueryBuilder_not_null_raises_TypeError_for_nonstr_column(self):
         with self.assertRaises(TypeError) as e:
             async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).not_null(b'not a str', '')
@@ -421,6 +429,14 @@ class TestAsyncClasses(unittest.TestCase):
         assert len(sqb.clauses) == 1, 'equal() must append to clauses'
         assert len(sqb.params) == 0, 'equal() must not append to params'
         assert sqb.clauses[0] == 'name is not null'
+
+        sqb = sqb.reset()
+        assert len(sqb.clauses) == 0, len(sqb.clauses)
+        sqb.not_null(['etc', 'thing'])
+        assert len(sqb.clauses) == 2, len(sqb.clauses)
+        assert len(sqb.params) == 0, len(sqb.params)
+        assert sqb.clauses[0] == 'etc is not null'
+        assert sqb.clauses[1] == 'thing is not null'
 
     def test_AsyncSqlQueryBuilder_equal_raises_TypeError_for_nonstr_column(self):
         with self.assertRaises(TypeError) as e:
@@ -435,6 +451,16 @@ class TestAsyncClasses(unittest.TestCase):
         assert len(sqb.params) == 1, 'equal() must append to params'
         assert sqb.clauses[0] == 'name = ?'
         assert sqb.params[0] == 'test'
+
+        sqb = sqb.reset()
+        assert len(sqb.clauses) == 0, len(sqb.clauses)
+        sqb.equal(name='test', etc='test2')
+        assert len(sqb.clauses) == 2, len(sqb.clauses)
+        assert len(sqb.params) == 2, len(sqb.params)
+        assert sqb.clauses[0] == 'name = ?'
+        assert sqb.clauses[1] == 'etc = ?'
+        assert sqb.params[0] == 'test'
+        assert sqb.params[1] == 'test2'
 
     def test_AsyncSqlQueryBuilder_not_equal_raises_TypeError_for_nonstr_column(self):
         with self.assertRaises(TypeError) as e:
@@ -451,6 +477,16 @@ class TestAsyncClasses(unittest.TestCase):
         assert sqb.clauses[0] == 'name != ?'
         assert sqb.params[0] == 'test'
 
+        sqb = sqb.reset()
+        assert len(sqb.clauses) == 0, len(sqb.clauses)
+        sqb.not_equal(name='test', etc='test2')
+        assert len(sqb.clauses) == 2, len(sqb.clauses)
+        assert len(sqb.params) == 2, len(sqb.params)
+        assert sqb.clauses[0] == 'name != ?'
+        assert sqb.clauses[1] == 'etc != ?'
+        assert sqb.params[0] == 'test'
+        assert sqb.params[1] == 'test2'
+
     def test_AsyncSqlQueryBuilder_less_raises_TypeError_for_nonstr_column(self):
         with self.assertRaises(TypeError) as e:
             async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).less(b'not a str', '')
@@ -465,6 +501,16 @@ class TestAsyncClasses(unittest.TestCase):
         assert len(sqb.params) == 1, 'less() must append to params'
         assert sqb.clauses[0] == 'name < ?'
         assert sqb.params[0] == '123'
+
+        sqb = sqb.reset()
+        assert len(sqb.clauses) == 0, len(sqb.clauses)
+        sqb.less(name='123', etc='456')
+        assert len(sqb.clauses) == 2, len(sqb.clauses)
+        assert len(sqb.params) == 2, len(sqb.params)
+        assert sqb.clauses[0] == 'name < ?'
+        assert sqb.clauses[1] == 'etc < ?'
+        assert sqb.params[0] == '123'
+        assert sqb.params[1] == '456'
 
     def test_AsyncSqlQueryBuilder_greater_raises_TypeError_for_nonstr_column(self):
         with self.assertRaises(TypeError) as e:
@@ -481,7 +527,17 @@ class TestAsyncClasses(unittest.TestCase):
         assert sqb.clauses[0] == 'name > ?'
         assert sqb.params[0] == '123'
 
-    def test_SqlQueryBuilder_like_raises_errors_for_invalid_input(self):
+        sqb = sqb.reset()
+        assert len(sqb.clauses) == 0, len(sqb.clauses)
+        sqb.greater(name='123', etc='456')
+        assert len(sqb.clauses) == 2, len(sqb.clauses)
+        assert len(sqb.params) == 2, len(sqb.params)
+        assert sqb.clauses[0] == 'name > ?'
+        assert sqb.clauses[1] == 'etc > ?'
+        assert sqb.params[0] == '123'
+        assert sqb.params[1] == '456'
+
+    def test_AsyncSqlQueryBuilder_like_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
             async_classes.AsyncSqlQueryBuilder(
                 async_classes.AsyncSqlModel
@@ -518,7 +574,27 @@ class TestAsyncClasses(unittest.TestCase):
             ).like('sds', '%?', '')
         assert str(e.exception) == 'data cannot be empty'
 
-    def test_SqlQueryBuilder_like_adds_correct_clause_and_param(self):
+        with self.assertRaises(TypeError) as e:
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel).like(name='thing')
+        assert str(e.exception) == 'each value must be tuple or list with 2 elements: pattern, data'
+
+        with self.assertRaises(ValueError) as e:
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel).like(name=('thing',))
+        assert str(e.exception) == 'each value must be tuple or list with 2 elements: pattern, data'
+
+        with self.assertRaises(TypeError) as e:
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel).like(name=(b'not a str', 'test'))
+        assert 'pattern must be str' in str(e.exception), str(e.exception)
+
+        with self.assertRaises(TypeError) as e:
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel).like(name=('thing', b'not a str'))
+        assert 'data must be str' in str(e.exception), str(e.exception)
+
+    def test_AsyncSqlQueryBuilder_like_adds_correct_clause_and_param(self):
         sqb = async_classes.AsyncSqlQueryBuilder(model=async_classes.AsyncSqlModel)
         assert len(sqb.clauses) == 0, 'clauses must start at 0 len'
         assert len(sqb.params) == 0, 'params must start at 0 len'
@@ -528,7 +604,17 @@ class TestAsyncClasses(unittest.TestCase):
         assert sqb.clauses[0] == 'name like ?'
         assert sqb.params[0] == '123%'
 
-    def test_SqlQueryBuilder_not_like_raises_errors_for_invalid_input(self):
+        sqb = sqb.reset()
+        assert len(sqb.clauses) == 0, len(sqb.clauses)
+        sqb.like(name=('?%?', '123'), other=('?%?', '456'))
+        assert len(sqb.clauses) == 2, sqb.clauses
+        assert len(sqb.params) == 2, sqb.params
+        assert sqb.clauses[0] == 'name like ?', sqb.clauses
+        assert sqb.params[0] == '123%123', sqb.params
+        assert sqb.clauses[1] == 'other like ?', sqb.clauses
+        assert sqb.params[1] == '456%456', sqb.params
+
+    def test_AsyncSqlQueryBuilder_not_like_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
             async_classes.AsyncSqlQueryBuilder(
                 async_classes.AsyncSqlModel
@@ -565,7 +651,31 @@ class TestAsyncClasses(unittest.TestCase):
             ).not_like('sds', '%?', '')
         assert str(e.exception) == 'data cannot be empty'
 
-    def test_SqlQueryBuilder_not_like_adds_correct_clause_and_param(self):
+        with self.assertRaises(TypeError) as e:
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).not_like(name='thing')
+        assert str(e.exception) == 'each value must be tuple or list with 2 elements: pattern, data'
+
+        with self.assertRaises(ValueError) as e:
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).not_like(name=('thing',))
+        assert str(e.exception) == 'each value must be tuple or list with 2 elements: pattern, data'
+
+        with self.assertRaises(TypeError) as e:
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).not_like(name=(b'not a str', 'test'))
+        assert str(e.exception) == 'each pattern must be str'
+
+        with self.assertRaises(TypeError) as e:
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).not_like(name=('thing', b'not a str'))
+        assert str(e.exception) == 'each data must be str'
+
+    def test_AsyncSqlQueryBuilder_not_like_adds_correct_clause_and_param(self):
         sqb = async_classes.AsyncSqlQueryBuilder(model=async_classes.AsyncSqlModel)
         assert len(sqb.clauses) == 0, 'clauses must start at 0 len'
         assert len(sqb.params) == 0, 'params must start at 0 len'
@@ -574,6 +684,16 @@ class TestAsyncClasses(unittest.TestCase):
         assert len(sqb.params) == 1, 'not_like() must append to params'
         assert sqb.clauses[0] == 'name not like ?'
         assert sqb.params[0] == '123%'
+
+        sqb = sqb.reset()
+        assert len(sqb.clauses) == 0, len(sqb.clauses)
+        sqb.not_like(name=('?%?', '123'), other=('?%?', '456'))
+        assert len(sqb.clauses) == 2, sqb.clauses
+        assert len(sqb.params) == 2, sqb.params
+        assert sqb.clauses[0] == 'name not like ?', sqb.clauses
+        assert sqb.params[0] == '123%123', sqb.params
+        assert sqb.clauses[1] == 'other not like ?', sqb.clauses
+        assert sqb.params[1] == '456%456', sqb.params
 
     def test_AsyncSqlQueryBuilder_starts_with_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
@@ -592,6 +712,10 @@ class TestAsyncClasses(unittest.TestCase):
             async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).starts_with('sds', '')
         assert str(e.exception) == 'data cannot be empty'
 
+        with self.assertRaises(TypeError) as e:
+            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).starts_with(name=b'not a str')
+        assert str(e.exception) == 'data must be str'
+
     def test_AsyncSqlQueryBuilder_starts_with_adds_correct_clause_and_param(self):
         sqb = async_classes.AsyncSqlQueryBuilder(model=async_classes.AsyncSqlModel)
         assert len(sqb.clauses) == 0, 'clauses must start at 0 len'
@@ -601,6 +725,16 @@ class TestAsyncClasses(unittest.TestCase):
         assert len(sqb.params) == 1, 'starts_with() must append to params'
         assert sqb.clauses[0] == 'name like ?'
         assert sqb.params[0] == '123%'
+
+        sqb = sqb.reset()
+        assert len(sqb.clauses) == 0, len(sqb.clauses)
+        sqb.starts_with(name='123', other='misc')
+        assert len(sqb.clauses) == 2, sqb.clauses
+        assert len(sqb.params) == 2, sqb.params
+        assert sqb.clauses[0] == 'name like ?', sqb.clauses
+        assert sqb.params[0] == '123%', sqb.params
+        assert sqb.clauses[1] == 'other like ?', sqb.clauses
+        assert sqb.params[1] == 'misc%', sqb.params
 
     def test_AsyncSqlQueryBuilder_does_not_start_with_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
@@ -627,6 +761,12 @@ class TestAsyncClasses(unittest.TestCase):
             ).does_not_start_with('sds', '')
         assert str(e.exception) == 'data cannot be empty'
 
+        with self.assertRaises(TypeError) as e:
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).does_not_start_with(name=b'not a str')
+        assert str(e.exception) == 'data must be str'
+
     def test_AsyncSqlQueryBuilder_does_not_start_with_adds_correct_clause_and_param(self):
         sqb = async_classes.AsyncSqlQueryBuilder(model=async_classes.AsyncSqlModel)
         assert len(sqb.clauses) == 0, 'clauses must start at 0 len'
@@ -636,6 +776,16 @@ class TestAsyncClasses(unittest.TestCase):
         assert len(sqb.params) == 1, 'does_not_start_with() must append to params'
         assert sqb.clauses[0] == 'name not like ?'
         assert sqb.params[0] == '123%'
+
+        sqb = sqb.reset()
+        assert len(sqb.clauses) == 0, len(sqb.clauses)
+        sqb.does_not_start_with(name='123', other='misc')
+        assert len(sqb.clauses) == 2, sqb.clauses
+        assert len(sqb.params) == 2, sqb.params
+        assert sqb.clauses[0] == 'name not like ?', sqb.clauses
+        assert sqb.params[0] == '123%', sqb.params
+        assert sqb.clauses[1] == 'other not like ?', sqb.clauses
+        assert sqb.params[1] == 'misc%', sqb.params
 
     def test_AsyncSqlQueryBuilder_contains_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
@@ -654,6 +804,10 @@ class TestAsyncClasses(unittest.TestCase):
             async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).contains('sds', '')
         assert str(e.exception) == 'data cannot be empty'
 
+        with self.assertRaises(TypeError) as e:
+            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).contains(name=b'not a str')
+        assert str(e.exception) == 'data must be str'
+
     def test_AsyncSqlQueryBuilder_contains_adds_correct_clause_and_param(self):
         sqb = async_classes.AsyncSqlQueryBuilder(model=async_classes.AsyncSqlModel)
         assert len(sqb.clauses) == 0, 'clauses must start at 0 len'
@@ -663,6 +817,16 @@ class TestAsyncClasses(unittest.TestCase):
         assert len(sqb.params) == 1, 'contains() must append to params'
         assert sqb.clauses[0] == 'name like ?'
         assert sqb.params[0] == '%123%'
+
+        sqb = sqb.reset()
+        assert len(sqb.clauses) == 0, len(sqb.clauses)
+        sqb.contains(name='123', other='misc')
+        assert len(sqb.clauses) == 2, sqb.clauses
+        assert len(sqb.params) == 2, sqb.params
+        assert sqb.clauses[0] == 'name like ?', sqb.clauses
+        assert sqb.params[0] == '%123%', sqb.params
+        assert sqb.clauses[1] == 'other like ?', sqb.clauses
+        assert sqb.params[1] == '%misc%', sqb.params
 
     def test_AsyncSqlQueryBuilder_excludes_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
@@ -681,6 +845,10 @@ class TestAsyncClasses(unittest.TestCase):
             async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).excludes('sds', '')
         assert str(e.exception) == 'data cannot be empty'
 
+        with self.assertRaises(TypeError) as e:
+            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).excludes(name=b'not a str')
+        assert str(e.exception) == 'data must be str'
+
     def test_AsyncSqlQueryBuilder_excludes_adds_correct_clause_and_param(self):
         sqb = async_classes.AsyncSqlQueryBuilder(model=async_classes.AsyncSqlModel)
         assert len(sqb.clauses) == 0, 'clauses must start at 0 len'
@@ -690,6 +858,16 @@ class TestAsyncClasses(unittest.TestCase):
         assert len(sqb.params) == 1, 'excludes() must append to params'
         assert sqb.clauses[0] == 'name not like ?'
         assert sqb.params[0] == '%123%'
+
+        sqb = sqb.reset()
+        assert len(sqb.clauses) == 0, len(sqb.clauses)
+        sqb.excludes(name='123', other='misc')
+        assert len(sqb.clauses) == 2, sqb.clauses
+        assert len(sqb.params) == 2, sqb.params
+        assert sqb.clauses[0] == 'name not like ?', sqb.clauses
+        assert sqb.params[0] == '%123%', sqb.params
+        assert sqb.clauses[1] == 'other not like ?', sqb.clauses
+        assert sqb.params[1] == '%misc%', sqb.params
 
     def test_AsyncSqlQueryBuilder_ends_with_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
@@ -708,6 +886,10 @@ class TestAsyncClasses(unittest.TestCase):
             async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).ends_with('sds', '')
         assert str(e.exception) == 'data cannot be empty'
 
+        with self.assertRaises(TypeError) as e:
+            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).ends_with(name=b'not a str')
+        assert str(e.exception) == 'data must be str'
+
     def test_AsyncSqlQueryBuilder_ends_with_adds_correct_clause_and_param(self):
         sqb = async_classes.AsyncSqlQueryBuilder(model=async_classes.AsyncSqlModel)
         assert len(sqb.clauses) == 0, 'clauses must start at 0 len'
@@ -717,6 +899,16 @@ class TestAsyncClasses(unittest.TestCase):
         assert len(sqb.params) == 1, 'ends_with() must append to params'
         assert sqb.clauses[0] == 'name like ?'
         assert sqb.params[0] == '%123'
+
+        sqb = sqb.reset()
+        assert len(sqb.clauses) == 0, len(sqb.clauses)
+        sqb.ends_with(name='123', other='misc')
+        assert len(sqb.clauses) == 2, sqb.clauses
+        assert len(sqb.params) == 2, sqb.params
+        assert sqb.clauses[0] == 'name like ?', sqb.clauses
+        assert sqb.params[0] == '%123', sqb.params
+        assert sqb.clauses[1] == 'other like ?', sqb.clauses
+        assert sqb.params[1] == '%misc', sqb.params
 
     def test_AsyncSqlQueryBuilder_does_not_end_with_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
@@ -743,6 +935,12 @@ class TestAsyncClasses(unittest.TestCase):
             ).does_not_end_with('sds', '')
         assert str(e.exception) == 'data cannot be empty'
 
+        with self.assertRaises(TypeError) as e:
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).does_not_end_with(name=b'not a str')
+        assert str(e.exception) == 'data must be str'
+
     def test_AsyncSqlQueryBuilder_does_not_end_with_adds_correct_clause_and_param(self):
         sqb = async_classes.AsyncSqlQueryBuilder(model=async_classes.AsyncSqlModel)
         assert len(sqb.clauses) == 0, 'clauses must start at 0 len'
@@ -752,6 +950,16 @@ class TestAsyncClasses(unittest.TestCase):
         assert len(sqb.params) == 1, 'does_not_end_with() must append to params'
         assert sqb.clauses[0] == 'name not like ?'
         assert sqb.params[0] == '%123'
+
+        sqb = sqb.reset()
+        assert len(sqb.clauses) == 0, len(sqb.clauses)
+        sqb.does_not_end_with(name='123', other='misc')
+        assert len(sqb.clauses) == 2, sqb.clauses
+        assert len(sqb.params) == 2, sqb.params
+        assert sqb.clauses[0] == 'name not like ?', sqb.clauses
+        assert sqb.params[0] == '%123', sqb.params
+        assert sqb.clauses[1] == 'other not like ?', sqb.clauses
+        assert sqb.params[1] == '%misc', sqb.params
 
     def test_AsyncSqlQueryBuilder_is_in_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
@@ -770,6 +978,10 @@ class TestAsyncClasses(unittest.TestCase):
             async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).is_in('sds', [])
         assert str(e.exception) == 'data cannot be empty'
 
+        with self.assertRaises(TypeError) as e:
+            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).is_in(name='not a list')
+        assert 'data must be tuple or list' in str(e.exception), str(e.exception)
+
     def test_AsyncSqlQueryBuilder_is_in_adds_correct_clause_and_param(self):
         sqb = async_classes.AsyncSqlQueryBuilder(model=async_classes.AsyncSqlModel)
         assert len(sqb.clauses) == 0, 'clauses must start at 0 len'
@@ -780,6 +992,18 @@ class TestAsyncClasses(unittest.TestCase):
         assert sqb.clauses[0] == 'name in (?,?)'
         assert sqb.params[0] == '123'
         assert sqb.params[1] == '321'
+
+        sqb = sqb.reset()
+        assert len(sqb.clauses) == 0, len(sqb.clauses)
+        sqb.is_in(name=('123', '321'), other=('456', '654'))
+        assert len(sqb.clauses) == 2, sqb.clauses
+        assert len(sqb.params) == 4, sqb.params
+        assert sqb.clauses[0] == 'name in (?,?)', sqb.clauses
+        assert sqb.params[0] == '123', sqb.params
+        assert sqb.params[1] == '321', sqb.params
+        assert sqb.clauses[1] == 'other in (?,?)', sqb.clauses
+        assert sqb.params[2] == '456', sqb.params
+        assert sqb.params[3] == '654', sqb.params
 
     def test_AsyncSqlQueryBuilder_not_in_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
@@ -798,6 +1022,10 @@ class TestAsyncClasses(unittest.TestCase):
             async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).not_in('sds', [])
         assert str(e.exception) == 'data cannot be empty'
 
+        with self.assertRaises(TypeError) as e:
+            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).not_in(name='not a list')
+        assert 'data must be tuple or list' in str(e.exception), str(e.exception)
+
     def test_AsyncSqlQueryBuilder_not_in_adds_correct_clause_and_param(self):
         sqb = async_classes.AsyncSqlQueryBuilder(model=async_classes.AsyncSqlModel)
         assert len(sqb.clauses) == 0, 'clauses must start at 0 len'
@@ -808,6 +1036,119 @@ class TestAsyncClasses(unittest.TestCase):
         assert sqb.clauses[0] == 'name not in (?,?)'
         assert sqb.params[0] == '123'
         assert sqb.params[1] == '321'
+
+        sqb = sqb.reset()
+        assert len(sqb.clauses) == 0, len(sqb.clauses)
+        sqb.not_in(name=('123', '321'), other=('456', '654'))
+        assert len(sqb.clauses) == 2, sqb.clauses
+        assert len(sqb.params) == 4, sqb.params
+        assert sqb.clauses[0] == 'name not in (?,?)', sqb.clauses
+        assert sqb.params[0] == '123', sqb.params
+        assert sqb.params[1] == '321', sqb.params
+        assert sqb.clauses[1] == 'other not in (?,?)', sqb.clauses
+        assert sqb.params[2] == '456', sqb.params
+        assert sqb.params[3] == '654', sqb.params
+
+    def test_SqlQueryBuilder_where_raises_errors_for_invalid_input(self):
+        with self.assertRaises(ValueError) as e:
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).where(not_a_condition='should not work')
+        assert 'unrecognized condition type' in str(e.exception)
+
+        with self.assertRaises(TypeError) as e:
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).where(equal=b'not a dict')
+        assert 'must be dict' in str(e.exception)
+
+    def test_SqlQueryBuilder_where_adds_correct_clauses_and_params(self):
+        sqb = async_classes.AsyncSqlQueryBuilder(model=async_classes.AsyncSqlModel)
+        sqb.where(
+            is_null=['other'],
+            not_null=['name'],
+            equal={'id': 123},
+            not_equal={'name': 'foo'},
+            less={'age': 18},
+            greater={'age': 30},
+            like={'name': ('?%', 'foo')},
+            not_like={'name': ('?%', 'foo'), 'other': ('?%', 'misc')},
+            starts_with={'name': 'foo'},
+            does_not_start_with={'name': 'foo'},
+            contains={'name': 'foo'},
+            excludes={'name': 'foo'},
+            ends_with={'name': 'foo'},
+            does_not_end_with={'name': 'foo'},
+            is_in={'name': ('123', '321')},
+            not_in={'name': ('123', '321')},
+        )
+        assert len(sqb.clauses) == 17, sqb.clauses
+        assert len(sqb.params) == 17, sqb.params
+
+        # is_null
+        assert sqb.clauses[0] == 'other is null', sqb.clauses[0]
+        # not_null
+        assert sqb.clauses[1] == 'name is not null', sqb.clauses[1]
+
+        # equal
+        assert sqb.clauses[2] == 'id = ?', sqb.clauses[2]
+        assert sqb.params[0] == 123, sqb.params[0]
+
+        # not_equal
+        assert sqb.clauses[3] == 'name != ?', sqb.clauses[3]
+        assert sqb.params[1] == 'foo', sqb.params[1]
+
+        # less
+        assert sqb.clauses[4] == 'age < ?', sqb.clauses[4]
+        assert sqb.params[2] == 18, sqb.params[2]
+
+        # greater
+        assert sqb.clauses[5] == 'age > ?', sqb.clauses[5]
+        assert sqb.params[3] == 30, sqb.params[3]
+
+        # like
+        assert sqb.clauses[6] == 'name like ?', sqb.clauses[6]
+        assert sqb.params[4] == 'foo%', sqb.params[4]
+
+        # not_like
+        assert sqb.clauses[7] == 'name not like ?', sqb.clauses[7]
+        assert sqb.params[5] == 'foo%', sqb.params[5]
+        assert sqb.clauses[8] == 'other not like ?', sqb.clauses[8]
+        assert sqb.params[6] == 'misc%', sqb.params[6]
+
+        # starts_with
+        assert sqb.clauses[9] == 'name like ?', sqb.clauses[9]
+        assert sqb.params[7] == 'foo%', sqb.params[7]
+
+        # does_not_start_with
+        assert sqb.clauses[10] == 'name not like ?', sqb.clauses[10]
+        assert sqb.params[8] == 'foo%', sqb.params[8]
+
+        # contains
+        assert sqb.clauses[11] == 'name like ?', sqb.clauses[11]
+        assert sqb.params[9] == '%foo%', sqb.params[9]
+
+        # excludes
+        assert sqb.clauses[12] == 'name not like ?', sqb.clauses[12]
+        assert sqb.params[10] == '%foo%', sqb.params[10]
+
+        # ends_with
+        assert sqb.clauses[13] == 'name like ?', sqb.clauses[13]
+        assert sqb.params[11] == '%foo', sqb.params[11]
+
+        # does_not_end_with
+        assert sqb.clauses[14] == 'name not like ?', sqb.clauses[14]
+        assert sqb.params[12] == '%foo', sqb.params[12]
+
+        # is_in
+        assert sqb.clauses[15] == 'name in (?,?)', sqb.clauses[15]
+        assert sqb.params[13] == '123', sqb.params[13]
+        assert sqb.params[14] == '321', sqb.params[14]
+
+        # not_in
+        assert sqb.clauses[16] == 'name not in (?,?)', sqb.clauses[16]
+        assert sqb.params[15] == '123', sqb.params[15]
+        assert sqb.params[16] == '321', sqb.params[16]
 
     def test_AsyncSqlQueryBuilder_order_by_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
@@ -825,6 +1166,10 @@ class TestAsyncClasses(unittest.TestCase):
         with self.assertRaises(ValueError) as e:
             async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).order_by('id', 'not asc or desc')
         assert str(e.exception) == 'direction must be asc or desc'
+
+        with self.assertRaises(TypeError) as e:
+            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).order_by(name=b'not a str')
+        assert str(e.exception) == 'direction must be str'
 
     def test_AsyncSqlQueryBuilder_order_by_sets_order_column_and_order_dir(self):
         sqb = async_classes.AsyncSqlQueryBuilder(model=async_classes.AsyncSqlModel)

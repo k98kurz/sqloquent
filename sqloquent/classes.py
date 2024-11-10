@@ -223,167 +223,345 @@ class SqlQueryBuilder:
         tert(type(name) is str, 'name must be str')
         self._table = name
 
-    def is_null(self, column: str) -> SqlQueryBuilder:
+    def is_null(self, column: str|list[str,]|tuple[str,]) -> SqlQueryBuilder:
         """Save the 'column is null' clause, then return self. Raises
             TypeError for invalid column.
         """
-        tert(type(column) is str, 'column must be str')
-        self.clauses.append(f'{column} is null')
+        tert(type(column) in (str, list, tuple),
+             'column must be str, list[str,], or tuple[str,]')
+        if type(column) in (list, tuple):
+            tert(all([type(c) is str for c in column]),
+                 'column must be str or list[str]')
+            for c in column:
+                self.clauses.append(f'{c} is null')
+        else:
+            self.clauses.append(f'{column} is null')
         return self
 
-    def not_null(self, column: str) -> SqlQueryBuilder:
+    def not_null(self, column: str|list[str,]|tuple[str,]) -> SqlQueryBuilder:
         """Save the 'column is not null' clause, then return self.
             Raises TypeError for invalid column.
         """
-        tert(type(column) is str, 'column must be str')
-        self.clauses.append(f'{column} is not null')
+        tert(type(column) in (str, list, tuple),
+             'column must be str, list[str,], or tuple[str,]')
+        if type(column) in (list, tuple):
+            tert(all([type(c) is str for c in column]),
+                 'column must be str or list[str]')
+            for c in column:
+                self.clauses.append(f'{c} is not null')
+        else:
+            self.clauses.append(f'{column} is not null')
         return self
 
-    def equal(self, column: str, data: Any) -> SqlQueryBuilder:
+    def equal(self, column: str = None, data: Any = None,
+              **conditions: dict[str, Any]) -> SqlQueryBuilder:
         """Save the 'column = data' clause and param, then return self.
             Raises TypeError for invalid column.
         """
-        tert(type(column) is str, 'column must be str')
-        self.clauses.append(f'{column} = ?')
-        self.params.append(data)
+        if column is not None:
+            tert(type(column) is str, 'column must be str')
+            self.clauses.append(f'{column} = ?')
+            self.params.append(data)
+
+        for column, data in conditions.items():
+            tert(type(column) is str, 'each column must be str')
+            self.clauses.append(f'{column} = ?')
+            self.params.append(data)
         return self
 
-    def not_equal(self, column: str, data: Any) -> SqlQueryBuilder:
+    def not_equal(self, column: str = None, data: Any = None,
+                  **conditions: dict[str, Any]) -> SqlQueryBuilder:
         """Save the 'column != data' clause and param, then return self.
             Raises TypeError for invalid column.
         """
-        tert(type(column) is str, 'column must be str')
-        self.clauses.append(f'{column} != ?')
-        self.params.append(data)
+        if column is not None and data is not None:
+            tert(type(column) is str, 'column must be str')
+            self.clauses.append(f'{column} != ?')
+            self.params.append(data)
+
+        for column, data in conditions.items():
+            tert(type(column) is str, 'each column must be str')
+            self.clauses.append(f'{column} != ?')
+            self.params.append(data)
         return self
 
-    def less(self, column: str, data: Any) -> SqlQueryBuilder:
+    def less(self, column: str = None, data: Any = None,
+             **conditions: dict[str, Any]) -> SqlQueryBuilder:
         """Save the 'column < data' clause and param, then return self.
             Raises TypeError for invalid column.
         """
-        tert(type(column) is str, 'column must be str')
-        self.clauses.append(f'{column} < ?')
-        self.params.append(data)
+        if column is not None:
+            tert(type(column) is str, 'column must be str')
+            self.clauses.append(f'{column} < ?')
+            self.params.append(data)
+
+        for column, data in conditions.items():
+            tert(type(column) is str, 'each column must be str')
+            self.clauses.append(f'{column} < ?')
+            self.params.append(data)
         return self
 
-    def greater(self, column: str, data: Any) -> SqlQueryBuilder:
+    def greater(self, column: str = None, data: Any = None,
+                **conditions: dict[str, Any]) -> SqlQueryBuilder:
         """Save the 'column > data' clause and param, then return self.
             Raises TypeError for invalid column.
         """
-        tert(type(column) is str, 'column must be str')
-        self.clauses.append(f'{column} > ?')
-        self.params.append(data)
+        if column is not None:
+            tert(type(column) is str, 'column must be str')
+            self.clauses.append(f'{column} > ?')
+            self.params.append(data)
+
+        for column, data in conditions.items():
+            tert(type(column) is str, 'each column must be str')
+            self.clauses.append(f'{column} > ?')
+            self.params.append(data)
         return self
 
-    def like(self, column: str, pattern: str, data: str) -> SqlQueryBuilder:
+    def like(self, column: str = None, pattern: str = None,
+             data: str = None, **conditions: dict[str, tuple[str, str]]) -> SqlQueryBuilder:
         """Save the 'column like {pattern.replace(?, data)}' clause and
             param, then return self. Raises TypeError or ValueError for
             invalid column, pattern, or data.
         """
-        tert(type(column) is str, 'column must be str')
-        tert(type(pattern) is str, 'pattern must be str')
-        tert(type(data) is str, 'data must be str')
-        vert(len(column), 'column cannot be empty')
-        vert(len(pattern), 'pattern cannot be empty')
-        vert(len(data), 'data cannot be empty')
-        self.clauses.append(f'{column} like ?')
-        self.params.append(pattern.replace('?', data))
+        if column is not None:
+            tert(type(column) is str, 'column must be str')
+            tert(type(pattern) is str, 'pattern must be str')
+            tert(type(data) is str, 'data must be str')
+            vert(len(column), 'column cannot be empty')
+            vert(len(pattern), 'pattern cannot be empty')
+            vert(len(data), 'data cannot be empty')
+            self.clauses.append(f'{column} like ?')
+            self.params.append(pattern.replace('?', data))
+
+        for column, val in conditions.items():
+            tert(type(val) in (tuple, list),
+                 'each value must be tuple or list with 2 elements: pattern, data')
+            vert(len(val) == 2,
+                 'each value must be tuple or list with 2 elements: pattern, data')
+            pattern, data = val
+            self.like(column, pattern, data)
         return self
 
-    def not_like(self, column: str, pattern: str, data: str) -> SqlQueryBuilder:
+    def not_like(self, column: str = None, pattern: str = None,
+                 data: str = None, **conditions: dict[str, tuple[str, str]]) -> SqlQueryBuilder:
         """Save the 'column not like {pattern.replace(?, data)}' clause
             and param, then return self. Raises TypeError or ValueError
             for invalid column, pattern, or data.
         """
-        tert(type(column) is str, 'column must be str')
-        tert(type(pattern) is str, 'pattern must be str')
-        tert(type(data) is str, 'data must be str')
-        vert(len(column), 'column cannot be empty')
-        vert(len(pattern), 'pattern cannot be empty')
-        vert(len(data), 'data cannot be empty')
-        self.clauses.append(f'{column} not like ?')
-        self.params.append(pattern.replace('?', data))
+        if column is not None:
+            tert(type(column) is str, 'column must be str')
+            tert(type(pattern) is str, 'pattern must be str')
+            tert(type(data) is str, 'data must be str')
+            vert(len(column), 'column cannot be empty')
+            vert(len(pattern), 'pattern cannot be empty')
+            vert(len(data), 'data cannot be empty')
+            self.clauses.append(f'{column} not like ?')
+            self.params.append(pattern.replace('?', data))
+
+        for column, val in conditions.items():
+            tert(type(val) in (tuple, list),
+                 'each value must be tuple or list with 2 elements: pattern, data')
+            vert(len(val) == 2,
+                 'each value must be tuple or list with 2 elements: pattern, data')
+            pattern, data = val
+            tert(type(column) is str, 'each column must be str')
+            tert(type(pattern) is str, 'each pattern must be str')
+            tert(type(data) is str, 'each data must be str')
+            vert(len(column), 'column cannot be empty')
+            vert(len(pattern), 'pattern cannot be empty')
+            vert(len(data), 'data cannot be empty')
+            self.clauses.append(f'{column} not like ?')
+            self.params.append(pattern.replace('?', data))
         return self
 
-    def starts_with(self, column: str, data: str) -> SqlQueryBuilder:
+    def starts_with(self, column: str = None, data: str = None,
+                    **conditions: dict[str, Any]) -> SqlQueryBuilder:
         """Save the 'column like data%' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data.
         """
-        return self.like(column, '?%', data)
+        if column is not None:
+            self.like(column, '?%', data)
 
-    def does_not_start_with(self, column: str, data: str) -> SqlQueryBuilder:
+        for column, data in conditions.items():
+            self.like(column, '?%', data)
+        return self
+
+    def does_not_start_with(self, column: str = None, data: str = None,
+                             **conditions: dict[str, Any]) -> SqlQueryBuilder:
         """Save the 'column not like data%' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data.
         """
-        return self.not_like(column, '?%', data)
+        if column is not None:
+            self.not_like(column, '?%', data)
 
-    def contains(self, column: str, data: str) -> SqlQueryBuilder:
+        for column, data in conditions.items():
+            self.not_like(column, '?%', data)
+        return self
+
+    def contains(self, column: str = None, data: str = None,
+                 **conditions: dict[str, str]) -> SqlQueryBuilder:
         """Save the 'column like %data%' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data.
         """
-        return self.like(column, '%?%', data)
+        if column is not None:
+            self.like(column, '%?%', data)
 
-    def excludes(self, column: str, data: str) -> SqlQueryBuilder:
+        for column, data in conditions.items():
+            self.like(column, '%?%', data)
+        return self
+
+    def excludes(self, column: str = None, data: str = None,
+                 **conditions: dict[str, str]) -> SqlQueryBuilder:
         """Save the 'column not like %data%' clause and param, then
             return self. Raises TypeError or ValueError for invalid
             column or data.
         """
-        return self.not_like(column, '%?%', data)
+        if column is not None:
+            self.not_like(column, '%?%', data)
 
-    def ends_with(self, column: str, data: str) -> SqlQueryBuilder:
+        for column, data in conditions.items():
+            self.not_like(column, '%?%', data)
+        return self
+
+    def ends_with(self, column: str = None, data: str = None,
+                 **conditions: dict[str, str]) -> SqlQueryBuilder:
         """Save the 'column like %data' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data.
         """
-        return self.like(column, '%?', data)
+        if column is not None:
+            self.like(column, '%?', data)
 
-    def does_not_end_with(self, column: str, data: str) -> SqlQueryBuilder:
+        for column, data in conditions.items():
+            self.like(column, '%?', data)
+        return self
+
+    def does_not_end_with(self, column: str = None, data: str = None,
+                          **conditions: dict[str, str]) -> SqlQueryBuilder:
         """Save the 'column like %data' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data.
         """
-        return self.not_like(column, '%?', data)
+        if column is not None:
+            self.not_like(column, '%?', data)
 
-    def is_in(self, column: str, data: Union[tuple, list]) -> SqlQueryBuilder:
+        for column, data in conditions.items():
+            self.not_like(column, '%?', data)
+        return self
+
+    def is_in(self, column: str = None, data: tuple|list = None,
+              **conditions: dict[str, tuple|list]) -> SqlQueryBuilder:
         """Save the 'column in data' clause and param, then return self.
             Raises TypeError or ValueError for invalid column or data.
         """
-        tert(type(column) is str, 'column must be str')
-        tert(type(data) in (tuple, list), 'data must be tuple or list')
-        vert(len(column), 'column cannot be empty')
-        vert(len(data), 'data cannot be empty')
-        self.clauses.append(f'{column} in ({",".join(["?" for _ in data])})')
-        self.params.extend(data)
+        if column is not None and data is not None:
+            tert(type(column) is str, 'column must be str')
+            tert(type(data) in (tuple, list), 'data must be tuple or list')
+            vert(len(column), 'column cannot be empty')
+            vert(len(data), 'data cannot be empty')
+            self.clauses.append(f'{column} in ({",".join(["?" for _ in data])})')
+            self.params.extend(data)
+
+        for column, data in conditions.items():
+            self.is_in(column, data)
         return self
 
-    def not_in(self, column: str, data: Union[tuple, list]) -> SqlQueryBuilder:
+    def not_in(self, column: str = None, data: tuple|list = None,
+                **conditions: dict[str, tuple|list]) -> SqlQueryBuilder:
         """Save the 'column not in data' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data.
         """
-        tert(type(column) is str, 'column must be str')
-        tert(type(data) in (tuple, list), 'data must be tuple or list')
-        vert(len(column), 'column cannot be empty')
-        vert(len(data), 'data cannot be empty')
-        self.clauses.append(f'{column} not in ({",".join(["?" for _ in data])})')
-        self.params.extend(data)
+        if column is not None:
+            tert(type(column) is str, 'column must be str')
+            tert(type(data) in (tuple, list), 'data must be tuple or list')
+            vert(len(column), 'column cannot be empty')
+            vert(len(data), 'data cannot be empty')
+            self.clauses.append(f'{column} not in ({",".join(["?" for _ in data])})')
+            self.params.extend(data)
+
+        for column, data in conditions.items():
+            self.not_in(column, data)
         return self
 
-    def order_by(self, column: str, direction: str = 'desc') -> SqlQueryBuilder:
+    def where(self, **conditions: dict[str, dict[str, Any]|list[str]]) -> SqlQueryBuilder:
+        """Parse the conditions as if they are sequential calls to the
+            equivalent SqlQueryBuilder methods.
+        """
+        for condition_type, condition_data in conditions.items():
+            vert(condition_type in (
+                'is_null', 'not_null', 'equal', 'not_equal', 'less', 'greater',
+                'like', 'not_like', 'starts_with', 'does_not_start_with',
+                'contains', 'excludes', 'ends_with', 'does_not_end_with',
+                'is_in', 'not_in'
+            ), 'unrecognized condition type')
+            if condition_type == 'is_null':
+                self.is_null(condition_data)
+            elif condition_type == 'not_null':
+                self.not_null(condition_data)
+            elif condition_type == 'equal':
+                tert(type(condition_data) is dict, 'equal must be dict[str, Any]')
+                self.equal(**condition_data)
+            elif condition_type == 'not_equal':
+                tert(type(condition_data) is dict, 'not_equal must be dict[str, Any]')
+                self.not_equal(**condition_data)
+            elif condition_type == 'less':
+                tert(type(condition_data) is dict, 'less must be dict[str, Any]')
+                self.less(**condition_data)
+            elif condition_type == 'greater':
+                tert(type(condition_data) is dict, 'greater must be dict[str, Any]')
+                self.greater(**condition_data)
+            elif condition_type == 'like':
+                tert(type(condition_data) is dict, 'like must be dict[str, tuple[str, str]]')
+                self.like(**condition_data)
+            elif condition_type == 'not_like':
+                tert(type(condition_data) is dict, 'not_like must be dict[str, tuple[str, str]]')
+                self.not_like(**condition_data)
+            elif condition_type == 'starts_with':
+                tert(type(condition_data) is dict, 'starts_with must be dict[str, str]')
+                self.starts_with(**condition_data)
+            elif condition_type == 'does_not_start_with':
+                tert(type(condition_data) is dict, 'does_not_start_with must be dict[str, str]')
+                self.does_not_start_with(**condition_data)
+            elif condition_type == 'contains':
+                tert(type(condition_data) is dict, 'contains must be dict[str, str]')
+                self.contains(**condition_data)
+            elif condition_type == 'excludes':
+                tert(type(condition_data) is dict, 'excludes must be dict[str, str]')
+                self.excludes(**condition_data)
+            elif condition_type == 'ends_with':
+                tert(type(condition_data) is dict, 'ends_with must be dict')
+                self.ends_with(**condition_data)
+            elif condition_type == 'does_not_end_with':
+                tert(type(condition_data) is dict, 'does_not_end_with must be dict')
+                self.does_not_end_with(**condition_data)
+            elif condition_type == 'is_in':
+                tert(type(condition_data) is dict, 'is_in must be dict')
+                self.is_in(**condition_data)
+            elif condition_type == 'not_in':
+                tert(type(condition_data) is dict, 'not_in must be dict')
+                self.not_in(**condition_data)
+        return self
+
+    def order_by(self, column: str = None, direction: str = 'desc',
+                 **conditions: dict[str, str]) -> SqlQueryBuilder:
         """Sets query order. Raises TypeError or ValueError for invalid
             column or direction.
         """
-        tert(type(column) is str, 'column must be str')
-        tert(type(direction) is str, 'direction must be str')
-        vert(column in self.model.columns or column in [j.table_2_columns for j in self.joins],
-             f'unrecognized column {column}')
-        vert(direction in ('asc', 'desc'), 'direction must be asc or desc')
+        if column is not None:
+            tert(type(column) is str, 'column must be str')
+            tert(type(direction) is str, 'direction must be str')
+            vert(column in self.model.columns or column in [j.table_2_columns for j in self.joins],
+                 f'unrecognized column {column}')
+            vert(direction in ('asc', 'desc'), 'direction must be asc or desc')
+            self.order_column = column
+            self.order_dir = direction
 
-        self.order_column = column
-        self.order_dir = direction
+        for column, direction in conditions.items():
+            self.order_by(column, direction)
 
         return self
 
@@ -781,9 +959,9 @@ class SqlQueryBuilder:
             bindings = []
             for clause, param in zip(self.clauses, self.params):
                 if type(param) in (tuple, list):
-                    bindings.append(clause.replace('?', f'[{",".join(param)}]'))
+                    bindings.append(clause.replace('?', f'[{",".join(str(p) for p in param)}]'))
                 else:
-                    bindings.append(clause.replace('?', param))
+                    bindings.append(clause.replace('?', str(param)))
 
             sql = f' where {" and ".join(bindings)}'
 
