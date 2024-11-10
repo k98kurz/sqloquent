@@ -105,12 +105,13 @@ class AsyncModelProtocol(Protocol):
         """Dict for storing model data."""
         ...
 
-    @property
-    def data_original(self) -> MappingProxyType:
-        """Read-only MappingProxyType for storing original data values
-            for change tracking.
-        """
-        ...
+    # Tests randomly started failing due to this.
+    # @property
+    # def data_original(self) -> MappingProxyType:
+    #     """Read-only MappingProxyType for storing original data values
+    #         for change tracking.
+    #     """
+    #     ...
 
     @classmethod
     def add_hook(cls, event: str, hook: Callable):
