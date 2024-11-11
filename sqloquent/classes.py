@@ -225,7 +225,8 @@ class SqlQueryBuilder:
 
     def is_null(self, column: str|list[str,]|tuple[str,]) -> SqlQueryBuilder:
         """Save the 'column is null' clause, then return self. Raises
-            TypeError for invalid column.
+            TypeError for invalid column. If a list or tuple is supplied,
+            each element is treated as a separate clause.
         """
         tert(type(column) in (str, list, tuple),
              'column must be str, list[str,], or tuple[str,]')
@@ -240,7 +241,8 @@ class SqlQueryBuilder:
 
     def not_null(self, column: str|list[str,]|tuple[str,]) -> SqlQueryBuilder:
         """Save the 'column is not null' clause, then return self.
-            Raises TypeError for invalid column.
+            Raises TypeError for invalid column. If a list or tuple is
+            supplied, each element is treated as a separate clause.
         """
         tert(type(column) in (str, list, tuple),
              'column must be str, list[str,], or tuple[str,]')
@@ -256,7 +258,9 @@ class SqlQueryBuilder:
     def equal(self, column: str = None, data: Any = None,
               **conditions: dict[str, Any]) -> SqlQueryBuilder:
         """Save the 'column = data' clause and param, then return self.
-            Raises TypeError for invalid column.
+            Raises TypeError for invalid column. This method can be
+            called with `equal(column, data)` or
+            `equal(column1=data1, column2=data2, etc=data3)`.
         """
         if column is not None:
             tert(type(column) is str, 'column must be str')
@@ -272,7 +276,9 @@ class SqlQueryBuilder:
     def not_equal(self, column: str = None, data: Any = None,
                   **conditions: dict[str, Any]) -> SqlQueryBuilder:
         """Save the 'column != data' clause and param, then return self.
-            Raises TypeError for invalid column.
+            Raises TypeError for invalid column. This method can be
+            called with `not_equal(column, data)` or
+            `not_equal(column1=data1, column2=data2, etc=data3)`.
         """
         if column is not None and data is not None:
             tert(type(column) is str, 'column must be str')
@@ -288,7 +294,9 @@ class SqlQueryBuilder:
     def less(self, column: str = None, data: Any = None,
              **conditions: dict[str, Any]) -> SqlQueryBuilder:
         """Save the 'column < data' clause and param, then return self.
-            Raises TypeError for invalid column.
+            Raises TypeError for invalid column. This method can be
+            called with `less(column, data)` or
+            `less(column1=data1, column2=data2, etc=data3)`.
         """
         if column is not None:
             tert(type(column) is str, 'column must be str')
@@ -304,7 +312,9 @@ class SqlQueryBuilder:
     def greater(self, column: str = None, data: Any = None,
                 **conditions: dict[str, Any]) -> SqlQueryBuilder:
         """Save the 'column > data' clause and param, then return self.
-            Raises TypeError for invalid column.
+            Raises TypeError for invalid column. This method can be
+            called with `greater(column, data)` or
+            `greater(column1=data1, column2=data2, etc=data3)`.
         """
         if column is not None:
             tert(type(column) is str, 'column must be str')
@@ -317,11 +327,13 @@ class SqlQueryBuilder:
             self.params.append(data)
         return self
 
-    def like(self, column: str = None, pattern: str = None,
-             data: str = None, **conditions: dict[str, tuple[str, str]]) -> SqlQueryBuilder:
+    def like(self, column: str = None, pattern: str = None, data: str = None,
+             **conditions: dict[str, tuple[str, str]]) -> SqlQueryBuilder:
         """Save the 'column like {pattern.replace(?, data)}' clause and
             param, then return self. Raises TypeError or ValueError for
-            invalid column, pattern, or data.
+            invalid column, pattern, or data. This method can be
+            called with `like(column, pattern, data)` or
+            `like(column1=(pattern1,str1), column2=(pattern2,str2), etc=(pattern3,str3))`.
         """
         if column is not None:
             tert(type(column) is str, 'column must be str')
@@ -342,11 +354,13 @@ class SqlQueryBuilder:
             self.like(column, pattern, data)
         return self
 
-    def not_like(self, column: str = None, pattern: str = None,
-                 data: str = None, **conditions: dict[str, tuple[str, str]]) -> SqlQueryBuilder:
+    def not_like(self, column: str = None, pattern: str = None, data: str = None,
+                 **conditions: dict[str, tuple[str, str]]) -> SqlQueryBuilder:
         """Save the 'column not like {pattern.replace(?, data)}' clause
             and param, then return self. Raises TypeError or ValueError
-            for invalid column, pattern, or data.
+            for invalid column, pattern, or data. This method can be
+            called with `not_like(column, pattern, data)` or
+            `not_like(column1=(pattern1,str1), column2=(pattern2,str2), etc=(pattern3,str3))`.
         """
         if column is not None:
             tert(type(column) is str, 'column must be str')
@@ -378,7 +392,8 @@ class SqlQueryBuilder:
                     **conditions: dict[str, Any]) -> SqlQueryBuilder:
         """Save the 'column like data%' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
-            data.
+            data. This method can be called with `starts_with(column, data)`
+            or `starts_with(column1=str1, column2=str2, etc=str3)`.
         """
         if column is not None:
             self.like(column, '?%', data)
@@ -391,7 +406,9 @@ class SqlQueryBuilder:
                              **conditions: dict[str, Any]) -> SqlQueryBuilder:
         """Save the 'column not like data%' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
-            data.
+            data. This method can be called with
+            `does_not_start_with(column, data)` or
+            `does_not_start_with(column1=str1, column2=str2, etc=str3)`.
         """
         if column is not None:
             self.not_like(column, '?%', data)
@@ -404,7 +421,8 @@ class SqlQueryBuilder:
                  **conditions: dict[str, str]) -> SqlQueryBuilder:
         """Save the 'column like %data%' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
-            data.
+            data. This method can be called with `contains(column, data)`
+            or `contains(column1=str1, column2=str2, etc=str3)`.
         """
         if column is not None:
             self.like(column, '%?%', data)
@@ -417,7 +435,9 @@ class SqlQueryBuilder:
                  **conditions: dict[str, str]) -> SqlQueryBuilder:
         """Save the 'column not like %data%' clause and param, then
             return self. Raises TypeError or ValueError for invalid
-            column or data.
+            column or data. This method can be called with
+            `excludes(column, data)` or
+            `excludes(column1=str1, column2=str2, etc=str3)`.
         """
         if column is not None:
             self.not_like(column, '%?%', data)
@@ -430,7 +450,8 @@ class SqlQueryBuilder:
                  **conditions: dict[str, str]) -> SqlQueryBuilder:
         """Save the 'column like %data' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
-            data.
+            data. This method can be called with `ends_with(column, data)`
+            or `ends_with(column1=str1, column2=str2, etc=str3)`.
         """
         if column is not None:
             self.like(column, '%?', data)
@@ -443,7 +464,9 @@ class SqlQueryBuilder:
                           **conditions: dict[str, str]) -> SqlQueryBuilder:
         """Save the 'column like %data' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
-            data.
+            data. This method can be called with
+            `does_not_end_with(column, data)` or
+            `does_not_end_with(column1=str1, column2=str2, etc=str3)`.
         """
         if column is not None:
             self.not_like(column, '%?', data)
@@ -456,6 +479,8 @@ class SqlQueryBuilder:
               **conditions: dict[str, tuple|list]) -> SqlQueryBuilder:
         """Save the 'column in data' clause and param, then return self.
             Raises TypeError or ValueError for invalid column or data.
+            This method can be called with `is_in(column, data)` or
+            `is_in(column1=list1, column2=list2, etc=list3)`.
         """
         if column is not None and data is not None:
             tert(type(column) is str, 'column must be str')
@@ -473,7 +498,8 @@ class SqlQueryBuilder:
                 **conditions: dict[str, tuple|list]) -> SqlQueryBuilder:
         """Save the 'column not in data' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
-            data.
+            data. This method can be called with `not_in(column, data)`
+            or `not_in(column1=list1, column2=list2, etc=list3)`.
         """
         if column is not None:
             tert(type(column) is str, 'column must be str')
@@ -489,7 +515,24 @@ class SqlQueryBuilder:
 
     def where(self, **conditions: dict[str, dict[str, Any]|list[str]]) -> SqlQueryBuilder:
         """Parse the conditions as if they are sequential calls to the
-            equivalent SqlQueryBuilder methods.
+            equivalent SqlQueryBuilder methods. Syntax is as follows:
+            `where(is_null=[column1,...], not_null=[column2,...],
+            equal={'column1':data1, 'column2':data2, 'etc':data3},
+            not_equal={'column1':data1, 'column2':data2, 'etc':data3},
+            less={'column1':data1, 'column2':data2, 'etc':data3},
+            greater={'column1':data1, 'column2':data2, 'etc':data3},
+            like={'column1':(pattern1,str1), 'column2':(pattern2,str2),
+            'etc':(pattern3,str3)}, not_like={'column1':(pattern1,str1),
+            'column2':(pattern2,str2), 'etc':(pattern3,str3)},
+            starts_with={'column1':str1, 'column2':str2, 'etc':str3},
+            does_not_start_with={'column1':str1, 'column2':str2, 'etc':str3},
+            contains={'column1':str1, 'column2':str2, 'etc':str3},
+            excludes={'column1':str1, 'column2':str2, 'etc':str3},
+            ends_with={'column1':str1, 'column2':str2, 'etc':str3},
+            does_not_end_with={'column1':str1, 'column2':str2, 'etc':str3},
+            is_in={'column1':list1, 'column2':list2, 'etc':list3},
+            not_in={'column1':list1, 'column2':list2, 'etc':list3})`. All
+            kwargs are optional.
         """
         for condition_type, condition_data in conditions.items():
             vert(condition_type in (
@@ -549,7 +592,9 @@ class SqlQueryBuilder:
     def order_by(self, column: str = None, direction: str = 'desc',
                  **conditions: dict[str, str]) -> SqlQueryBuilder:
         """Sets query order. Raises TypeError or ValueError for invalid
-            column or direction.
+            column or direction. This method can be called with
+            `order_by(column, direction)` or `order_by(column=direction)`.
+            Note that only one column can be ordered by per query.
         """
         if column is not None:
             tert(type(column) is str, 'column must be str')
@@ -557,9 +602,11 @@ class SqlQueryBuilder:
             vert(column in self.model.columns or column in [j.table_2_columns for j in self.joins],
                  f'unrecognized column {column}')
             vert(direction in ('asc', 'desc'), 'direction must be asc or desc')
+            vert(len(conditions.keys()) == 0, 'only one column can be ordered by per query')
             self.order_column = column
             self.order_dir = direction
 
+        vert(len(conditions.keys()) <= 1, 'only one column can be ordered by per query')
         for column, direction in conditions.items():
             self.order_by(column, direction)
 

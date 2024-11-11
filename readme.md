@@ -20,11 +20,12 @@ returning `Row`s, and joining will result in `get` returning `JoinedModel`s.
 ```python
 from sqloquent import SqlQueryBuilder
 
-sqb = SqlQueryBuilder(
-    'some_table', columns=['id', 'etc'], connection_info='temp.db'
-).join('some_other_table', columns=['id', 'some_id', 'data'])
+query = lambda table, columns: SqlQueryBuilder(
+    table=table, columns=columns, connection_info='temp.db'
+)
 
 # count the number of matches
+sqb = query('some_table', ['id', 'etc']).join('some_other_table', ['id', 'some_id', 'data'])
 count = sqb.count()
 
 # chunk through them 1000 at a time
@@ -34,6 +35,11 @@ for chunk in sqb.chunk(1000):
 
 # or just get them all
 results = sqb.get()
+
+# or use a condition
+results = query('some_table', ['id', 'etc']).where(contains={'etc': 'something'}).get()
+# or equivalently
+results = query('some_table', ['id', 'etc']).contains(etc='something').get()
 ```
 
 Or for asyncio:
@@ -42,9 +48,11 @@ Or for asyncio:
 from asyncio import run
 from sqloquent.asyncql import AsyncSqlQueryBuilder
 
-sqb = AsyncSqlQueryBuilder(
-    'some_table', columns=['id', 'etc'], connection_info='temp.db'
-).join('some_other_table', columns=['id', 'some_id', 'data'])
+query = lambda table, columns: AsyncSqlQueryBuilder(
+    table=table, columns=columns, connection_info='temp.db'
+)
+
+sqb = query('some_table', ['id', 'etc']).join('some_other_table', ['id', 'some_id', 'data'])
 
 # count the number of matches
 count = run(sqb.count())
@@ -58,6 +66,11 @@ run(chunk_it(sqb))
 
 # or just get them all
 results = run(sqb.get())
+
+# or use a condition
+results = run(query('some_table', ['id', 'etc']).where(contains={'etc': 'something'}).get())
+# or equivalently
+results = run(query('some_table', ['id', 'etc']).contains(etc='something').get())
 ```
 
 These base classes have a default binding to sqlite3 via the `SqliteContext`
@@ -1102,7 +1115,7 @@ python tests/test_tools.py
 The tests demonstrate the intended (and actual) behavior of the classes, as
 well as some contrived examples of how they are used. Perusing the tests will be
 informative to anyone seeking to use/break this package, especially the
-integration test which demonstrates the full package. There are currently 458
+integration test which demonstrates the full package. There are currently 462
 unit tests + 4 e2e integration tests.
 
 ## ISC License
