@@ -171,79 +171,118 @@ Interface showing how a query builder should function.
 Initialize the instance. A class implementing AsyncModelProtocol or the str name
 of a table must be provided.
 
-##### `is_null(column: str) -> AsyncQueryBuilderProtocol:`
+##### `is_null(column: str | list[str,] | tuple[str,]) -> AsyncQueryBuilderProtocol:`
 
 Save the 'column is null' clause, then return self. Raises TypeError for invalid
-column.
+column. If a list or tuple is supplied, each element is treated as a separate
+clause.
 
-##### `not_null(column: str) -> AsyncQueryBuilderProtocol:`
+##### `not_null(column: str | list[str,] | tuple[str,]) -> AsyncQueryBuilderProtocol:`
 
 Save the 'column is not null' clause, then return self. Raises TypeError for
-invalid column.
+invalid column. If a list or tuple is supplied, each element is treated as a
+separate clause.
 
-##### `equal(column: str, data: str) -> AsyncQueryBuilderProtocol:`
+##### `equal(column: str, data: str = None, conditions: dict[str, Any] = None) -> AsyncQueryBuilderProtocol:`
 
-Save the 'column = data' clause and param, then return self.
+Save the 'column = data' clause and param, then return self. Raises TypeError
+for invalid column. This method can be called with `equal(column, data)` or
+`equal(column1=data1, column2=data2, etc=data3)`.
 
-##### `not_equal(column: str, data: Any) -> AsyncQueryBuilderProtocol:`
+##### `not_equal(column: str, data: Any = None, conditions: dict[str, Any] = None) -> AsyncQueryBuilderProtocol:`
 
-Save the 'column != data' clause and param, then return self.
+Save the 'column != data' clause and param, then return self. Raises TypeError
+for invalid column. This method can be called with `not_equal(column, data)` or
+`not_equal(column1=data1, column2=data2, etc=data3)`.
 
-##### `less(column: str, data: str) -> AsyncQueryBuilderProtocol:`
+##### `less(column: str, data: str = None, conditions: dict[str, Any] = None) -> AsyncQueryBuilderProtocol:`
 
-Save the 'column < data' clause and param, then return self.
+Save the 'column < data' clause and param, then return self. Raises TypeError
+for invalid column. This method can be called with `less(column, data)` or
+`less(column1=data1, column2=data2, etc=data3)`.
 
-##### `greater(column: str, data: str) -> AsyncQueryBuilderProtocol:`
+##### `greater(column: str, data: str = None, conditions: dict[str, Any] = None) -> AsyncQueryBuilderProtocol:`
 
-Save the 'column > data' clause and param, then return self.
+Save the 'column > data' clause and param, then return self. Raises TypeError
+for invalid column. This method can be called with `greater(column, data)` or
+`greater(column1=data1, column2=data2, etc=data3)`.
 
-##### `like(column: str, pattern: str, data: str) -> AsyncQueryBuilderProtocol:`
+##### `like(column: str, pattern: str = None, data: str = None, conditions: dict[str, Any] = None) -> AsyncQueryBuilderProtocol:`
 
 Save the 'column like {pattern.replace(?, data)}' clause and param, then return
-self. Raises TypeError or ValueError for invalid column, pattern, or data.
+self. Raises TypeError or ValueError for invalid column, pattern, or data. This
+method can be called with `like(column, pattern, data)` or
+`like(column1=(pattern1,str1), column2=(pattern2,str2), etc=(pattern3,str3))`.
 
-##### `not_like(column: str, pattern: str, data: str) -> AsyncQueryBuilderProtocol:`
+##### `not_like(column: str, pattern: str = None, data: str = None, conditions: dict[str, Any] = None) -> AsyncQueryBuilderProtocol:`
 
 Save the 'column not like {pattern.replace(?, data)}' clause and param, then
 return self. Raises TypeError or ValueError for invalid column, pattern, or
-data.
+data. This method can be called with `not_like(column, pattern, data)` or
+`not_like(column1=(pattern1,str1), column2=(pattern2,str2), etc=(pattern3,str3))`.
 
-##### `starts_with(column: str, data: str) -> AsyncQueryBuilderProtocol:`
-
-Save the 'column like data%' clause and param, then return self.
-
-##### `does_not_start_with(column: str, data: str) -> AsyncQueryBuilderProtocol:`
+##### `starts_with(column: str, data: str = None, conditions: dict[str, Any] = None) -> AsyncQueryBuilderProtocol:`
 
 Save the 'column like data%' clause and param, then return self. Raises
-TypeError or ValueError for invalid column or data.
+TypeError or ValueError for invalid column or data. This method can be called
+with `starts_with(column, data)` or `starts_with(column1=str1, column2=str2,
+etc=str3)`.
 
-##### `contains(column: str, data: str) -> AsyncQueryBuilderProtocol:`
+##### `does_not_start_with(column: str, data: str = None, conditions: dict[str, Any] = None) -> AsyncQueryBuilderProtocol:`
 
-Save the 'column like %data%' clause and param, then return self.
+Save the 'column not like data%' clause and param, then return self. Raises
+TypeError or ValueError for invalid column or data. This method can be called
+with `does_not_start_with(column, data)` or `does_not_start_with(column1=str1,
+column2=str2, etc=str3)`.
 
-##### `excludes(column: str, data: str) -> AsyncQueryBuilderProtocol:`
+##### `contains(column: str, data: str = None, conditions: dict[str, Any] = None) -> AsyncQueryBuilderProtocol:`
 
-Save the 'column not like %data%' clause and param, then return self.
+Save the 'column like %data%' clause and param, then return self. Raises
+TypeError or ValueError for invalid column or data. This method can be called
+with `contains(column, data)` or `contains(column1=str1, column2=str2,
+etc=str3)`.
 
-##### `ends_with(column: str, data: str) -> AsyncQueryBuilderProtocol:`
+##### `excludes(column: str, data: str = None, conditions: dict[str, Any] = None) -> AsyncQueryBuilderProtocol:`
 
-Save the 'column like %data' clause and param, then return self.
+Save the 'column not like %data%' clause and param, then return self. Raises
+TypeError or ValueError for invalid column or data. This method can be called
+with `excludes(column, data)` or `excludes(column1=str1, column2=str2,
+etc=str3)`.
 
-##### `does_not_end_with(column: str, data: str) -> AsyncQueryBuilderProtocol:`
+##### `ends_with(column: str, data: str = None, conditions: dict[str, Any] = None) -> AsyncQueryBuilderProtocol:`
 
 Save the 'column like %data' clause and param, then return self. Raises
-TypeError or ValueError for invalid column or data.
+TypeError or ValueError for invalid column or data. This method can be called
+with `ends_with(column, data)` or `ends_with(column1=str1, column2=str2,
+etc=str3)`.
 
-##### `is_in(column: str, data: Union[tuple, list]) -> AsyncQueryBuilderProtocol:`
+##### `does_not_end_with(column: str, data: str = None, conditions: dict[str, Any] = None) -> AsyncQueryBuilderProtocol:`
 
-Save the 'column in data' clause and param, then return self.
+Save the 'column like %data' clause and param, then return self. Raises
+TypeError or ValueError for invalid column or data. This method can be called
+with `does_not_end_with(column, data)` or `does_not_end_with(column1=str1,
+column2=str2, etc=str3)`.
 
-##### `not_in(column: str, data: Union[tuple, list]) -> AsyncQueryBuilderProtocol:`
+##### `is_in(column: str, data: Union[tuple, list] = None, conditions: dict[str, Any] = None) -> AsyncQueryBuilderProtocol:`
+
+Save the 'column in data' clause and param, then return self. Raises TypeError
+or ValueError for invalid column or data. This method can be called with
+`is_in(column, data)` or `is_in(column1=list1, column2=list2, etc=list3)`.
+
+##### `not_in(column: str, data: Union[tuple, list] = None, conditions: dict[str, Any] = None) -> AsyncQueryBuilderProtocol:`
 
 Save the 'column not in data' clause and param, then return self. Raises
-TypeError or ValueError for invalid column or data.
+TypeError or ValueError for invalid column or data. This method can be called
+with `not_in(column, data)` or `not_in(column1=list1, column2=list2,
+etc=list3)`.
 
-##### `order_by(column: str, direction: str = 'desc') -> AsyncQueryBuilderProtocol:`
+##### `where(conditions: dict[str, dict[str, Any] | list[str]]) -> AsyncQueryBuilderProtocol:`
+
+Parse the conditions as if they are sequential calls to the equivalent
+SqlQueryBuilder methods. Syntax is as follows: `where(is_null=[column1,...], not_null=[column2,...], equal={'column1':data1, 'column2':data2, 'etc':data3}, not_equal={'column1':data1, 'column2':data2, 'etc':data3}, less={'column1':data1, 'column2':data2, 'etc':data3}, greater={'column1':data1, 'column2':data2, 'etc':data3}, like={'column1':(pattern1,str1), 'column2':(pattern2,str2), 'etc':(pattern3,str3)}, not_like={'column1':(pattern1,str1), 'column2':(pattern2,str2), 'etc':(pattern3,str3)}, starts_with={'column1':str1, 'column2':str2, 'etc':str3}, does_not_start_with={'column1':str1, 'column2':str2, 'etc':str3}, contains={'column1':str1, 'column2':str2, 'etc':str3}, excludes={'column1':str1, 'column2':str2, 'etc':str3}, ends_with={'column1':str1, 'column2':str2, 'etc':str3}, does_not_end_with={'column1':str1, 'column2':str2, 'etc':str3}, is_in={'column1':list1, 'column2':list2, 'etc':list3}, not_in={'column1':list1, 'column2':list2, 'etc':list3})`.
+All kwargs are optional.
+
+##### `order_by(column: str, direction: str = None, conditions: dict[str, str] = 'desc') -> AsyncQueryBuilderProtocol:`
 
 Sets query order.
 

@@ -1,3 +1,10 @@
+## 0.5.3
+
+- Fixed issues with `data_original` property interface (relations, etc.)
+- Fixed bugs in `to_sql` method of `SqlQueryBuilder` and `AsyncSqlQueryBuilder`
+- Added new syntax for QueryBuilder methods (can not use kwargs to specify
+multiple conditions of the same type)
+
 ## 0.5.2
 
 - Added change tracking to `SqlModel`, `AsyncSqlModel`, and subclasses

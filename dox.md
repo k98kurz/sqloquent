@@ -151,91 +151,123 @@ something other than a str.
 Initialize the instance. Must supply model_or_table or model or table. Must
 supply context_manager.
 
-##### `is_null(column: str) -> SqlQueryBuilder:`
+##### `is_null(column: str | list[str,] | tuple[str,]) -> SqlQueryBuilder:`
 
 Save the 'column is null' clause, then return self. Raises TypeError for invalid
-column.
+column. If a list or tuple is supplied, each element is treated as a separate
+clause.
 
-##### `not_null(column: str) -> SqlQueryBuilder:`
+##### `not_null(column: str | list[str,] | tuple[str,]) -> SqlQueryBuilder:`
 
 Save the 'column is not null' clause, then return self. Raises TypeError for
-invalid column.
+invalid column. If a list or tuple is supplied, each element is treated as a
+separate clause.
 
-##### `equal(column: str, data: Any) -> SqlQueryBuilder:`
+##### `equal(column: str, data: Any = None, conditions: dict[str, Any] = None) -> SqlQueryBuilder:`
 
 Save the 'column = data' clause and param, then return self. Raises TypeError
-for invalid column.
+for invalid column. This method can be called with `equal(column, data)` or
+`equal(column1=data1, column2=data2, etc=data3)`.
 
-##### `not_equal(column: str, data: Any) -> SqlQueryBuilder:`
+##### `not_equal(column: str, data: Any = None, conditions: dict[str, Any] = None) -> SqlQueryBuilder:`
 
 Save the 'column != data' clause and param, then return self. Raises TypeError
-for invalid column.
+for invalid column. This method can be called with `not_equal(column, data)` or
+`not_equal(column1=data1, column2=data2, etc=data3)`.
 
-##### `less(column: str, data: Any) -> SqlQueryBuilder:`
+##### `less(column: str, data: Any = None, conditions: dict[str, Any] = None) -> SqlQueryBuilder:`
 
 Save the 'column < data' clause and param, then return self. Raises TypeError
-for invalid column.
+for invalid column. This method can be called with `less(column, data)` or
+`less(column1=data1, column2=data2, etc=data3)`.
 
-##### `greater(column: str, data: Any) -> SqlQueryBuilder:`
+##### `greater(column: str, data: Any = None, conditions: dict[str, Any] = None) -> SqlQueryBuilder:`
 
 Save the 'column > data' clause and param, then return self. Raises TypeError
-for invalid column.
+for invalid column. This method can be called with `greater(column, data)` or
+`greater(column1=data1, column2=data2, etc=data3)`.
 
-##### `like(column: str, pattern: str, data: str) -> SqlQueryBuilder:`
+##### `like(column: str, pattern: str = None, data: str = None, conditions: dict[str, tuple[str, str]] = None) -> SqlQueryBuilder:`
 
 Save the 'column like {pattern.replace(?, data)}' clause and param, then return
-self. Raises TypeError or ValueError for invalid column, pattern, or data.
+self. Raises TypeError or ValueError for invalid column, pattern, or data. This
+method can be called with `like(column, pattern, data)` or
+`like(column1=(pattern1,str1), column2=(pattern2,str2), etc=(pattern3,str3))`.
 
-##### `not_like(column: str, pattern: str, data: str) -> SqlQueryBuilder:`
+##### `not_like(column: str, pattern: str = None, data: str = None, conditions: dict[str, tuple[str, str]] = None) -> SqlQueryBuilder:`
 
 Save the 'column not like {pattern.replace(?, data)}' clause and param, then
 return self. Raises TypeError or ValueError for invalid column, pattern, or
-data.
+data. This method can be called with `not_like(column, pattern, data)` or
+`not_like(column1=(pattern1,str1), column2=(pattern2,str2), etc=(pattern3,str3))`.
 
-##### `starts_with(column: str, data: str) -> SqlQueryBuilder:`
+##### `starts_with(column: str, data: str = None, conditions: dict[str, Any] = None) -> SqlQueryBuilder:`
 
 Save the 'column like data%' clause and param, then return self. Raises
-TypeError or ValueError for invalid column or data.
+TypeError or ValueError for invalid column or data. This method can be called
+with `starts_with(column, data)` or `starts_with(column1=str1, column2=str2,
+etc=str3)`.
 
-##### `does_not_start_with(column: str, data: str) -> SqlQueryBuilder:`
+##### `does_not_start_with(column: str, data: str = None, conditions: dict[str, Any] = None) -> SqlQueryBuilder:`
 
 Save the 'column not like data%' clause and param, then return self. Raises
-TypeError or ValueError for invalid column or data.
+TypeError or ValueError for invalid column or data. This method can be called
+with `does_not_start_with(column, data)` or `does_not_start_with(column1=str1,
+column2=str2, etc=str3)`.
 
-##### `contains(column: str, data: str) -> SqlQueryBuilder:`
+##### `contains(column: str, data: str = None, conditions: dict[str, str] = None) -> SqlQueryBuilder:`
 
 Save the 'column like %data%' clause and param, then return self. Raises
-TypeError or ValueError for invalid column or data.
+TypeError or ValueError for invalid column or data. This method can be called
+with `contains(column, data)` or `contains(column1=str1, column2=str2,
+etc=str3)`.
 
-##### `excludes(column: str, data: str) -> SqlQueryBuilder:`
+##### `excludes(column: str, data: str = None, conditions: dict[str, str] = None) -> SqlQueryBuilder:`
 
 Save the 'column not like %data%' clause and param, then return self. Raises
-TypeError or ValueError for invalid column or data.
+TypeError or ValueError for invalid column or data. This method can be called
+with `excludes(column, data)` or `excludes(column1=str1, column2=str2,
+etc=str3)`.
 
-##### `ends_with(column: str, data: str) -> SqlQueryBuilder:`
-
-Save the 'column like %data' clause and param, then return self. Raises
-TypeError or ValueError for invalid column or data.
-
-##### `does_not_end_with(column: str, data: str) -> SqlQueryBuilder:`
+##### `ends_with(column: str, data: str = None, conditions: dict[str, str] = None) -> SqlQueryBuilder:`
 
 Save the 'column like %data' clause and param, then return self. Raises
-TypeError or ValueError for invalid column or data.
+TypeError or ValueError for invalid column or data. This method can be called
+with `ends_with(column, data)` or `ends_with(column1=str1, column2=str2,
+etc=str3)`.
 
-##### `is_in(column: str, data: Union[tuple, list]) -> SqlQueryBuilder:`
+##### `does_not_end_with(column: str, data: str = None, conditions: dict[str, str] = None) -> SqlQueryBuilder:`
+
+Save the 'column like %data' clause and param, then return self. Raises
+TypeError or ValueError for invalid column or data. This method can be called
+with `does_not_end_with(column, data)` or `does_not_end_with(column1=str1,
+column2=str2, etc=str3)`.
+
+##### `is_in(column: str, data: tuple | list = None, conditions: dict[str, tuple | list] = None) -> SqlQueryBuilder:`
 
 Save the 'column in data' clause and param, then return self. Raises TypeError
-or ValueError for invalid column or data.
+or ValueError for invalid column or data. This method can be called with
+`is_in(column, data)` or `is_in(column1=list1, column2=list2, etc=list3)`.
 
-##### `not_in(column: str, data: Union[tuple, list]) -> SqlQueryBuilder:`
+##### `not_in(column: str, data: tuple | list = None, conditions: dict[str, tuple | list] = None) -> SqlQueryBuilder:`
 
 Save the 'column not in data' clause and param, then return self. Raises
-TypeError or ValueError for invalid column or data.
+TypeError or ValueError for invalid column or data. This method can be called
+with `not_in(column, data)` or `not_in(column1=list1, column2=list2,
+etc=list3)`.
 
-##### `order_by(column: str, direction: str = 'desc') -> SqlQueryBuilder:`
+##### `where(conditions: dict[str, dict[str, Any] | list[str]]) -> SqlQueryBuilder:`
+
+Parse the conditions as if they are sequential calls to the equivalent
+SqlQueryBuilder methods. Syntax is as follows: `where(is_null=[column1,...], not_null=[column2,...], equal={'column1':data1, 'column2':data2, 'etc':data3}, not_equal={'column1':data1, 'column2':data2, 'etc':data3}, less={'column1':data1, 'column2':data2, 'etc':data3}, greater={'column1':data1, 'column2':data2, 'etc':data3}, like={'column1':(pattern1,str1), 'column2':(pattern2,str2), 'etc':(pattern3,str3)}, not_like={'column1':(pattern1,str1), 'column2':(pattern2,str2), 'etc':(pattern3,str3)}, starts_with={'column1':str1, 'column2':str2, 'etc':str3}, does_not_start_with={'column1':str1, 'column2':str2, 'etc':str3}, contains={'column1':str1, 'column2':str2, 'etc':str3}, excludes={'column1':str1, 'column2':str2, 'etc':str3}, ends_with={'column1':str1, 'column2':str2, 'etc':str3}, does_not_end_with={'column1':str1, 'column2':str2, 'etc':str3}, is_in={'column1':list1, 'column2':list2, 'etc':list3}, not_in={'column1':list1, 'column2':list2, 'etc':list3})`.
+All kwargs are optional.
+
+##### `order_by(column: str, direction: str = None, conditions: dict[str, str] = 'desc') -> SqlQueryBuilder:`
 
 Sets query order. Raises TypeError or ValueError for invalid column or
-direction.
+direction. This method can be called with `order_by(column, direction)` or
+`order_by(column=direction)`. Note that only one column can be ordered by per
+query.
 
 ##### `skip(offset: int) -> SqlQueryBuilder:`
 
@@ -682,79 +714,118 @@ Interface showing how a query builder should function.
 Initialize the instance. A class implementing ModelProtocol or the str name of a
 table must be provided.
 
-##### `is_null(column: str) -> QueryBuilderProtocol:`
+##### `is_null(column: str | list[str,] | tuple[str,]) -> QueryBuilderProtocol:`
 
 Save the 'column is null' clause, then return self. Raises TypeError for invalid
-column.
+column. If a list or tuple is supplied, each element is treated as a separate
+clause.
 
-##### `not_null(column: str) -> QueryBuilderProtocol:`
+##### `not_null(column: str | list[str,] | tuple[str,]) -> QueryBuilderProtocol:`
 
 Save the 'column is not null' clause, then return self. Raises TypeError for
-invalid column.
+invalid column. If a list or tuple is supplied, each element is treated as a
+separate clause.
 
-##### `equal(column: str, data: str) -> QueryBuilderProtocol:`
+##### `equal(column: str, data: str = None, conditions: dict[str, Any] = None) -> QueryBuilderProtocol:`
 
-Save the 'column = data' clause and param, then return self.
+Save the 'column = data' clause and param, then return self. Raises TypeError
+for invalid column. This method can be called with `equal(column, data)` or
+`equal(column1=data1, column2=data2, etc=data3)`.
 
-##### `not_equal(column: str, data: Any) -> QueryBuilderProtocol:`
+##### `not_equal(column: str, data: Any = None, conditions: dict[str, Any] = None) -> QueryBuilderProtocol:`
 
-Save the 'column != data' clause and param, then return self.
+Save the 'column != data' clause and param, then return self. Raises TypeError
+for invalid column. This method can be called with `not_equal(column, data)` or
+`not_equal(column1=data1, column2=data2, etc=data3)`.
 
-##### `less(column: str, data: str) -> QueryBuilderProtocol:`
+##### `less(column: str, data: str = None, conditions: dict[str, Any] = None) -> QueryBuilderProtocol:`
 
-Save the 'column < data' clause and param, then return self.
+Save the 'column < data' clause and param, then return self. Raises TypeError
+for invalid column. This method can be called with `less(column, data)` or
+`less(column1=data1, column2=data2, etc=data3)`.
 
-##### `greater(column: str, data: str) -> QueryBuilderProtocol:`
+##### `greater(column: str, data: str = None, conditions: dict[str, Any] = None) -> QueryBuilderProtocol:`
 
-Save the 'column > data' clause and param, then return self.
+Save the 'column > data' clause and param, then return self. Raises TypeError
+for invalid column. This method can be called with `greater(column, data)` or
+`greater(column1=data1, column2=data2, etc=data3)`.
 
-##### `like(column: str, pattern: str, data: str) -> QueryBuilderProtocol:`
+##### `like(column: str, pattern: str = None, data: str = None, conditions: dict[str, tuple[str, str]] = None) -> QueryBuilderProtocol:`
 
 Save the 'column like {pattern.replace(?, data)}' clause and param, then return
-self. Raises TypeError or ValueError for invalid column, pattern, or data.
+self. Raises TypeError or ValueError for invalid column, pattern, or data. This
+method can be called with `like(column, pattern, data)` or
+`like(column1=(pattern1,str1), column2=(pattern2,str2), etc=(pattern3,str3))`.
 
-##### `not_like(column: str, pattern: str, data: str) -> QueryBuilderProtocol:`
+##### `not_like(column: str, pattern: str = None, data: str = None, conditions: dict[str, tuple[str, str]] = None) -> QueryBuilderProtocol:`
 
 Save the 'column not like {pattern.replace(?, data)}' clause and param, then
 return self. Raises TypeError or ValueError for invalid column, pattern, or
-data.
+data. This method can be called with `not_like(column, pattern, data)` or
+`not_like(column1=(pattern1,str1), column2=(pattern2,str2), etc=(pattern3,str3))`.
 
-##### `starts_with(column: str, data: str) -> QueryBuilderProtocol:`
+##### `starts_with(column: str, data: str = None, conditions: dict[str, Any] = None) -> QueryBuilderProtocol:`
 
-Save the 'column like data%' clause and param, then return self.
+Save the 'column like data%' clause and param, then return self. Raises
+TypeError or ValueError for invalid column or data. This method can be called
+with `starts_with(column, data)` or `starts_with(column1=str1, column2=str2,
+etc=str3)`.
 
-##### `does_not_start_with(column: str, data: str) -> QueryBuilderProtocol:`
+##### `does_not_start_with(column: str, data: str = None, conditions: dict[str, Any] = None) -> QueryBuilderProtocol:`
 
 Save the 'column not like data%' clause and param, then return self. Raises
-TypeError or ValueError for invalid column or data.
+TypeError or ValueError for invalid column or data. This method can be called
+with `does_not_start_with(column, data)` or `does_not_start_with(column1=str1,
+column2=str2, etc=str3)`.
 
-##### `contains(column: str, data: str) -> QueryBuilderProtocol:`
+##### `contains(column: str, data: str = None, conditions: dict[str, Any] = None) -> QueryBuilderProtocol:`
 
-Save the 'column like %data%' clause and param, then return self.
+Save the 'column like %data%' clause and param, then return self. Raises
+TypeError or ValueError for invalid column or data. This method can be called
+with `contains(column, data)` or `contains(column1=str1, column2=str2,
+etc=str3)`.
 
-##### `excludes(column: str, data: str) -> QueryBuilderProtocol:`
+##### `excludes(column: str, data: str = None, conditions: dict[str, Any] = None) -> QueryBuilderProtocol:`
 
-Save the 'column not like %data%' clause and param, then return self.
+Save the 'column not like %data%' clause and param, then return self. Raises
+TypeError or ValueError for invalid column or data. This method can be called
+with `excludes(column, data)` or `excludes(column1=str1, column2=str2,
+etc=str3)`.
 
-##### `ends_with(column: str, data: str) -> QueryBuilderProtocol:`
-
-Save the 'column like %data' clause and param, then return self.
-
-##### `does_not_end_with(column: str, data: str) -> QueryBuilderProtocol:`
+##### `ends_with(column: str, data: str = None, conditions: dict[str, Any] = None) -> QueryBuilderProtocol:`
 
 Save the 'column like %data' clause and param, then return self. Raises
-TypeError or ValueError for invalid column or data.
+TypeError or ValueError for invalid column or data. This method can be called
+with `ends_with(column, data)` or `ends_with(column1=str1, column2=str2,
+etc=str3)`.
 
-##### `is_in(column: str, data: Union[tuple, list]) -> QueryBuilderProtocol:`
+##### `does_not_end_with(column: str, data: str = None, conditions: dict[str, Any] = None) -> QueryBuilderProtocol:`
 
-Save the 'column in data' clause and param, then return self.
+Save the 'column like %data' clause and param, then return self. Raises
+TypeError or ValueError for invalid column or data. This method can be called
+with `does_not_end_with(column, data)` or `does_not_end_with(column1=str1,
+column2=str2, etc=str3)`.
 
-##### `not_in(column: str, data: Union[tuple, list]) -> QueryBuilderProtocol:`
+##### `is_in(column: str, data: Union[tuple, list] = None, conditions: dict[str, Any] = None) -> QueryBuilderProtocol:`
+
+Save the 'column in data' clause and param, then return self. Raises TypeError
+or ValueError for invalid column or data. This method can be called with
+`is_in(column, data)` or `is_in(column1=list1, column2=list2, etc=list3)`.
+
+##### `not_in(column: str, data: Union[tuple, list] = None, conditions: dict[str, Any] = None) -> QueryBuilderProtocol:`
 
 Save the 'column not in data' clause and param, then return self. Raises
-TypeError or ValueError for invalid column or data.
+TypeError or ValueError for invalid column or data. This method can be called
+with `not_in(column, data)` or `not_in(column1=list1, column2=list2,
+etc=list3)`.
 
-##### `order_by(column: str, direction: str = 'desc') -> QueryBuilderProtocol:`
+##### `where(conditions: dict[str, dict[str, Any] | list[str]]) -> QueryBuilderProtocol:`
+
+Parse the conditions as if they are sequential calls to the equivalent
+SqlQueryBuilder methods. Syntax is as follows: `where(is_null=[column1,...], not_null=[column2,...], equal={'column1':data1, 'column2':data2, 'etc':data3}, not_equal={'column1':data1, 'column2':data2, 'etc':data3}, less={'column1':data1, 'column2':data2, 'etc':data3}, greater={'column1':data1, 'column2':data2, 'etc':data3}, like={'column1':(pattern1,str1), 'column2':(pattern2,str2), 'etc':(pattern3,str3)}, not_like={'column1':(pattern1,str1), 'column2':(pattern2,str2), 'etc':(pattern3,str3)}, starts_with={'column1':str1, 'column2':str2, 'etc':str3}, does_not_start_with={'column1':str1, 'column2':str2, 'etc':str3}, contains={'column1':str1, 'column2':str2, 'etc':str3}, excludes={'column1':str1, 'column2':str2, 'etc':str3}, ends_with={'column1':str1, 'column2':str2, 'etc':str3}, does_not_end_with={'column1':str1, 'column2':str2, 'etc':str3}, is_in={'column1':list1, 'column2':list2, 'etc':list3}, not_in={'column1':list1, 'column2':list2, 'etc':list3})`.
+All kwargs are optional.
+
+##### `order_by(column: str, direction: str = None, conditions: dict[str, Any] = 'desc') -> QueryBuilderProtocol:`
 
 Sets query order.
 
