@@ -1046,6 +1046,8 @@ class AsyncSqlModel:
             if key in self.columns and type(key) is str:
                 self.data[key] = data[key]
 
+        self.data_original = MappingProxyType({**self.data})
+
         if hasattr(self, '_post_init_hooks'):
             tert(isinstance(self._post_init_hooks, dict),
                 '_post_init_hooks must be a dict mapping names to Callables')
@@ -1053,8 +1055,6 @@ class AsyncSqlModel:
                 vert(callable(call),
                     '_post_init_hooks must be a dict mapping names to Callables')
                 call(self)
-
-        self.data_original = MappingProxyType({**self.data})
 
     @classmethod
     def add_hook(cls, event: str, hook: Callable):

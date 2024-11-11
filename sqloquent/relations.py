@@ -9,6 +9,7 @@ from .interfaces import (
 from .tools import _pascalcase_to_snake_case
 from abc import abstractmethod
 from copy import deepcopy
+from types import MappingProxyType
 from typing import Optional, Type
 
 
@@ -347,6 +348,7 @@ class HasOne(Relation):
         class HasOneWrapped(self.secondary_class):
             def __init__(self, original: ModelProtocol = None) -> None:
                 self.data = original.data if original else {}
+                self.data_original = MappingProxyType({**self.data})
             def __call__(self) -> Relation:
                 return self.relations[cache_key]
             def __bool__(self) -> bool:
@@ -726,6 +728,7 @@ class BelongsTo(HasOne):
         class BelongsToWrapped(self.secondary_class):
             def __init__(self, original: ModelProtocol = None) -> None:
                 self.data = original.data if original else {}
+                self.data_original = MappingProxyType({**self.data})
             def __call__(self) -> Relation:
                 return self.relations[f'{cache_key}']
             def __bool__(self) -> bool:

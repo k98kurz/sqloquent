@@ -9,6 +9,7 @@ from sqloquent.asyncql.interfaces import (
 from sqloquent.tools import _pascalcase_to_snake_case
 from abc import abstractmethod
 from copy import deepcopy
+from types import MappingProxyType
 from typing import Awaitable, Optional, Type
 import asyncio
 import nest_asyncio
@@ -354,6 +355,7 @@ class AsyncHasOne(AsyncRelation):
         class HasOneWrapped(self.secondary_class):
             def __init__(self, original: AsyncModelProtocol = None) -> None:
                 self.data = original.data if original else {}
+                self.data_original = MappingProxyType({**self.data})
             def __call__(self) -> AsyncRelation:
                 return self.relations[cache_key]
             def __bool__(self) -> bool:
@@ -737,6 +739,7 @@ class AsyncBelongsTo(AsyncHasOne):
         class BelongsToWrapped(self.secondary_class):
             def __init__(self, original: AsyncModelProtocol = None) -> None:
                 self.data = original.data if original else {}
+                self.data_original = MappingProxyType({**self.data})
             def __call__(self) -> AsyncRelation:
                 return self.relations[f'{cache_key}']
             def __bool__(self) -> bool:
