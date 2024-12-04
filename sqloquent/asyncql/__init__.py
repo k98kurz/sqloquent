@@ -22,6 +22,7 @@ from .classes import (
     AsyncDeletedModel,
     AsyncHashedModel,
     AsyncAttachment,
+    Default,
     async_dynamic_sqlmodel,
 )
 from .relations import (

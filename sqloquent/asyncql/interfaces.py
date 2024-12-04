@@ -203,6 +203,11 @@ class AsyncJoinedModelProtocol(Protocol):
         """Dict for storing models data."""
         ...
 
+    @property
+    def models(self) -> list[Type[AsyncModelProtocol]]:
+        """List of the underlying model classes."""
+        ...
+
     @staticmethod
     def parse_data(models: list[Type[AsyncModelProtocol]], data: dict) -> dict:
         """Parse data of form {table.column:value} to {table:{column:value}}."""

@@ -20,6 +20,7 @@ from sqloquent.classes import (
     JoinedModel,
     JoinSpec,
     dynamic_sqlmodel,
+    Default,
 )
 from sqloquent.interfaces import (
     CursorProtocol,

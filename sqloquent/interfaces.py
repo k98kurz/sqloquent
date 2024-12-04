@@ -199,6 +199,11 @@ class JoinedModelProtocol(Protocol):
         """Dict for storing models data."""
         ...
 
+    @property
+    def models(self) -> list[Type[ModelProtocol]]:
+        """List of the underlying model classes."""
+        ...
+
     @staticmethod
     def parse_data(models: list[Type[ModelProtocol]], data: dict) -> dict:
         """Parse data of form {table.column:value} to {table:{column:value}}."""
