@@ -1,16 +1,18 @@
 from __future__ import annotations
-from sqloquent import HashedModel, QueryBuilderProtocol, RelatedModel, RelatedCollection
+from sqloquent import HashedModel, QueryBuilderProtocol, RelatedModel, RelatedCollection, Default
 from .AccountType import AccountType
 
 
 class Account(HashedModel):
     table: str = 'accounts'
     id_column: str = 'id'
-    columns: tuple[str] = ('id', 'name', 'ledger_id', 'type')
+    columns: tuple[str] = ('id', 'name', 'ledger_id', 'type', 'is_active')
+    columns_excluded_from_hash: tuple[str] = ('is_active',)
     id: str
     name: str
     ledger_id: str
     type: str
+    is_active: bool|Default[True]
     ledger: RelatedModel
     entries: RelatedCollection
 

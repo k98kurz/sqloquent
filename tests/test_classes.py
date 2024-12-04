@@ -11,6 +11,64 @@ import unittest
 
 DB_FILEPATH = 'test.db'
 
+class ExampleModel(classes.SqlModel):
+    table = 'example_models'
+    columns = (
+        'id', 'field1', 'field2', 'field3', 'field4', 'field5',
+        'field1n', 'field2n', 'field3n', 'field4n', 'field5n',
+        'field1d', 'field2d', 'field3d', 'field4d', 'field5d',
+        'field1nd', 'field2nd', 'field3nd', 'field4nd', 'field5nd'
+    )
+    field1: str
+    field2: int
+    field3: bool
+    field4: bytes
+    field5: float
+    field1n: str|None
+    field2n: int|None
+    field3n: bool|None
+    field4n: bytes|None
+    field5n: float|None
+    field1d: str|classes.Default['foobar']
+    field2d: int|classes.Default[123]
+    field3d: bool|classes.Default[True]
+    field4d: bytes|classes.Default[b'123']
+    field5d: float|classes.Default[1.23]
+    field1nd: str|None|classes.Default['foobar']
+    field2nd: int|None|classes.Default[123]
+    field3nd: bool|None|classes.Default[True]
+    field4nd: bytes|None|classes.Default[b'123']
+    field5nd: float|None|classes.Default[1.23]
+
+class ExampleHashedModel(classes.HashedModel):
+    table = 'example_hashed_models'
+    columns = (
+        'id', 'field1', 'field2', 'field3', 'field4', 'field5',
+        'field1n', 'field2n', 'field3n', 'field4n', 'field5n',
+        'field1d', 'field2d', 'field3d', 'field4d', 'field5d',
+        'field1nd', 'field2nd', 'field3nd', 'field4nd', 'field5nd'
+    )
+    field1: str
+    field2: int
+    field3: bool
+    field4: bytes
+    field5: float
+    field1n: str|None
+    field2n: int|None
+    field3n: bool|None
+    field4n: bytes|None
+    field5n: float|None
+    field1d: str|classes.Default['foobar']
+    field2d: int|classes.Default[123]
+    field3d: bool|classes.Default[True]
+    field4d: bytes|classes.Default[b'123']
+    field5d: float|classes.Default[1.23]
+    field1nd: str|None|classes.Default['foobar']
+    field2nd: int|None|classes.Default[123]
+    field3nd: bool|None|classes.Default[True]
+    field4nd: bytes|None|classes.Default[b'123']
+    field5nd: float|None|classes.Default[1.23]
+
 
 class TestClasses(unittest.TestCase):
     db: sqlite3.Connection = None
@@ -33,6 +91,24 @@ class TestClasses(unittest.TestCase):
         self.cursor.execute('create table hashed_subclass (id text, column1 text, column2 text)')
         self.cursor.execute('create table attachments (id text, ' +
             'related_model text, related_id text, details blob)')
+        self.cursor.execute('create table example_models (id text, ' +
+            'field1 text, field2 integer, field3 boolean, field4 blob, ' +
+            'field5 real, field1n text nullable, field2n integer nullable, ' +
+            'field3n boolean nullable, field4n blob nullable, field5n real nullable, ' +
+            "field1d text default 'foobar', field2d integer default 123, " +
+            "field3d boolean default true, field4d blob default (x'313233'), " +
+            'field5d real default 1.23, field1nd text nullable default ''foobar'', ' +
+            'field2nd integer nullable default 123, field3nd boolean nullable default true, ' +
+            "field4nd blob nullable default (x'313233'), field5nd real nullable default 1.23)")
+        self.cursor.execute('create table example_hashed_models (id text, ' +
+            'field1 text, field2 integer, field3 boolean, field4 blob, ' +
+            'field5 real, field1n text nullable, field2n integer nullable, ' +
+            'field3n boolean nullable, field4n blob nullable, field5n real nullable, ' +
+            'field1d text default ''foobar'', field2d integer default 123, ' +
+            'field3d boolean default true, field4d blob default X''313233'', ' +
+            'field5d real default 1.23, field1nd text nullable default ''foobar'', ' +
+            'field2nd integer nullable default 123, field3nd boolean nullable default true, ' +
+            'field4nd blob nullable default X''313233'', field5nd real nullable default 1.23)')
 
         return super().setUp()
 
@@ -2004,6 +2080,88 @@ class TestClasses(unittest.TestCase):
             'details': 'something testy3'
         })
         assert len(log) == 2, len(log)
+
+
+    # ExampleModel and ExampleHashedModel tests
+    def test_ExampleModel_and_ExampleHashedModel_e2e(self):
+        em: ExampleModel = ExampleModel.insert({
+            'field1': 'value1',
+            'field2': 2,
+            'field3': False,
+            'field4': b'321',
+            'field5': 3.21,
+            'field1nd': None,
+        })
+        em = em.reload()
+        assert em.field1 == 'value1', em.field1
+        assert em.field2 == 2, em.field2
+        assert em.field3 == False, em.field3
+        assert em.field4 == b'321', em.field4
+        assert em.field5 == 3.21, em.field5
+        assert em.field1n is None, em.field1n
+        assert em.field2n is None, em.field2n
+        assert em.field3n is None, em.field3n
+        assert em.field4n is None, em.field4n
+        assert em.field5n is None, em.field5n
+        assert em.field1d == 'foobar', em.field1d
+        assert em.field2d == 123, em.field2d
+        assert em.field3d == True, em.field3d
+        assert em.field4d == b'123', em.field4d
+        assert em.field5d == 1.23, em.field5d
+        assert em.field1nd is None, em.field1nd
+        assert em.field2nd == 123, em.field2nd
+        assert em.field3nd == True, em.field3nd
+        assert em.field4nd == b'123', em.field4nd
+        assert em.field5nd == 1.23, em.field5nd
+
+        ehm: ExampleHashedModel = ExampleHashedModel.insert({
+            'field1': 'value1',
+            'field2': 2,
+            'field3': False,
+            'field4': b'321',
+            'field5': 3.21,
+            'field1nd': None,
+        })
+        ehm = ehm.reload()
+        assert ehm.field1 == 'value1', ehm.field1
+        assert ehm.field2 == 2, ehm.field2
+        assert ehm.field3 == False, ehm.field3
+        assert ehm.field4 == b'321', ehm.field4
+        assert ehm.field5 == 3.21, ehm.field5
+        assert ehm.field1n is None, ehm.field1n
+        assert ehm.field2n is None, ehm.field2n
+        assert ehm.field3n is None, ehm.field3n
+        assert ehm.field4n is None, ehm.field4n
+        assert ehm.field5n is None, ehm.field5n
+        assert ehm.field1d == 'foobar', ehm.field1d
+        assert ehm.field2d == 123, ehm.field2d
+        assert ehm.field3d == True, ehm.field3d
+        assert ehm.field4d == b'123', ehm.field4d
+        assert ehm.field5d == 1.23, ehm.field5d
+        assert ehm.field1nd is None, ehm.field1nd
+        assert ehm.field2nd == 123, ehm.field2nd
+        assert ehm.field3nd == True, ehm.field3nd
+        assert ehm.field4nd == b'123', ehm.field4nd
+        assert ehm.field5nd == 1.23, ehm.field5nd
+
+        query = ExampleModel.query().join(ExampleHashedModel, ['field1', 'field1'])
+        result = query.get()
+        assert result is not None
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert isinstance(result[0], classes.JoinedModel)
+        em = ExampleModel(result[0].data[ExampleModel.table])
+        ehm = ExampleHashedModel(result[0].data[ExampleHashedModel.table])
+        assert em.field1 == 'value1', em.field1
+        assert type(em.field3) is bool, (em.field3, em.data)
+        assert em.field3n is None, em.field3n
+        assert type(em.field3d) is bool, em.field3d
+        assert type(em.field3nd) is bool, em.field3nd
+        assert ehm.field1 == 'value1', ehm.field1
+        assert type(ehm.field3) is bool, ehm.field3
+        assert ehm.field3n is None, ehm.field3n
+        assert type(ehm.field3d) is bool, ehm.field3d
+        assert type(ehm.field3nd) is bool, ehm.field3nd
 
 
 if __name__ == '__main__':

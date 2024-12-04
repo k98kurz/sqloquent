@@ -75,6 +75,8 @@ class TestIntegration(unittest.TestCase):
         names = ['Account', 'Correspondence', 'Entry', 'Identity', 'Ledger', 'Transaction']
         for name in names:
             src = tools.make_migration_from_model_path(name, f"{MODELS_PATH}/{name}.py")
+            if name == 'Account':
+                assert "t.boolean('is_active').default(True)" in src, src
             with open(f"{MIGRATIONS_PATH}/{name}_migration.py", 'w') as f:
                 f.write(src)
 
@@ -181,6 +183,16 @@ class TestIntegration(unittest.TestCase):
         assert anostro.ledger.id == aledger.id
         assert len(models.Account.find(anostro.id).ledger().query().get()) == 1
         assert models.Account.find(anostro.id).ledger().query().first().id == aledger.id
+
+        assert anostro.is_active is True, anostro.data
+        anostro = models.Account.find(anostro.id)
+        assert anostro.is_active is True, anostro.data
+
+        # test that a join properly casts boolean column
+        query = models.Account.query().join(models.Ledger, ['ledger_id', 'id'])
+        val = query.get()[0]
+        acct = val.data['accounts']
+        assert type(acct['is_active']) is bool, acct['is_active']
 
         # create Bob accounts
         bnostro = models.Account.insert({

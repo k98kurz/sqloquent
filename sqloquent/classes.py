@@ -9,11 +9,15 @@ from .interfaces import (
 from dataclasses import dataclass, field
 from hashlib import sha256
 from time import time
-from types import MappingProxyType, TracebackType
-from typing import Any, Generator, Optional, Type, Union, Callable
+from types import MappingProxyType, TracebackType, UnionType
+from typing import Any, Generator, Optional, Type, Callable
 from uuid import uuid4
 import packify
 import sqlite3
+
+
+class Default(list):
+    """Class for representing a default value for a column annotation."""
 
 
 class SqliteContext:
@@ -81,12 +85,34 @@ class JoinedModel:
         tert(type(data) is dict, 'data must be dict')
         result = {}
         for model in models:
+            annotations = {
+                c: str(model.__annotations__.get(c)) for c in model.columns
+            }
+            for key, value in annotations.items():
+                # convert "<class 'x'>" to "x"
+                if value.startswith("<class"):
+                    annotations[key] = value.split("'")[1]
+
+            boolean_columns = [
+                c for c in model.columns
+                if annotations[c].startswith('bool')
+            ]
+            nullable_columns = [
+                c for c in model.columns
+                if 'None' in annotations[c]
+            ]
             result[model.table] = {}
             for column in model.columns:
                 key = f"{model.table}.{column}"
+                # skip unselected columns
+                if key not in data:
+                    continue
                 value = data.get(key)
-                if value:
-                    result[model.table][column] = value
+                # cast appropriate columns to bool
+                if value is not None or column in nullable_columns:
+                    if column in boolean_columns and value is not None:
+                        value = bool(value)
+                result[model.table][column] = value
         return result
 
     def get_models(self) -> list[SqlModel]:
@@ -107,11 +133,15 @@ class JoinSpec:
     """Class for representing joins to be executed by a query builder."""
     kind: str = field()
     table_1: str = field()
+    table_1_model: str|None = field()
     table_1_columns: list[str] = field()
+    table_1_column_types: dict[str, type] = field()
     column_1: str = field()
     comparison: str = field()
     table_2: str = field()
+    table_2_model: str|None = field()
     table_2_columns: list[str] = field()
+    table_2_column_types: dict[str, type] = field()
     column_2: str = field()
 
 
@@ -689,8 +719,16 @@ class SqlQueryBuilder:
         if result is None:
             return None
 
+        # find boolean columns
+        boolean_columns = [
+            c for c in self.model.columns
+            if 'bool' in str(self.model.__annotations__.get(c))
+        ] if self.model else []
+
         data = {
-            column: value
+            column: bool(value)
+            if column in boolean_columns and value is not None
+            else value
             for column, value in zip(self.model.columns, result)
         }
 
@@ -721,12 +759,28 @@ class SqlQueryBuilder:
         join = [kind]
 
         def get_join(model: Type[SqlModel], column: str) -> str:
+            # make column types dict from annotations
+            column_types = {}
+            for c in model.columns:
+                column_types[c] = None
+                if c in model.__annotations__:
+                    column_types[c] = model.__annotations__[c]
+                    if type(column_types[c]) is str and "|" in column_types[c]:
+                        column_types[c] = column_types[c].split("|")[0]
+                        if column_types[c].lower() == "bool":
+                            column_types[c] = bool
+                        elif column_types[c].lower() == "int":
+                            column_types[c] = int
+                        elif column_types[c].lower() == "float":
+                            column_types[c] = float
+                    elif type(column_types[c]) is UnionType:
+                        column_types[c] = column_types[c].__args__[0]
             if "." in column:
-                return [model.table, model.columns, column]
+                return [model.table, model, model.columns, column_types, column]
             else:
                 tert(column in model.columns,
                      f"column name must be valid for {model.table}")
-                return [model.table, model.columns, f"{model.table}.{column}"]
+                return [model.table, model, model.columns, column_types, f"{model.table}.{column}"]
 
         if len(on) == 2:
             join.extend(get_join(self.model, on[0]))
@@ -776,9 +830,18 @@ class SqlQueryBuilder:
         classes: list[SqlModel] = [self.model]
         columns: list[str] = []
         for join in self.joins:
+            if join.table_1 not in [c.table for c in classes]:
+                if join.table_1_model:
+                    classes.append(join.table_1_model)
+                else:
+                    classes.append(dynamic_sqlmodel(
+                        self.connection_info, join.table_1, join.table_1_columns))
             if join.table_2 not in [c.table for c in classes]:
-                classes.append(dynamic_sqlmodel(
-                    self.connection_info, join.table_2, join.table_2_columns))
+                if join.table_2_model:
+                    classes.append(join.table_2_model)
+                else:
+                    classes.append(dynamic_sqlmodel(
+                        self.connection_info, join.table_2, join.table_2_columns))
 
         if self.columns:
             columns = self.columns
@@ -855,13 +918,20 @@ class SqlQueryBuilder:
             if type(self.offset) is int and self.offset > 0:
                 sql += f' offset {self.offset}'
 
+        boolean_columns = [
+            c for c in self.model.columns
+            if 'bool' in str(self.model.__annotations__.get(c))
+        ] if self.model else []
+
         with self.context_manager(self.connection_info) as cursor:
             cursor.execute(sql, self.params)
             rows = cursor.fetchall()
             if self.grouping or not self.model:
                 models = [
                     Row(data={
-                        key: value
+                        key: bool(value)
+                        if (key in boolean_columns and value is not None)
+                        else value
                         for key, value in zip(columns, row)
                     })
                     for row in rows
@@ -869,7 +939,9 @@ class SqlQueryBuilder:
             else:
                 models = [
                     self.model(data={
-                        key: value
+                        key: bool(value)
+                        if (key in boolean_columns and value is not None)
+                        else value
                         for key, value in zip(columns, row)
                     })
                     for row in rows
@@ -927,6 +999,11 @@ class SqlQueryBuilder:
         if self.order_column is not None:
             sql += f' order by {self.order_column} {self.order_dir}'
 
+        boolean_columns = [
+            c for c in self.model.columns
+            if 'bool' in str(self.model.__annotations__.get(c))
+        ] if self.model else []
+
         with self.context_manager(self.connection_info) as cursor:
             cursor.execute(sql, self.params)
             row = cursor.fetchone()
@@ -936,7 +1013,9 @@ class SqlQueryBuilder:
 
             if self.model:
                 return self.model(data={
-                    key: value
+                    key: bool(value)
+                    if (key in boolean_columns and value is not None)
+                    else value
                     for key, value in zip(self.model.columns, row)
                 })
             else:
@@ -1393,13 +1472,40 @@ class HashedModel(SqlModel):
     def generate_id(cls, data: dict) -> str:
         """Generate an id by hashing the non-id contents. Raises
             TypeError for unencodable type (calls packify.pack). Any
-            columns not present in the data dict will be set to None.
-            Any columns in the columns_excluded_from_hash tuple will be
-            excluded from the sha256 hash.
+            columns not present in the data dict will be set to the
+            default value specified in the column annotation or None
+            if no default is specified. Any columns in the
+            columns_excluded_from_hash tuple will be excluded from the
+            sha256 hash.
         """
         for name in cls.columns:
             if name not in data and name != cls.id_column:
-                data[name] = None
+                # if the column annotation has a default value, use it
+                if name in cls.__annotations__:
+                    annotation = str(cls.__annotations__[name])
+                    if 'Default' in annotation:
+                        default = annotation[annotation.index('Default') + 8:-1]
+                        if default.lower() == 'true':
+                            data[name] = True
+                        elif default.lower() == 'false':
+                            data[name] = False
+                        elif 'int' in annotation and default.isnumeric():
+                            data[name] = int(default)
+                        elif 'float' in annotation:
+                            data[name] = float(default)
+                        elif 'bytes' in annotation:
+                            if default[0] == 'b':
+                                data[name] = default[2:-1].encode('utf-8')
+                            else:
+                                data[name] = default.encode('utf-8')
+                        elif default[0] == "'" or default[0] == '"':
+                            data[name] = default[1:-1]
+                        else:
+                            data[name] = default
+                    else:
+                        data[name] = None
+                else:
+                    data[name] = None
         data = {
             k: data[k] for k in data
             if k in cls.columns and k != cls.id_column and k not in cls.columns_excluded_from_hash
