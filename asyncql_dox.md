@@ -61,6 +61,7 @@ Interface for representations of JOIN query results.
 #### Properties
 
 - data: Dict for storing models data.
+- models: List of the underlying model classes.
 
 #### Methods
 
@@ -913,7 +914,8 @@ Model for interacting with sql database using sha256 for id.
 
 Generate an id by hashing the non-id contents. Raises TypeError for unencodable
 type (calls packify.pack). Any columns not present in the data dict will be set
-to None. Any columns in the columns_excluded_from_hash tuple will be excluded
+to the default value specified in the column annotation or None if no default is
+specified. Any columns in the columns_excluded_from_hash tuple will be excluded
 from the sha256 hash.
 
 ##### `@classmethod async insert(data: dict, /, *, parallel_events: bool = False, suppress_events: bool = False) -> Optional[AsyncHashedModel]:`
@@ -982,6 +984,10 @@ Decode packed bytes to dict.
 Set the details column using either supplied data or by packifying
 self._details. Return self in monad pattern. Raises packify.UsageError or
 TypeError if details contains unseriazliable type.
+
+### `Default(list)`
+
+Class for representing a default value for a column annotation.
 
 ### `AsyncRelation`
 

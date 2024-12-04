@@ -140,6 +140,7 @@ Interface for representations of JOIN query results.
 #### Properties
 
 - data: Dict for storing models data.
+- models: List of the underlying model classes.
 
 #### Methods
 

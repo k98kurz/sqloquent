@@ -4,11 +4,15 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sqloquent"
-version = "0.5.3"
+version = "0.6.0"
 authors = [
   { name="k98kurz", email="k98kurz@gmail.com" },
 ]
-description = "SQL/ORM library with included bindings for sqlite. Inspired by Laravel and in particular Eloquent."
+description = """
+SQL/ORM library with included bindings for sqlite. \
+Inspired by Laravel and in particular Eloquent, but built with a distributed \
+use case in mind (e.g. Merkle DAGs).
+"""
 readme = "readme.md"
 license = { file = "license" }
 requires-python = ">=3.10"

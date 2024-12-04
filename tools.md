@@ -30,8 +30,9 @@ Publish the migrations for the DeletedModel, HashedModel, and Attachment.
 
 Generate a model scaffold with the given name, columns, and connection_string.
 The columns parameter must be a dict mapping names to type annotation strings,
-which should each be one of ('str', 'int', 'float', 'bytes', 'str|None',
-'int|None', 'float|None', 'bytes|None').
+which should each be one of ('str', 'int', 'bool', 'float', 'bytes', 'str|None',
+'int|None', 'bool|None', 'float|None', 'bytes|None') or be one of those with
+'|Default[value]' appended.
 
 ### `migrate(path: str, connection_string: str = ''):`
 

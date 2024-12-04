@@ -438,7 +438,8 @@ Model for interacting with sql database using sha256 for id.
 
 Generate an id by hashing the non-id contents. Raises TypeError for unencodable
 type (calls packify.pack). Any columns not present in the data dict will be set
-to None. Any columns in the columns_excluded_from_hash tuple will be excluded
+to the default value specified in the column annotation or None if no default is
+specified. Any columns in the columns_excluded_from_hash tuple will be excluded
 from the sha256 hash.
 
 ##### `@classmethod insert(data: dict, /, *, suppress_events: bool = False) -> Optional[HashedModel]:`
@@ -562,20 +563,28 @@ Class for representing joins to be executed by a query builder.
 
 - kind: str
 - table_1: str
+- table_1_model: str | None
 - table_1_columns: list[str]
+- table_1_column_types: dict[str, type]
 - column_1: str
 - comparison: str
 - table_2: str
+- table_2_model: str | None
 - table_2_columns: list[str]
+- table_2_column_types: dict[str, type]
 - column_2: str
 
 #### Methods
 
-##### `__init__(kind: str, table_1: str, table_1_columns: list[str], column_1: str, comparison: str, table_2: str, table_2_columns: list[str], column_2: str):`
+##### `__init__(kind: str, table_1: str, table_1_model: str | None, table_1_columns: list[str], table_1_column_types: dict[str, type], column_1: str, comparison: str, table_2: str, table_2_model: str | None, table_2_columns: list[str], table_2_column_types: dict[str, type], column_2: str):`
 
 ##### `__repr__():`
 
 ##### `__eq__():`
+
+### `Default(list)`
+
+Class for representing a default value for a column annotation.
 
 ### `CursorProtocol(Protocol)`
 
@@ -912,6 +921,7 @@ Interface for representations of JOIN query results.
 #### Properties
 
 - data: Dict for storing models data.
+- models: List of the underlying model classes.
 
 #### Methods
 
@@ -1402,11 +1412,12 @@ Column class for creating migrations.
 - datatype: str
 - table: TableProtocol
 - is_nullable: bool
+- default_value: Any
 - new_name: str
 
 #### Methods
 
-##### `__init__(name: str, datatype: str, table: TableProtocol, is_nullable: bool = True, new_name: str = None):`
+##### `__init__(name: str, datatype: str, table: TableProtocol, is_nullable: bool = True, default_value: Any = None, new_name: str = None):`
 
 ##### `__repr__():`
 
@@ -1424,6 +1435,10 @@ Marks the column as not nullable.
 ##### `nullable() -> Column:`
 
 Marks the column as nullable.
+
+##### `default(value: Any) -> Column:`
+
+Set the default value for the column.
 
 ##### `index() -> Column:`
 
@@ -1527,6 +1542,10 @@ Creates a text column.
 ##### `blob(name: str) -> Column:`
 
 Creates a blob column.
+
+##### `boolean(name: str) -> Column:`
+
+Creates a boolean column.
 
 ##### `custom(callback: Callable[[list[str]], list[str]]) -> Table:`
 
