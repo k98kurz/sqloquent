@@ -1,3 +1,13 @@
+## 0.6.0
+
+- Added support for boolean columns in migration system
+- Added casting for boolean columns in query builders
+- Added new syntax for declaring default column values on classes
+- Added new syntax for declaring default column values in migrations
+- Updated migration system to quote identifiers
+- Updated tools for generating models and migrations from models to support
+booleans and default values
+
 ## 0.5.3
 
 - Fixed issues with `data_original` property interface (relations, etc.)
