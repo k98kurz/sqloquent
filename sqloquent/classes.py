@@ -165,6 +165,15 @@ def dynamic_sqlmodel(connection_string: str|bytes, table_name: str = '',
         columns: tuple[str] = column_names
     return DynamicModel
 
+def quote_sql_str_value(value: str) -> str:
+    """Quotes a string value for use in an SQL statement."""
+    value = value.replace("'", "''")
+    return f"'{value}'"
+
+def quote_identifier(identifier: str) -> str:
+    """Quotes an identifier for use in an SQL statement."""
+    return f'"{identifier}"' if '.' not in identifier and identifier[0] != '"' else identifier
+
 
 class SqlQueryBuilder:
     """Main query builder class. Extend with child class to bind to a
@@ -264,9 +273,9 @@ class SqlQueryBuilder:
             tert(all([type(c) is str for c in column]),
                  'column must be str or list[str]')
             for c in column:
-                self.clauses.append(f'{c} is null')
+                self.clauses.append(f'{quote_identifier(c)} is null')
         else:
-            self.clauses.append(f'{column} is null')
+            self.clauses.append(f'{quote_identifier(column)} is null')
         return self
 
     def not_null(self, column: str|list[str,]|tuple[str,]) -> SqlQueryBuilder:
@@ -280,9 +289,9 @@ class SqlQueryBuilder:
             tert(all([type(c) is str for c in column]),
                  'column must be str or list[str]')
             for c in column:
-                self.clauses.append(f'{c} is not null')
+                self.clauses.append(f'{quote_identifier(c)} is not null')
         else:
-            self.clauses.append(f'{column} is not null')
+            self.clauses.append(f'{quote_identifier(column)} is not null')
         return self
 
     def equal(self, column: str = None, data: Any = None,
@@ -294,12 +303,12 @@ class SqlQueryBuilder:
         """
         if column is not None:
             tert(type(column) is str, 'column must be str')
-            self.clauses.append(f'{column} = ?')
+            self.clauses.append(f'{quote_identifier(column)} = ?')
             self.params.append(data)
 
         for column, data in conditions.items():
             tert(type(column) is str, 'each column must be str')
-            self.clauses.append(f'{column} = ?')
+            self.clauses.append(f'{quote_identifier(column)} = ?')
             self.params.append(data)
         return self
 
@@ -312,12 +321,12 @@ class SqlQueryBuilder:
         """
         if column is not None and data is not None:
             tert(type(column) is str, 'column must be str')
-            self.clauses.append(f'{column} != ?')
+            self.clauses.append(f'{quote_identifier(column)} != ?')
             self.params.append(data)
 
         for column, data in conditions.items():
             tert(type(column) is str, 'each column must be str')
-            self.clauses.append(f'{column} != ?')
+            self.clauses.append(f'{quote_identifier(column)} != ?')
             self.params.append(data)
         return self
 
@@ -330,12 +339,12 @@ class SqlQueryBuilder:
         """
         if column is not None:
             tert(type(column) is str, 'column must be str')
-            self.clauses.append(f'{column} < ?')
+            self.clauses.append(f'{quote_identifier(column)} < ?')
             self.params.append(data)
 
         for column, data in conditions.items():
             tert(type(column) is str, 'each column must be str')
-            self.clauses.append(f'{column} < ?')
+            self.clauses.append(f'{quote_identifier(column)} < ?')
             self.params.append(data)
         return self
 
@@ -348,12 +357,12 @@ class SqlQueryBuilder:
         """
         if column is not None:
             tert(type(column) is str, 'column must be str')
-            self.clauses.append(f'{column} > ?')
+            self.clauses.append(f'{quote_identifier(column)} > ?')
             self.params.append(data)
 
         for column, data in conditions.items():
             tert(type(column) is str, 'each column must be str')
-            self.clauses.append(f'{column} > ?')
+            self.clauses.append(f'{quote_identifier(column)} > ?')
             self.params.append(data)
         return self
 
@@ -372,7 +381,7 @@ class SqlQueryBuilder:
             vert(len(column), 'column cannot be empty')
             vert(len(pattern), 'pattern cannot be empty')
             vert(len(data), 'data cannot be empty')
-            self.clauses.append(f'{column} like ?')
+            self.clauses.append(f'{quote_identifier(column)} like ?')
             self.params.append(pattern.replace('?', data))
 
         for column, val in conditions.items():
@@ -399,7 +408,7 @@ class SqlQueryBuilder:
             vert(len(column), 'column cannot be empty')
             vert(len(pattern), 'pattern cannot be empty')
             vert(len(data), 'data cannot be empty')
-            self.clauses.append(f'{column} not like ?')
+            self.clauses.append(f'{quote_identifier(column)} not like ?')
             self.params.append(pattern.replace('?', data))
 
         for column, val in conditions.items():
@@ -414,8 +423,7 @@ class SqlQueryBuilder:
             vert(len(column), 'column cannot be empty')
             vert(len(pattern), 'pattern cannot be empty')
             vert(len(data), 'data cannot be empty')
-            self.clauses.append(f'{column} not like ?')
-            self.params.append(pattern.replace('?', data))
+            self.not_like(column, pattern, data)
         return self
 
     def starts_with(self, column: str = None, data: str = None,
@@ -517,7 +525,7 @@ class SqlQueryBuilder:
             tert(type(data) in (tuple, list), 'data must be tuple or list')
             vert(len(column), 'column cannot be empty')
             vert(len(data), 'data cannot be empty')
-            self.clauses.append(f'{column} in ({",".join(["?" for _ in data])})')
+            self.clauses.append(f'{quote_identifier(column)} in ({",".join(["?" for _ in data])})')
             self.params.extend(data)
 
         for column, data in conditions.items():
@@ -536,7 +544,7 @@ class SqlQueryBuilder:
             tert(type(data) in (tuple, list), 'data must be tuple or list')
             vert(len(column), 'column cannot be empty')
             vert(len(data), 'data cannot be empty')
-            self.clauses.append(f'{column} not in ({",".join(["?" for _ in data])})')
+            self.clauses.append(f'{quote_identifier(column)} not in ({",".join(["?" for _ in data])})')
             self.params.extend(data)
 
         for column, data in conditions.items():
@@ -633,7 +641,7 @@ class SqlQueryBuilder:
                  f'unrecognized column {column}')
             vert(direction in ('asc', 'desc'), 'direction must be asc or desc')
             vert(len(conditions.keys()) == 0, 'only one column can be ordered by per query')
-            self.order_column = column
+            self.order_column = quote_identifier(column)
             self.order_dir = direction
 
         vert(len(conditions.keys()) <= 1, 'only one column can be ordered by per query')
@@ -852,10 +860,11 @@ class SqlQueryBuilder:
                     for f in modelclass.columns
                 ])
 
-        sql = f'select {",".join(columns)} from {self.table}'
+        sql = f'select {",".join(columns)} from {quote_identifier(self.table)}'
 
         sql += ' ' + ''.join([
-            f'{j.kind} join {j.table_2} on {j.column_1} {j.comparison} {j.column_2}'
+            f'{j.kind} join {quote_identifier(j.table_2)} on ' +
+            f'{quote_identifier(j.column_1)} {j.comparison} {quote_identifier(j.column_2)}'
             for j in self.joins
         ])
 
@@ -901,7 +910,8 @@ class SqlQueryBuilder:
             not call this method manually.
         """
         columns: list[str] = self.columns or self.model.columns
-        sql = f'select {",".join(columns)} from {self.model.table}'
+        quoted_columns = [quote_identifier(c) for c in columns]
+        sql = f'select {",".join(quoted_columns)} from {quote_identifier(self.model.table)}'
 
         if len(self.clauses) > 0:
             sql += ' where ' + ' and '.join(self.clauses)
@@ -1085,9 +1095,9 @@ class SqlQueryBuilder:
             bindings = []
             for clause, param in zip(self.clauses, self.params):
                 if type(param) in (tuple, list):
-                    bindings.append(clause.replace('?', f'[{",".join(str(p) for p in param)}]'))
+                    bindings.append(clause.replace('?', f'[{",".join(quote_sql_str_value(str(p)) for p in param)}]'))
                 else:
-                    bindings.append(clause.replace('?', str(param)))
+                    bindings.append(clause.replace('?', quote_sql_str_value(str(param))))
 
             sql = f' where {" and ".join(bindings)}'
 
