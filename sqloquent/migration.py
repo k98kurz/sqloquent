@@ -1,7 +1,7 @@
 from __future__ import annotations
-from .classes import SqliteContext, dynamic_sqlmodel
+from .classes import SqliteContext
 from .errors import tressa, vert, tert
-from .interfaces import DBContextProtocol, TableProtocol, ModelProtocol
+from .interfaces import DBContextProtocol, TableProtocol
 from dataclasses import dataclass, field
 from typing import Any, Callable, Type
 import string
@@ -14,6 +14,7 @@ class Column:
     datatype: str = field()
     table: TableProtocol = field()
     is_nullable: bool = field(default=True)
+    default_value: Any = field(default=None)
     new_name: str = field(default=None)
 
     def validate(self) -> None:
@@ -34,6 +35,11 @@ class Column:
     def nullable(self) -> Column:
         """Marks the column as nullable."""
         self.is_nullable = True
+        return self
+
+    def default(self, value: Any) -> Column:
+        """Set the default value for the column."""
+        self.default_value = value
         return self
 
     def index(self) -> Column:
@@ -172,6 +178,13 @@ class Table:
         self.columns_to_add.append(column)
         return column
 
+    def boolean(self, name: str) -> Column:
+        """Creates a boolean column."""
+        column = Column(name, "boolean", table=self)
+        column.validate()
+        self.columns_to_add.append(column)
+        return column
+
     def custom(self, callback: Callable[[list[str]], list[str]]) -> Table:
         """Add a custom callback that parses the SQL clauses before they
             are returnedf from the `sql` method. Must accept and return
@@ -226,6 +239,14 @@ class Table:
             for col in self.columns_to_add:
                 col.validate()
                 clause = f"{col.name} {col.datatype}"
+                if col.default_value is not None:
+                    clause += " default "
+                    if type(col.default_value) is str:
+                        clause += "'" + col.default_value.replace("'", "''") + "'"
+                    elif type(col.default_value) is bytes:
+                        clause += "(x'" + col.default_value.hex() + "')"
+                    else:
+                        clause += str(col.default_value)
                 if not col.is_nullable:
                     clause += " not null"
                 create.append(clause)

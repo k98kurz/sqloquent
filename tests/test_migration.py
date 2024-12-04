@@ -1,4 +1,4 @@
-from context import errors, interfaces, migration
+from context import errors, interfaces, migration, classes
 from genericpath import isfile
 import os
 import sqlite3
@@ -213,6 +213,8 @@ class TestMigration(unittest.TestCase):
             t = migration.Table.create("things")
             t.integer("id").unique()
             t.text("name").index()
+            t.blob("data").default(b'123')
+            t.boolean("is_active").default(True)
             return [t]
 
         def drop_things_table():
@@ -222,7 +224,8 @@ class TestMigration(unittest.TestCase):
         m = migration.Migration(DB_FILEPATH)
         m.up(create_things_table)
         m.down(drop_things_table)
-        expected = "begin;\ncreate table if not exists things (id integer, name text);\n"
+        expected = "begin;\ncreate table if not exists things (id integer, "
+        expected += "name text, data blob default (x'313233'), is_active boolean default True);\n"
         expected += "create unique index if not exists udx_things_id on things (id);\n"
         expected += "create index if not exists idx_things_name on things (name);\ncommit;"
         sql = m.get_apply_sql()
