@@ -20,7 +20,7 @@ classifiers = [
   "Topic :: Database :: Front-Ends",
 ]
 dependencies = [
-  "packify >= 0.2.2",
+  "packify >= 0.2.3",
 ]
 
 [project.urls]
