@@ -104,7 +104,9 @@ Historic changes are summarized in the
 [changelog](https://github.com/k98kurz/sqloquent/blob/master/changelog.md).
 
 Currently, only the basic sqlite3 types (affinities) of text, blob, integer,
-real, and numeric are supported by the migration system.
+real, numeric, and boolean are supported by the migration system. Support for
+all data types is planned for a future release:
+[issue #8](https://github.com/k98kurz/sqloquent/issues/8).
 
 ## Setup and Usage
 
@@ -130,9 +132,7 @@ cryptographic audit trail features can be used with any SQL database coupling.
 
 Note that if you create a custom async DB coupling, you will also need to create
 a non-async coupling to use the migration system. Also note that at the moment,
-this library has only been tested with sqlite3 and does not support all data
-types for other SQL databases. Support for all data types is planned for a
-future release: [issue #8](https://github.com/k98kurz/sqloquent/issues/8).
+this library has only been tested with sqlite3.
 
 #### Connection Information
 
