@@ -11,11 +11,12 @@ section below for full list.)
 
 The primary features are the `SqlQueryBuilder` and `SqlModel` base classes (or
 `AsyncSqlQueryBuilder` and `AsyncSqlModel` for use with asyncio). The
-`SqlQueryBuilder` uses a monad pattern to build and execute a query from various
-clauses. The `SqlModel` handles encoding, persisting, reading, and decoding
-models that correspond to rows. The query builder can be used without a model,
-in which case a dynamic model will be created. Any grouping will result in `get`
-returning `Row`s, and joining will result in `get` returning `JoinedModel`s.
+`SqlQueryBuilder` uses a builder pattern to build and execute a query from
+various clauses. The `SqlModel` handles encoding, persisting, reading, and
+decoding models that correspond to rows. The query builder can be used without a
+model, in which case a dynamic model will be created. Any grouping will result
+in `get` returning `Row`s, and joining will result in `get` returning
+`JoinedModel`s.
 
 ```python
 from sqloquent import SqlQueryBuilder
@@ -25,7 +26,11 @@ query = lambda table, columns: SqlQueryBuilder(
 )
 
 # count the number of matches
-sqb = query('some_table', ['id', 'etc']).join('some_other_table', ['id', 'some_id', 'data'])
+sqb = query('some_table', ['id', 'etc']).join(
+    'some_other_table',
+    on=['id', 'some_id'],
+    joined_table_columns=['id', 'some_id', 'data']
+)
 count = sqb.count()
 
 # chunk through them 1000 at a time
@@ -52,7 +57,11 @@ query = lambda table, columns: AsyncSqlQueryBuilder(
     table=table, columns=columns, connection_info='temp.db'
 )
 
-sqb = query('some_table', ['id', 'etc']).join('some_other_table', ['id', 'some_id', 'data'])
+sqb = query('some_table', ['id', 'etc']).join(
+    'some_other_table',
+    on=['id', 'some_id'],
+    joined_table_columns=['id', 'some_id', 'data']
+)
 
 # count the number of matches
 count = run(sqb.count())
@@ -212,13 +221,14 @@ also parse any class annotations that map to names of columns. For example,
 given the following class,
 
 ```python
-from sqloquent import SqlModel
+from sqloquent import SqlModel, Default
 class Thing(SqlModel):
     table = 'things'
-    columns = ('id', 'name', 'amount')
+    columns = ('id', 'name', 'amount', 'is_nothing')
     id: str
-    name: bytes
+    name: bytes|Default[b'something']
     amount: int|None
+    is_nothing: bool|None|Default[True]
 ```
 
 the `make migration --model` command will produce the following migration:
@@ -230,8 +240,9 @@ from sqloquent import Migration, Table
 def create_table_things() -> list[Table]:
     t = Table.create('things')
     t.text('id').unique()
-    t.blob('name').index()
+    t.blob('name').default(b'something').index()
     t.integer('amount').nullable().index()
+    t.boolean('is_nothing').default(True).nullable().index()
     ...
     return [t]
 
@@ -259,6 +270,7 @@ def create_table_things() -> list[Table]:
     t.text('id').unique()
     t.blob('name').index()
     t.integer('amount').nullable().index()
+    t.boolean('is_nothing').nullable().default(True).index()
     t.custom(add_custom_sql)
     ...
     return [t]
@@ -271,15 +283,16 @@ generate the following:
 ```sql
 /**** generated up/apply sql ****/
 begin;
-create table if not exists things (id text, name blob, amount integer);
-create unique index if not exists udx_things_id on things (id);
-create index if not exists idx_things_name on things (name);
-create index if not exists idx_things_amount on things (amount);
+create table if not exists "things" ("id" text, "name" blob default (x'736f6d657468696e67'), "amount" integer, "is_nothing" boolean default True);
+create unique index if not exists udx_things_id on "things" ("id");
+create index if not exists idx_things_name on "things" ("name");
+create index if not exists idx_things_amount on "things" ("amount");
+create index if not exists idx_things_is_nothing on "things" ("is_nothing");
 commit;
 
 /**** generated down/undo sql ****/
 begin;
-drop table if exists things;
+drop table if exists "things";
 commit;
 ```
 

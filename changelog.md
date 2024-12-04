@@ -1,3 +1,7 @@
+## 0.6.1
+
+- Updated query builders to quote identifiers
+
 ## 0.6.0
 
 - Added support for boolean columns in migration system
