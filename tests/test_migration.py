@@ -125,16 +125,16 @@ class TestMigration(unittest.TestCase):
         t.integer("id")
         sql = t.sql()
         assert len(sql) == 1
-        assert sql[0] == "create table if not exists things (id integer)"
+        assert sql[0] == "create table if not exists \"things\" (\"id\" integer)"
 
         t = migration.Table.create('things')
         t.integer("id").unique()
         t.text("name").index()
         sql = t.sql()
         assert len(sql) == 3
-        assert sql[0] == "create table if not exists things (id integer, name text)"
-        assert sql[1] == "create unique index if not exists udx_things_id on things (id)"
-        assert sql[2] == "create index if not exists idx_things_name on things (name)"
+        assert sql[0] == "create table if not exists \"things\" (\"id\" integer, \"name\" text)", sql[0]
+        assert sql[1] == "create unique index if not exists udx_things_id on \"things\" (\"id\")", sql[1]
+        assert sql[2] == "create index if not exists idx_things_name on \"things\" (\"name\")", sql[2]
 
         t = migration.Table.create('things')
         col1 = t.integer("id")
@@ -142,8 +142,8 @@ class TestMigration(unittest.TestCase):
         t.unique([col1, col2])
         sql = t.sql()
         assert len(sql) == 2
-        assert sql[0] == "create table if not exists things (id integer, name text)"
-        assert sql[1] == "create unique index if not exists udx_things_id_name on things (id, name)"
+        assert sql[0] == "create table if not exists \"things\" (\"id\" integer, \"name\" text)", sql[0]
+        assert sql[1] == "create unique index if not exists udx_things_id_name on \"things\" (\"id\", \"name\")", sql[1]
 
         t = migration.Table.create('things')
         t.integer("id")
@@ -153,15 +153,15 @@ class TestMigration(unittest.TestCase):
         t.blob("data")
         sql = t.sql()
         assert len(sql) == 1
-        assert sql[0] == "create table if not exists things (id integer, " + \
-            "name text, parts numeric, fraction real, data blob)", f"\'{sql[0]}\' is wrong"
+        assert sql[0] == "create table if not exists \"things\" (\"id\" integer, " + \
+            "\"name\" text, \"parts\" numeric, \"fraction\" real, \"data\" blob)", f"\'{sql[0]}\' is wrong"
 
     def test_Table_alter(self):
         t = migration.Table.alter('things')
         t.rename("things2")
         sql = t.sql()
         assert len(sql) == 1
-        assert sql[0] == "alter table things rename to things2"
+        assert sql[0] == "alter table \"things\" rename to \"things2\""
 
         with self.assertRaises(errors.UsageError):
             t.integer("should_not_work")
@@ -177,15 +177,15 @@ class TestMigration(unittest.TestCase):
         assert len(sql) == 5
         assert sql[0] == "drop index if exists udx_things_test"
         assert sql[1] == "drop index if exists idx_things_test"
-        assert sql[2] == "alter table things drop column test"
-        assert sql[3] == "alter table things rename column first to second"
-        assert sql[4] == "alter table things rename column p1 to p2"
+        assert sql[2] == "alter table \"things\" drop column \"test\""
+        assert sql[3] == "alter table \"things\" rename column \"first\" to \"second\""
+        assert sql[4] == "alter table \"things\" rename column \"p1\" to \"p2\""
 
     def test_Table_drop(self):
         t = migration.Table.drop("things")
         sql = t.sql()
         assert len(sql) == 1
-        assert sql[0] == "drop table if exists things"
+        assert sql[0] == "drop table if exists \"things\""
 
         with self.assertRaises(ValueError):
             t.integer("some column")
@@ -224,10 +224,10 @@ class TestMigration(unittest.TestCase):
         m = migration.Migration(DB_FILEPATH)
         m.up(create_things_table)
         m.down(drop_things_table)
-        expected = "begin;\ncreate table if not exists things (id integer, "
-        expected += "name text, data blob default (x'313233'), is_active boolean default True);\n"
-        expected += "create unique index if not exists udx_things_id on things (id);\n"
-        expected += "create index if not exists idx_things_name on things (name);\ncommit;"
+        expected = "begin;\ncreate table if not exists \"things\" (\"id\" integer, "
+        expected += "\"name\" text, \"data\" blob default (x'313233'), \"is_active\" boolean default True);\n"
+        expected += "create unique index if not exists udx_things_id on \"things\" (\"id\");\n"
+        expected += "create index if not exists idx_things_name on \"things\" (\"name\");\ncommit;"
         sql = m.get_apply_sql()
         assert type(sql) is str
         assert sql == expected, f"expected '{expected}'\nencountered '{sql}"
@@ -238,7 +238,7 @@ class TestMigration(unittest.TestCase):
         m.apply()
         assert len(self.cursor.execute(q).fetchall())  == 1
 
-        expected = "begin;\ndrop table if exists things;\ncommit;"
+        expected = "begin;\ndrop table if exists \"things\";\ncommit;"
         sql = m.get_undo_sql()
         assert type(sql) is str
         assert sql == expected, f"expected '{expected}'\nencountered '{sql}"

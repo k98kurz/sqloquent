@@ -213,7 +213,7 @@ class Table:
             tressa(len(self.indices_to_drop) == 0, errmsg)
             tressa(len(self.uniques_to_add) == 0, errmsg)
             tressa(len(self.uniques_to_drop) == 0, errmsg)
-            return self.callback([f"drop table if exists {self.name}"])
+            return self.callback([f"drop table if exists \"{self.name}\""])
 
         if self.new_name:
             errmsg = "cannot combine rename table with other operations"
@@ -225,7 +225,7 @@ class Table:
             tressa(len(self.indices_to_drop) == 0, errmsg)
             tressa(len(self.uniques_to_add) == 0, errmsg)
             tressa(len(self.uniques_to_drop) == 0, errmsg)
-            return self.callback([f"alter table {self.name} rename to {self.new_name}"])
+            return self.callback([f"alter table \"{self.name}\" rename to \"{self.new_name}\""])
 
         for idx in self.uniques_to_drop:
             clauses.append(f"drop index if exists {get_index_name(self, idx, True)}")
@@ -238,7 +238,7 @@ class Table:
             create = []
             for col in self.columns_to_add:
                 col.validate()
-                clause = f"{col.name} {col.datatype}"
+                clause = f"\"{col.name}\" {col.datatype}"
                 if col.default_value is not None:
                     clause += " default "
                     if type(col.default_value) is str:
@@ -250,40 +250,40 @@ class Table:
                 if not col.is_nullable:
                     clause += " not null"
                 create.append(clause)
-            clauses.append(f"create table if not exists {self.name} ({', '.join(create)})")
+            clauses.append(f"create table if not exists \"{self.name}\" ({', '.join(create)})")
         else:
             for col in self.columns_to_drop:
                 if isinstance(col, Column):
                     col.validate()
                 colname = col if type(col) is str else col.name
-                clauses.append(f"alter table {self.name} drop column {colname}")
+                clauses.append(f"alter table \"{self.name}\" drop column \"{colname}\"")
 
             for col in self.columns_to_add:
                 col.validate()
-                clause = f"alter table {self.name} add column {col.name} {col.datatype}"
+                clause = f"alter table \"{self.name}\" add column \"{col.name}\" {col.datatype}"
                 if not col.is_nullable:
                     clause += " not null"
                 clauses.append(clause)
 
             for col in self.columns_to_rename:
-                clause = f"alter table {self.name} rename column "
+                clause = f"alter table \"{self.name}\" rename column "
                 if type(col) is Column:
                     col.validate()
-                    clause += f"{col.name} to {col.new_name}"
+                    clause += f"\"{col.name}\" to \"{col.new_name}\""
                 else:
-                    clause += f"{col[0]} to {col[1]}"
+                    clause += f"\"{col[0]}\" to \"{col[1]}\""
                 clauses.append(clause)
 
         for idx in self.uniques_to_add:
-            colnames = [c if type(c) is str else c.name for c in idx]
+            colnames = [f'"{c}"' if type(c) is str else f'"{c.name}"' for c in idx]
             clause =f"create unique index if not exists {get_index_name(self, idx, True)} "
-            clause += f"on {self.name} (" + ", ".join(colnames) + ")"
+            clause += f"on \"{self.name}\" (" + ", ".join(colnames) + ")"
             clauses.append(clause)
 
         for idx in self.indices_to_add:
-            colnames = [c if type(c) is str else c.name for c in idx]
+            colnames = [f'"{c}"' if type(c) is str else f'"{c.name}"' for c in idx]
             clause =f"create index if not exists {get_index_name(self, idx)} "
-            clause += f"on {self.name} (" + ", ".join(colnames) + ")"
+            clause += f"on \"{self.name}\" (" + ", ".join(colnames) + ")"
             clauses.append(clause)
 
         return self.callback(clauses)
