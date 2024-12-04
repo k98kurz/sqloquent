@@ -242,9 +242,9 @@ class Table:
                 if col.default_value is not None:
                     clause += " default "
                     if type(col.default_value) is str:
-                        clause += "'" + col.default_value.replace("'", "''") + "'"
+                        clause += f"(x'{col.default_value.encode().hex()}')"
                     elif type(col.default_value) is bytes:
-                        clause += "(x'" + col.default_value.hex() + "')"
+                        clause += f"(x'{col.default_value.hex()}')"
                     else:
                         clause += str(col.default_value)
                 if not col.is_nullable:
@@ -261,6 +261,14 @@ class Table:
             for col in self.columns_to_add:
                 col.validate()
                 clause = f"alter table \"{self.name}\" add column \"{col.name}\" {col.datatype}"
+                if col.default_value is not None:
+                    clause += " default "
+                    if type(col.default_value) is str:
+                        clause += f"(x'{col.default_value.encode().hex()}')"
+                    elif type(col.default_value) is bytes:
+                        clause += f"(x'{col.default_value.hex()}')"
+                    else:
+                        clause += str(col.default_value)
                 if not col.is_nullable:
                     clause += " not null"
                 clauses.append(clause)
