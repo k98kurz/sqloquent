@@ -3,7 +3,8 @@ from sqloquent.asyncql import (
     AsyncHashedModel,
     AsyncQueryBuilderProtocol,
     AsyncRelatedModel,
-    AsyncRelatedCollection
+    AsyncRelatedCollection,
+    Default
 )
 from .AccountType import AccountType
 
@@ -11,11 +12,12 @@ from .AccountType import AccountType
 class Account(AsyncHashedModel):
     table: str = 'accounts'
     id_column: str = 'id'
-    columns: tuple[str] = ('id', 'name', 'ledger_id', 'type')
+    columns: tuple[str] = ('id', 'name', 'ledger_id', 'type', 'is_active')
     id: str
     name: str
     ledger_id: str
     type: str
+    is_active: bool|Default[True]
     ledger: AsyncRelatedModel
     entries: AsyncRelatedCollection
 
