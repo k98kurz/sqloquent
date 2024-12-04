@@ -1,4 +1,4 @@
-from .classes import SqlModel, DeletedModel, Attachment, HashedModel
+from .classes import SqlModel, DeletedModel, Attachment, HashedModel, Default
 from .errors import tert, vert, tressa
 from .interfaces import MigrationProtocol, ModelProtocol
 from .migration import Migration, Table
@@ -115,45 +115,72 @@ def make_migration_from_model_path(model_name: str, model_path: str,
             "specified model is invalid; must implement ModelProtocol")
     return make_migration_from_model(model, model_name, connection_string, ctx)
 
-def _get_column_type_from_annotation(annotation: Any) -> tuple[str, bool]:
+def _get_column_type_from_annotation(annotation: Any) -> tuple[str, bool]|tuple[str, bool, Any]:
     nullable = False
+    has_default = False
+    default = None
     if type(annotation) is UnionType:
         annotation = get_args(annotation)
+        default_types = [
+            arg
+            for arg in annotation
+            if getattr(arg, "__origin__", None) is Default
+        ]
+        if default_types:
+            default = get_args(default_types[0])[0]
+            has_default = True
         if NoneType in annotation:
             nullable = True
         if bytes in annotation:
-            return ('blob', nullable)
+            return ('blob', nullable, default) if has_default else ('blob', nullable)
         if int in annotation:
-            return ('integer', nullable)
+            return ('integer', nullable, default) if has_default else ('integer', nullable)
+        if bool in annotation:
+            return ('boolean', nullable, default) if has_default else ('boolean', nullable)
         if float in annotation:
-            return ('real', nullable)
-        return ('text', nullable)
+            return ('real', nullable, default) if has_default else ('real', nullable)
+        return ('text', nullable, default) if has_default else ('text', nullable)
     elif type(annotation) is type:
         if annotation is NoneType:
             nullable = True
         if annotation is bytes:
-            return ('blob', nullable)
+            return ('blob', nullable, default) if has_default else ('blob', nullable)
         if annotation is int:
-            return ('integer', nullable)
+            return ('integer', nullable, default) if has_default else ('integer', nullable)
+        if annotation is bool:
+            return ('boolean', nullable, default) if has_default else ('boolean', nullable)
         if annotation is float:
-            return ('real', nullable)
-        return ('text', nullable)
+            return ('real', nullable, default) if has_default else ('real', nullable)
+        return ('text', nullable, default) if has_default else ('text', nullable)
     else:
         if 'None' in annotation:
             nullable = True
+        if 'Default' in annotation:
+            default: str = annotation[annotation.index('Default') + 8:-1]
+            if default.lower() == 'none':
+                default = None
+            elif default.lower() == 'true' and 'bool' in annotation:
+                default = True
+            elif default.lower() == 'false' and 'bool' in annotation:
+                default = False
+            elif default.isnumeric() and ('int' in annotation or 'float' in annotation):
+                default = int(default)
+            has_default = True
         if 'bytes' in annotation:
-            return ('blob', nullable)
+            return ('blob', nullable, default) if has_default else ('blob', nullable)
         if 'int' in annotation:
-            return ('integer', nullable)
+            return ('integer', nullable, default) if has_default else ('integer', nullable)
+        if 'bool' in annotation:
+            return ('boolean', nullable, default) if has_default else ('boolean', nullable)
         if 'float' in annotation:
-            return ('real', nullable)
-        return ('text', nullable)
+            return ('real', nullable, default) if has_default else ('real', nullable)
+        return ('text', nullable, default) if has_default else ('text', nullable)
 
 def make_migration_from_model(model: ModelProtocol, model_name: str = None,
                                connection_string: str = '', ctx: tuple = None) -> str:
     """Generate a migration from a model."""
     table_name = model.table or _pascalcase_to_snake_case(model_name or model.__name__)
-    types: dict[str, tuple[Type, bool]] = {}
+    types: dict[str, tuple[Type, bool]|tuple[str, bool, Any]] = {}
     if model.__annotations__:
         for column in model.columns:
             if column in model.__annotations__:
@@ -165,6 +192,10 @@ def make_migration_from_model(model: ModelProtocol, model_name: str = None,
     for column in model.columns:
         if column in types:
             src += f"    t.{types[column][0]}('{column}')"
+            if len(types[column]) == 3:
+                default = types[column][2]
+                default = f"'{default}'" if type(default) is str else default
+                src += f".default({default})"
             src += ".nullable()" if types[column][1] else ""
         else:
             src += f"    t.text('{column}')"
@@ -212,13 +243,14 @@ def publish_migrations(path: str, connection_string: str = '', ctx: tuple = None
 
 
 def make_model(name: str, base: str = 'SqlModel', columns: dict[str, str] = None,
-               connection_string: str = '', sqb: tuple[str] = None,
+               connection_string: str = '', sqb: tuple[str,str] = None,
                table: str = None) -> str:
     """Generate a model scaffold with the given name, columns, and
         connection_string. The columns parameter must be a dict mapping
         names to type annotation strings, which should each be one of
-        ('str', 'int', 'float', 'bytes', 'str|None', 'int|None',
-        'float|None', 'bytes|None').
+        ('str', 'int', 'bool', 'float', 'bytes', 'str|None', 'int|None',
+        'bool|None', 'float|None', 'bytes|None') or be one of those with
+        '|Default[value]' appended.
     """
     tert(type(name) is str, 'name must be str')
     vert(name.isalnum(), 'name must be alphanumeric')
@@ -232,8 +264,8 @@ def make_model(name: str, base: str = 'SqlModel', columns: dict[str, str] = None
     tert(sqb is None or all([type(s) is str for s in sqb]), "sqb must be (str,) or (str, str)")
     vert(sqb is None or 1 <= len(sqb) <= 2, "sqb must be (str,) or (str, str)")
     valid_types = (
-        'str', 'int', 'float', 'bytes',
-        'str|None', 'int|None', 'float|None', 'bytes|None',
+        'str', 'int', 'bool', 'float', 'bytes',
+        'str|None', 'int|None', 'bool|None', 'float|None', 'bytes|None',
     )
     table_name = table
     if not table_name:
@@ -244,27 +276,41 @@ def make_model(name: str, base: str = 'SqlModel', columns: dict[str, str] = None
             table_name = f'{table_name[:-1]}ies'
         else:
             table_name = f'{table_name}s'
-    if "Async" in base:
-        src = f"from sqloquent.asyncql import {base}\n\n\n"
-    else:
-        src = f"from sqloquent import {base}\n\n\n"
-    if sqb and len(sqb) == 2:
-        src = src[:-2] + f"from {sqb[1]} import {sqb[0]}\n\n\n"
+    src = ""
     src += f"class {name}({base}):\n"
     src += f"    connection_info: str = '{connection_string}'\n"
     if sqb:
         src += f"    query_builder_class: Type[QueryBuilderProtocol] = {sqb[0]}\n"
     src += f"    table: str = '{table_name}'\n"
     src += f"    id_column: str = 'id'\n"
+    at_least_one_default = False
     if columns:
         src += f"    columns: tuple[str] = {tuple([name for name in columns])}\n"
         for name, datatype in columns.items():
+            default = None
+            if 'Default' in datatype:
+                default = datatype[datatype.index('Default'):]
+                datatype = datatype[:datatype.index('Default')-1]
+                at_least_one_default = True
             vert(datatype in valid_types,
                  f'{datatype} is not a valid type annotation; must be one of {valid_types}')
-            src += f"    {name}: {datatype}\n"
+            if default:
+                src += f"    {name}: {datatype}|{default}\n"
+            else:
+                src += f"    {name}: {datatype}\n"
     else:
         src += f"    columns: tuple[str] = ('id',)\n"
-    return src
+    if "Async" in base:
+        src_start = f"from sqloquent.asyncql import {base}"
+        if at_least_one_default:
+            src_start += "\nfrom sqloquent import Default"
+    else:
+        src_start = f"from sqloquent import {base}"
+        if at_least_one_default:
+            src_start += ", Default"
+    if sqb and len(sqb) == 2:
+        src_start += f"\nfrom {sqb[1]} import {sqb[0]}"
+    return f"{src_start}\n\n\n{src}\n"
 
 
 def _import_migration(path: str, connection_string: str = '') -> Migration:
@@ -409,7 +455,7 @@ def help_cli(name: str) -> str:
     {name} make migration --alter name [--ctx name [--from package_name]]
     {name} make migration --drop name [--ctx name [--from package_name]]
     {name} make migration --model name path/to/model/file [--ctx name [--from package_name]]
-    {name} make model name [--hashed] [--columns name1=type,name2,etc] [--async] [--sqb name [--from package_name]] [--table table_name]
+    {name} make model name [--hashed] [--columns name1=type|None|Default[value],name2,etc] [--async] [--sqb name [--from package_name]] [--table table_name]
     {name} migrate path/to/migration/file
     {name} rollback path/to/migration/file
     {name} refresh path/to/migration/file

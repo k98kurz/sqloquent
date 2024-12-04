@@ -122,6 +122,36 @@ class TestIntegration(unittest.TestCase):
         assert 'def migration' in result
         assert DB_FILEPATH in result
 
+    def test_make_migration_from_model_with_boolean_column_returns_str_with_correct_content(self):
+        class CustomModel(classes.SqlModel):
+            table = 'custom_models'
+            columns = ('id', 'is_active', 'is_something_else')
+            id: str
+            is_active: bool
+            is_something_else: bool|None
+
+        name = CustomModel.table
+        result = tools.make_migration_from_model(CustomModel, name, connection_string=DB_FILEPATH)
+        assert type(result) is str
+        assert name.lower() in result, "table name should be in migration"
+        assert "t.boolean('is_active')" in result
+        assert "t.boolean('is_something_else').nullable()" in result
+
+    def test_make_migration_from_model_with_default_returns_str_with_correct_content(self):
+        class CustomModel(classes.SqlModel):
+            table = 'custom_models'
+            columns = ('id', 'some_text', 'is_active')
+            id: str
+            some_text: str|classes.Default['foobar']
+            is_active: bool|classes.Default[True]
+
+        name = CustomModel.table
+        result = tools.make_migration_from_model(CustomModel, name, connection_string=DB_FILEPATH)
+        assert type(result) is str
+        assert name.lower() in result, "table name should be in migration"
+        assert "t.text('some_text').default('foobar')" in result, result
+        assert "t.boolean('is_active').default(True)" in result, result
+
     def test_make_migration_from_async_model_returns_str_with_correct_content(self):
         name = 'AsyncAttachment'
         result = tools.make_migration_from_model_path(name, 'sqloquent/asyncql/classes.py', DB_FILEPATH)
@@ -188,9 +218,23 @@ class TestIntegration(unittest.TestCase):
             'thing1': 'int',
             'thing2': 'float',
             'thing3': 'bytes',
+            'thing4': 'bool',
+            'thing5': 'str|None',
             'thing1n': 'int|None',
             'thing2n': 'float|None',
             'thing3n': 'bytes|None',
+            'thing4n': 'bool|None',
+            'thing5n': 'str|None',
+            'thing1d': 'int|Default[1]',
+            'thing2d': 'float|Default[2.0]',
+            'thing3d': "bytes|Default[b'3']",
+            'thing4d': 'bool|Default[True]',
+            'thing5d': "str|Default['foo']",
+            'thing1nd': 'int|None|Default[1]',
+            'thing2nd': 'float|None|Default[2.0]',
+            'thing3nd': "bytes|None|Default[b'3']",
+            'thing4nd': 'bool|None|Default[True]',
+            'thing5nd': "str|None|Default['foo']",
         }
         bases = ('SqlModel', 'HashedModel', 'AsyncSqlModel', 'AsyncHashedModel')
         for base in bases:
@@ -200,17 +244,36 @@ class TestIntegration(unittest.TestCase):
                 columns=columns,
                 connection_string=DB_FILEPATH
             )
-            assert type(result) is str
-            assert f"class {name}({base}):" in result
-            assert f"columns: tuple[str] = {tuple([c for c in columns])}" in result
-            assert f"connection_info: str = '{DB_FILEPATH}'" in result
-            assert f"id: str" in result
-            assert f"thing1: int" in result
-            assert f"thing2: float" in result
-            assert f"thing3: bytes" in result
-            assert f"thing1n: int|None" in result
-            assert f"thing2n: float|None" in result
-            assert f"thing3n: bytes|None" in result
+            assert type(result) is str, type(result)
+            if "Async" in base:
+                assert f"from sqloquent.asyncql import {base}" in result, result
+                assert "from sqloquent import Default" in result, result
+            else:
+                assert f"from sqloquent import {base}, Default" in result, result
+            assert f"class {name}({base}):" in result, result
+            assert f"columns: tuple[str] = {tuple([c for c in columns])}" in result, result
+            assert f"connection_info: str = '{DB_FILEPATH}'" in result, result
+            assert f"id: str" in result, result
+            assert f"thing1: int" in result, result
+            assert f"thing2: float" in result, result
+            assert f"thing3: bytes" in result, result
+            assert f"thing4: bool" in result, result
+            assert f"thing5: str" in result, result
+            assert f"thing1n: int|None" in result, result
+            assert f"thing2n: float|None" in result, result
+            assert f"thing3n: bytes|None" in result, result
+            assert f"thing4n: bool|None" in result, result
+            assert f"thing5n: str|None" in result, result
+            assert f"thing1d: int|Default[1]" in result, result
+            assert f"thing2d: float|Default[2.0]" in result, result
+            assert f"thing3d: bytes|Default[b'3']" in result, result
+            assert f"thing4d: bool|Default[True]" in result, result
+            assert f"thing5d: str|Default['foo']" in result, result
+            assert f"thing1nd: int|None|Default[1]" in result, result
+            assert f"thing2nd: float|None|Default[2.0]" in result, result
+            assert f"thing3nd: bytes|None|Default[b'3']" in result, result
+            assert f"thing4nd: bool|None|Default[True]" in result, result
+            assert f"thing5nd: str|None|Default['foo']" in result, result
 
     def test_make_model_sets_query_builder(self):
         name = "TestClass"
