@@ -1,6 +1,6 @@
 ## 0.6.1
 
-- Updated query builders to quote identifiers
+- Updated query builders to quote identifiers and escape string quotes
 
 ## 0.6.0
 
