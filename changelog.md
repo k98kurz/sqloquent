@@ -1,3 +1,12 @@
+## 0.6.2
+
+- Updated migration system to use the `quote_identifier` and `quote_sql_str_value`
+functions for quoting identifiers and string values.
+- Updated `quote_identifier` to properly quote components in a multi-part
+identifier and raise ValueError when a component has an unmatched double
+quotation mark or when the identifier contains a single quote.
+- Added new unit tests for `quote_identifier` and `quote_sql_str_value`
+
 ## 0.6.1
 
 - Updated query builders to quote identifiers and escape string quotes
