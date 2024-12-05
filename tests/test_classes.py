@@ -2167,5 +2167,18 @@ class TestClasses(unittest.TestCase):
         assert type(ehm.field3nd) is bool, ehm.field3nd
 
 
+    # misc
+    def test_quote_identifier(self):
+        assert classes.quote_identifier('foo') == '"foo"'
+        assert classes.quote_identifier('"foo"') == '"foo"'
+        assert classes.quote_identifier('foo.bar') == '"foo"."bar"'
+        assert classes.quote_identifier('foo.bar.baz') == '"foo"."bar"."baz"'
+
+    def test_quote_sql_str_value(self):
+        assert classes.quote_sql_str_value("foo") == "'foo'"
+        assert classes.quote_sql_str_value("'foo'") == "'''foo'''"
+        assert classes.quote_sql_str_value("foo's") == "'foo''s'"
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -166,13 +166,35 @@ def dynamic_sqlmodel(connection_string: str|bytes, table_name: str = '',
     return DynamicModel
 
 def quote_sql_str_value(value: str) -> str:
-    """Quotes a string value for use in an SQL statement."""
+    """Quotes a string value for use in an SQL statement, escaping
+        single quotes. Used internally.
+    """
     value = value.replace("'", "''")
     return f"'{value}'"
 
 def quote_identifier(identifier: str) -> str:
-    """Quotes an identifier for use in an SQL statement."""
-    return f'"{identifier}"' if '.' not in identifier and identifier[0] != '"' else identifier
+    """Quotes an identifier for use in an SQL statement, ensuring
+        that each identifier component (e.g. part1.part2 has two
+        components) is properly quoted. Raises ValueError if any
+        component has an unmatched quotation mark (e.g. part1.part2").
+        Raises ValueError if identifier contains a single quote. Used
+        internally.
+    """
+    vert("'" not in identifier, 'identifier cannot contain single quotes')
+    parts = identifier.split('.')
+    vert(
+        all([
+            (part[0] == '"' and part[-1] == '"') or
+            (part[0] != '"' and part[-1] != '"')
+            for part in parts
+        ]),
+        'identifier components cannot have unmatched quotation mark'
+    )
+    parts = [
+        f'"{part}"' if part[0] != '"' else part
+        for part in parts
+    ]
+    return '.'.join(parts)
 
 
 class SqlQueryBuilder:
