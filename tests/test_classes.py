@@ -1672,11 +1672,16 @@ class TestClasses(unittest.TestCase):
     def test_HashedModel_issubclass_of_SqlModel(self):
         assert issubclass(classes.HashedModel, classes.SqlModel)
 
-    def test_HashedModel_generated_id_is_sha256_of_packified_data(self):
+    def test_HashedModel_preimage_returns_packified_data(self):
+        data = { 'details': token_bytes(8).hex() }
+        observed = classes.HashedModel.preimage(data)
+        expected = packify.pack(data)
+        assert observed == expected, 'wrong preimage encountered'
+
+    def test_HashedModel_generated_id_is_sha256_of_preimage(self):
         data = { 'details': token_bytes(8).hex() }
         observed = classes.HashedModel.generate_id(data)
-        preimage = packify.pack(data)
-        expected = sha256(preimage).digest().hex()
+        expected = sha256(classes.HashedModel.preimage(data)).digest().hex()
         assert observed == expected, 'wrong hash encountered'
 
     def test_HashedModel_insert_raises_TypeError_for_nondict_input(self):

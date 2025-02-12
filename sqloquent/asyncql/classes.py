@@ -1495,15 +1495,16 @@ class AsyncHashedModel(AsyncSqlModel):
     details: bytes
 
     @classmethod
-    def generate_id(cls, data: dict) -> str:
-        """Generate an id by hashing the non-id contents. Raises
-            TypeError for unencodable type (calls packify.pack). Any
-            columns not present in the data dict will be set to the
-            default value specified in the column annotation or None
-            if no default is specified. Any columns in the
-            columns_excluded_from_hash tuple will be excluded from the
-            sha256 hash.
+    def preimage(cls, data: dict) -> bytes:
+        """Get the preimage of the sha256 id. This consists of the
+            serialized non-id columns and their values. Raises TypeError
+            for unencodable type (calls packify.pack). Any columns not
+            present in the data dict will be set to the default value
+            specified in the column annotation or None if no default is
+            specified. Any columns in the columns_excluded_from_hash
+            tuple will be excluded from the preimage.
         """
+        tert(type(data) is dict, 'data must be dict')
         for name in cls.columns:
             if name not in data and name != cls.id_column:
                 # if the column annotation has a default value, use it
@@ -1536,8 +1537,19 @@ class AsyncHashedModel(AsyncSqlModel):
             k: data[k] for k in data
             if k in cls.columns and k != cls.id_column and k not in cls.columns_excluded_from_hash
         }
-        preimage = packify.pack(data)
-        return sha256(preimage).digest().hex()
+        return packify.pack(data)
+
+    @classmethod
+    def generate_id(cls, data: dict) -> str:
+        """Generate an id by hashing the non-id contents. Raises
+            TypeError for unencodable type (calls packify.pack). Any
+            columns not present in the data dict will be set to the
+            default value specified in the column annotation or None
+            if no default is specified. Any columns in the
+            columns_excluded_from_hash tuple will be excluded from the
+            sha256 hash.
+        """
+        return sha256(cls.preimage(data)).digest().hex()
 
     @classmethod
     async def insert(cls, data: dict, /, *,
