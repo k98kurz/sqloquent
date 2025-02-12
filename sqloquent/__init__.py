@@ -7,7 +7,7 @@
     or from invoking the tools through the CLI.
 """
 
-__version__ = '0.6.2'
+__version__ = '0.7.0'
 
 from sqloquent.classes import (
     SqlModel,

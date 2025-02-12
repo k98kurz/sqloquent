@@ -1131,16 +1131,16 @@ python tests/test_tools.py
 The tests demonstrate the intended (and actual) behavior of the classes, as
 well as some contrived examples of how they are used. Perusing the tests will be
 informative to anyone seeking to use/break this package, especially the
-integration test which demonstrates the full package. There are currently 466
+integration test which demonstrates the full package. There are currently 468
 unit tests + 6 e2e/integration tests.
 
 ## ISC License
 
-Copyleft (c) 2024 Jonathan Voss (k98kurz)
+Copyright (c) 2025 Jonathan Voss (k98kurz)
 
 Permission to use, copy, modify, and/or distribute this software
 for any purpose with or without fee is hereby granted, provided
-that the above copyleft notice and this permission notice appear in
+that the above copyright notice and this permission notice appear in
 all copies.
 
 THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL

@@ -1,3 +1,9 @@
+## 0.7.0
+
+- New method `HashedModel.preimage` to get the preimage of the sha256 id in the
+form of the bytes-serialized non-id, non-excluded columns and their values.
+- Method `HashedModel.generate_id` now calls `preimage` internally.
+
 ## 0.6.2
 
 - Updated migration system to use the `quote_identifier` and `quote_sql_str_value`

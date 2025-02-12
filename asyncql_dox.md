@@ -910,6 +910,15 @@ Model for interacting with sql database using sha256 for id.
 
 #### Methods
 
+##### `@classmethod preimage(data: dict) -> bytes:`
+
+Get the preimage of the sha256 id. This consists of the serialized non-id
+columns and their values. Raises TypeError for unencodable type (calls
+packify.pack). Any columns not present in the data dict will be set to the
+default value specified in the column annotation or None if no default is
+specified. Any columns in the columns_excluded_from_hash tuple will be excluded
+from the preimage.
+
 ##### `@classmethod generate_id(data: dict) -> str:`
 
 Generate an id by hashing the non-id contents. Raises TypeError for unencodable
@@ -1416,5 +1425,3 @@ Creates a Within relation and returns the result of calling create_property.
 Usage syntax is like `Item.children = async_within(Item, Item)`. If the column
 containing the sorted list of ids is not item_ids (i.e. cls.__name__ ->
 snake_case + '_ids'), it can be specified.
-
-
