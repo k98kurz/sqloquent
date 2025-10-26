@@ -1293,7 +1293,7 @@ class AsyncSqlModel:
                 conditions=conditions, parallel_events=parallel_events
             )
         tert(type(updates) is dict, 'updates must be dict')
-        tert (type(conditions) is dict or conditions is None,
+        tert(type(conditions) is dict or conditions is None,
             'conditions must be dict or None')
         vert(self.id_column in self.data or type(conditions) is dict,
             f'instance must have {self.id_column} or conditions defined')
