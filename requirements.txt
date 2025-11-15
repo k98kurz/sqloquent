@@ -1,6 +1,6 @@
 aiosqlite==0.19.0
 autodox==0.1.16
 nest-asyncio==1.6.0
-packify==0.2.3
+packify==0.3.1
 twine==5.1.1
 build==1.2.2.post1
