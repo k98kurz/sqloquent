@@ -60,15 +60,15 @@ class SqliteContext:
 
         return self.cursor
 
-    def __exit__(self, __exc_type: Optional[Type[BaseException]],
-                __exc_value: Optional[BaseException],
-                __traceback: Optional[TracebackType]) -> None:
+    def __exit__(self, exc_type: Optional[Type[BaseException]],
+                exc_value: Optional[BaseException],
+                traceback: Optional[TracebackType]) -> None:
         """Exit the context block. Commit or rollback as appropriate,
-            then close the connection only if this is the outermost context.
+            then close the connection if this is the outermost context.
         """
         SqliteContext._depths[self.connection_info] -= 1
 
-        if __exc_type is not None:
+        if exc_type is not None:
             self.connection.rollback()
         else:
             self.connection.commit()
@@ -396,6 +396,24 @@ class SqlQueryBuilder:
             self.params.append(data)
         return self
 
+    def less_or_equal(self, column: str = None, data: Any = None,
+             **conditions: dict[str, Any]) -> SqlQueryBuilder:
+        """Save the 'column <= data' clause and param, then return self.
+            Raises TypeError for invalid column. This method can be
+            called with `less_or_equal(column, data)` or
+            `less_or_equal(column1=data1, column2=data2, etc=data3)`.
+        """
+        if column is not None:
+            tert(type(column) is str, 'column must be str')
+            self.clauses.append(f'{quote_identifier(column)} <= ?')
+            self.params.append(data)
+
+        for column, data in conditions.items():
+            tert(type(column) is str, 'each column must be str')
+            self.clauses.append(f'{quote_identifier(column)} <= ?')
+            self.params.append(data)
+        return self
+
     def greater(self, column: str = None, data: Any = None,
                 **conditions: dict[str, Any]) -> SqlQueryBuilder:
         """Save the 'column > data' clause and param, then return self.
@@ -411,6 +429,24 @@ class SqlQueryBuilder:
         for column, data in conditions.items():
             tert(type(column) is str, 'each column must be str')
             self.clauses.append(f'{quote_identifier(column)} > ?')
+            self.params.append(data)
+        return self
+
+    def greater_or_equal(self, column: str = None, data: Any = None,
+                **conditions: dict[str, Any]) -> SqlQueryBuilder:
+        """Save the 'column >= data' clause and param, then return self.
+            Raises TypeError for invalid column. This method can be
+            called with `greater_or_equal(column, data)` or
+            `greater_or_equal(column1=data1, column2=data2, etc=data3)`.
+        """
+        if column is not None:
+            tert(type(column) is str, 'column must be str')
+            self.clauses.append(f'{quote_identifier(column)} >= ?')
+            self.params.append(data)
+
+        for column, data in conditions.items():
+            tert(type(column) is str, 'each column must be str')
+            self.clauses.append(f'{quote_identifier(column)} >= ?')
             self.params.append(data)
         return self
 
@@ -606,7 +642,9 @@ class SqlQueryBuilder:
             equal={'column1':data1, 'column2':data2, 'etc':data3},
             not_equal={'column1':data1, 'column2':data2, 'etc':data3},
             less={'column1':data1, 'column2':data2, 'etc':data3},
+            less_or_equal={'column1':data1, 'column2':data2, 'etc':data3},
             greater={'column1':data1, 'column2':data2, 'etc':data3},
+            greater_or_equal={'column1':data1, 'column2':data2, 'etc':data3},
             like={'column1':(pattern1,str1), 'column2':(pattern2,str2),
             'etc':(pattern3,str3)}, not_like={'column1':(pattern1,str1),
             'column2':(pattern2,str2), 'etc':(pattern3,str3)},
@@ -622,7 +660,8 @@ class SqlQueryBuilder:
         """
         for condition_type, condition_data in conditions.items():
             vert(condition_type in (
-                'is_null', 'not_null', 'equal', 'not_equal', 'less', 'greater',
+                'is_null', 'not_null', 'equal', 'not_equal', 'less',
+                'less_or_equal', 'greater', 'greater_or_equal',
                 'like', 'not_like', 'starts_with', 'does_not_start_with',
                 'contains', 'excludes', 'ends_with', 'does_not_end_with',
                 'is_in', 'not_in'
@@ -640,9 +679,15 @@ class SqlQueryBuilder:
             elif condition_type == 'less':
                 tert(type(condition_data) is dict, 'less must be dict[str, Any]')
                 self.less(**condition_data)
+            elif condition_type == 'less_or_equal':
+                tert(type(condition_data) is dict, 'less_or_equal must be dict[str, Any]')
+                self.less_or_equal(**condition_data)
             elif condition_type == 'greater':
                 tert(type(condition_data) is dict, 'greater must be dict[str, Any]')
                 self.greater(**condition_data)
+            elif condition_type == 'greater_or_equal':
+                tert(type(condition_data) is dict, 'greater_or_equal must be dict[str, Any]')
+                self.greater_or_equal(**condition_data)
             elif condition_type == 'like':
                 tert(type(condition_data) is dict, 'like must be dict[str, tuple[str, str]]')
                 self.like(**condition_data)

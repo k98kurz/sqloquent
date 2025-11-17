@@ -281,12 +281,30 @@ class AsyncQueryBuilderProtocol(Protocol):
         """
         ...
 
+    def less_or_equal(self, column: str = None, data: str = None,
+             **conditions: dict[str, Any]) -> AsyncQueryBuilderProtocol:
+        """Save the 'column <= data' clause and param, then return self.
+            Raises TypeError for invalid column. This method can be
+            called with `less_or_equal(column, data)` or
+            `less_or_equal(column1=data1, column2=data2, etc=data3)`.
+        """
+        ...
+
     def greater(self, column: str = None, data: str = None,
                 **conditions: dict[str, Any]) -> AsyncQueryBuilderProtocol:
         """Save the 'column > data' clause and param, then return self.
             Raises TypeError for invalid column. This method can be
             called with `greater(column, data)` or
             `greater(column1=data1, column2=data2, etc=data3)`.
+        """
+        ...
+
+    def greater_or_equal(self, column: str = None, data: str = None,
+                **conditions: dict[str, Any]) -> AsyncQueryBuilderProtocol:
+        """Save the 'column >= data' clause and param, then return self.
+            Raises TypeError for invalid column. This method can be
+            called with `greater_or_equal(column, data)` or
+            `greater_or_equal(column1=data1, column2=data2, etc=data3)`.
         """
         ...
 
@@ -392,7 +410,9 @@ class AsyncQueryBuilderProtocol(Protocol):
             equal={'column1':data1, 'column2':data2, 'etc':data3},
             not_equal={'column1':data1, 'column2':data2, 'etc':data3},
             less={'column1':data1, 'column2':data2, 'etc':data3},
+            less_or_equal={'column1':data1, 'column2':data2, 'etc':data3},
             greater={'column1':data1, 'column2':data2, 'etc':data3},
+            greater_or_equal={'column1':data1, 'column2':data2, 'etc':data3},
             like={'column1':(pattern1,str1), 'column2':(pattern2,str2),
             'etc':(pattern3,str3)}, not_like={'column1':(pattern1,str1),
             'column2':(pattern2,str2), 'etc':(pattern3,str3)},

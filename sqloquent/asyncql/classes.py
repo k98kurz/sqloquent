@@ -340,6 +340,24 @@ class AsyncSqlQueryBuilder:
             self.params.append(data)
         return self
 
+    def less_or_equal(self, column: str = None, data: Any = None,
+             **conditions: dict[str, Any]) -> AsyncSqlQueryBuilder:
+        """Save the 'column <= data' clause and param, then return self.
+            Raises TypeError for invalid column. This method can be
+            called with `less_or_equal(column, data)` or
+            `less_or_equal(column1=data1, column2=data2, etc=data3)`.
+        """
+        if column is not None:
+            tert(type(column) is str, 'column must be str')
+            self.clauses.append(f'{quote_identifier(column)} <= ?')
+            self.params.append(data)
+
+        for column, data in conditions.items():
+            tert(type(column) is str, 'each column must be str')
+            self.clauses.append(f'{quote_identifier(column)} <= ?')
+            self.params.append(data)
+        return self
+
     def greater(self, column: str = None, data: Any = None,
                 **conditions: dict[str, Any]) -> AsyncSqlQueryBuilder:
         """Save the 'column > data' clause and param, then return self.
@@ -355,6 +373,24 @@ class AsyncSqlQueryBuilder:
         for column, data in conditions.items():
             tert(type(column) is str, 'each column must be str')
             self.clauses.append(f'{quote_identifier(column)} > ?')
+            self.params.append(data)
+        return self
+
+    def greater_or_equal(self, column: str = None, data: Any = None,
+                **conditions: dict[str, Any]) -> AsyncSqlQueryBuilder:
+        """Save the 'column >= data' clause and param, then return self.
+            Raises TypeError for invalid column. This method can be
+            called with `greater_or_equal(column, data)` or
+            `greater_or_equal(column1=data1, column2=data2, etc=data3)`.
+        """
+        if column is not None:
+            tert(type(column) is str, 'column must be str')
+            self.clauses.append(f'{quote_identifier(column)} >= ?')
+            self.params.append(data)
+
+        for column, data in conditions.items():
+            tert(type(column) is str, 'each column must be str')
+            self.clauses.append(f'{quote_identifier(column)} >= ?')
             self.params.append(data)
         return self
 
@@ -550,7 +586,9 @@ class AsyncSqlQueryBuilder:
             equal={'column1':data1, 'column2':data2, 'etc':data3},
             not_equal={'column1':data1, 'column2':data2, 'etc':data3},
             less={'column1':data1, 'column2':data2, 'etc':data3},
+            less_or_equal={'column1':data1, 'column2':data2, 'etc':data3},
             greater={'column1':data1, 'column2':data2, 'etc':data3},
+            greater_or_equal={'column1':data1, 'column2':data2, 'etc':data3},
             like={'column1':(pattern1,str1), 'column2':(pattern2,str2),
             'etc':(pattern3,str3)}, not_like={'column1':(pattern1,str1),
             'column2':(pattern2,str2), 'etc':(pattern3,str3)},
@@ -566,7 +604,8 @@ class AsyncSqlQueryBuilder:
         """
         for condition_type, condition_data in conditions.items():
             vert(condition_type in (
-                'is_null', 'not_null', 'equal', 'not_equal', 'less', 'greater',
+                'is_null', 'not_null', 'equal', 'not_equal', 'less',
+                'less_or_equal', 'greater', 'greater_or_equal',
                 'like', 'not_like', 'starts_with', 'does_not_start_with',
                 'contains', 'excludes', 'ends_with', 'does_not_end_with',
                 'is_in', 'not_in'
@@ -584,9 +623,15 @@ class AsyncSqlQueryBuilder:
             elif condition_type == 'less':
                 tert(type(condition_data) is dict, 'less must be dict[str, Any]')
                 self.less(**condition_data)
+            elif condition_type == 'less_or_equal':
+                tert(type(condition_data) is dict, 'less_or_equal must be dict[str, Any]')
+                self.less_or_equal(**condition_data)
             elif condition_type == 'greater':
                 tert(type(condition_data) is dict, 'greater must be dict[str, Any]')
                 self.greater(**condition_data)
+            elif condition_type == 'greater_or_equal':
+                tert(type(condition_data) is dict, 'greater_or_equal must be dict[str, Any]')
+                self.greater_or_equal(**condition_data)
             elif condition_type == 'like':
                 tert(type(condition_data) is dict, 'like must be dict[str, tuple[str, str]]')
                 self.like(**condition_data)

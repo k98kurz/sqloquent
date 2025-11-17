@@ -17,7 +17,7 @@ class Entry(AsyncHashedModel):
     account_id: str
     nonce: str
     type: str
-    amount: Decimal
+    amount: int
     account: AsyncRelatedModel
     transactions: AsyncRelatedCollection
 
@@ -34,10 +34,10 @@ class Entry(AsyncHashedModel):
 
     @property
     def amount(self) -> Decimal:
-        return Decimal(self.data['amount'])
+        return Decimal(self.data['amount'])/100
     @amount.setter
     def amount(self, val: Decimal):
-        self.data['amount'] = str(val)
+        self.data['amount'] = int(val*100)
 
     @staticmethod
     def _encode(data: dict|None) -> dict|None:
@@ -46,7 +46,7 @@ class Entry(AsyncHashedModel):
         if 'type' in data and type(data['type']) is EntryType:
             data['type'] = data['type'].value
         if 'amount' in data and type(data['amount']) is Decimal:
-            data['amount'] = str(data['amount'])
+            data['amount'] = int(data['amount']*100)
         return data
 
     @classmethod

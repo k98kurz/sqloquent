@@ -70,15 +70,16 @@ class DBContextProtocol(Protocol):
 
     def __enter__(self) -> CursorProtocol:
         """Enter the `with` block. Should return a cursor useful for
-            making db calls.
+            making db calls. Should also handle connection pooling.
         """
         ...
 
     def __exit__(self, exc_type: Optional[Type[BaseException]],
                 exc_value: Optional[BaseException],
                 traceback: Optional[TracebackType]) -> None:
-        """Exit the `with` block. Should commit any pending transactions
-            and close the cursor and connection upon exiting the context.
+        """Exit the `with` block. Should commit or rollback as
+            appropriate, then close the connection if this is the
+            outermost context.
         """
         ...
 
@@ -286,12 +287,30 @@ class QueryBuilderProtocol(Protocol):
         """
         ...
 
+    def less_or_equal(self, column: str = None, data: str = None,
+             **conditions: dict[str, Any]) -> QueryBuilderProtocol:
+        """Save the 'column <= data' clause and param, then return self.
+            Raises TypeError for invalid column. This method can be
+            called with `less_or_equal(column, data)` or
+            `less_or_equal(column1=data1, column2=data2, etc=data3)`.
+        """
+        ...
+
     def greater(self, column: str = None, data: str = None,
                 **conditions: dict[str, Any]) -> QueryBuilderProtocol:
         """Save the 'column > data' clause and param, then return self.
             Raises TypeError for invalid column. This method can be
             called with `greater(column, data)` or
             `greater(column1=data1, column2=data2, etc=data3)`.
+        """
+        ...
+
+    def greater_or_equal(self, column: str = None, data: str = None,
+                **conditions: dict[str, Any]) -> QueryBuilderProtocol:
+        """Save the 'column >= data' clause and param, then return self.
+            Raises TypeError for invalid column. This method can be
+            called with `greater_or_equal(column, data)` or
+            `greater_or_equal(column1=data1, column2=data2, etc=data3)`.
         """
         ...
 
@@ -397,7 +416,9 @@ class QueryBuilderProtocol(Protocol):
             equal={'column1':data1, 'column2':data2, 'etc':data3},
             not_equal={'column1':data1, 'column2':data2, 'etc':data3},
             less={'column1':data1, 'column2':data2, 'etc':data3},
+            less_or_equal={'column1':data1, 'column2':data2, 'etc':data3},
             greater={'column1':data1, 'column2':data2, 'etc':data3},
+            greater_or_equal={'column1':data1, 'column2':data2, 'etc':data3},
             like={'column1':(pattern1,str1), 'column2':(pattern2,str2),
             'etc':(pattern3,str3)}, not_like={'column1':(pattern1,str1),
             'column2':(pattern2,str2), 'etc':(pattern3,str3)},

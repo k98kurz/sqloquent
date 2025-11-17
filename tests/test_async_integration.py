@@ -345,6 +345,16 @@ class TestAsyncIntegration(unittest.TestCase):
         entry: asyncmodels.Entry = bequity.entries[0]
         assert len(entry.transactions) == 1
 
+        # test some querying
+        sqb = asyncmodels.Entry.query().less(amount=6900)
+        assert run(sqb.count()) == 0, (run(sqb.count()), [m.data for m in run(sqb.get())])
+        sqb = asyncmodels.Entry.query().less_or_equal(amount=6900)
+        assert run(sqb.count()) == 4, (run(sqb.count()), [m.data for m in run(sqb.get())])
+        sqb = asyncmodels.Entry.query().greater(amount=42069)
+        assert run(sqb.count()) == 0, (run(sqb.count()), [m.data for m in run(sqb.get())])
+        sqb = asyncmodels.Entry.query().greater_or_equal(amount=42069)
+        assert run(sqb.count()) == 4, (run(sqb.count()), [m.data for m in run(sqb.get())])
+
     def test_integration_e2e_models2(self):
         # generate migrations
         names = ['User', 'Avatar', 'Post', 'Friendship']
