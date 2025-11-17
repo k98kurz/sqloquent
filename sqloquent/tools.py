@@ -452,8 +452,8 @@ def help_cli(name: str) -> str:
     """Return the help string for the CLI tool."""
     name = name.split("/")[-1]
     """Produce and return the help text."""
-    return f"""sqloquent version {version()}
-    usage: {name} make migration --create name [--ctx name [--from package_name]]
+    return f"""sqloquent version {version()} -- usage:
+    {name} make migration --create name [--ctx name [--from package_name]]
     {name} make migration --alter name [--ctx name [--from package_name]]
     {name} make migration --drop name [--ctx name [--from package_name]]
     {name} make migration --model name path/to/model/file [--ctx name [--from package_name]]

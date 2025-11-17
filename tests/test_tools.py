@@ -353,7 +353,8 @@ class TestIntegration(unittest.TestCase):
     def test_help_cli_returns_str_help_text(self):
         result = tools.help_cli('sqloquent')
         assert type(result) is str
-        assert result[:5] == 'usage'
+        assert result[:17] == 'sqloquent version'
+        assert result.split('\n')[0][-6:] == 'usage:', result.split('\n')[0]
 
     def table_exists(self, name: str) -> bool:
         q = f"select name from sqlite_master where type='table' and name='{name}'"
