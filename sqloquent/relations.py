@@ -581,6 +581,7 @@ class HasMany(HasOne):
 
 
         class HasManyTuple(tuple):
+            relation: HasMany
             def __call__(self) -> HasMany:
                 return self.relation
 
@@ -1043,6 +1044,7 @@ class BelongsToMany(Relation):
 
 
         class BelongsToManyTuple(tuple):
+            relation: BelongsToMany
             def __call__(self) -> BelongsToMany:
                 return self.relation
 
@@ -1196,6 +1198,7 @@ class Contains(HasMany):
 
 
         class ContainsTuple(tuple):
+            relation: Contains
             def __call__(self) -> Contains:
                 return self.relation
 
@@ -1324,6 +1327,7 @@ class Within(HasMany):
 
 
         class WithinTuple(tuple):
+            relation: Within
             def __call__(self) -> Within:
                 return self.relation
 
@@ -1396,8 +1400,8 @@ def has_one(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol],
 
     relation = HasOne(foreign_id_column, primary_class=cls, secondary_class=owned_model)
     prop = relation.create_property()
-    prop.__doc__ = f'The related {owned_model.__name__}. Setting raises ' +\
-        'TypeError if the precondition check fails.'
+    prop.__doc__ = f'The related `{owned_model.__name__}`. Attempting to set to a ' +\
+        f'non-`{owned_model.__name__}` raises a `TypeError`.'
     return prop
 
 def has_many(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol],
@@ -1413,8 +1417,8 @@ def has_many(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol],
 
     relation = HasMany(foreign_id_column, primary_class=cls, secondary_class=owned_model)
     prop = relation.create_property()
-    prop.__doc__ = f'The related {owned_model.__name__}s. Setting raises ' +\
-        'TypeError if the precondition check fails.'
+    prop.__doc__ = f'The related `{owned_model.__name__}`s. Attempting to set to a ' +\
+        f'non-`{owned_model.__name__}` raises a `TypeError`.'
     return prop
 
 def belongs_to(cls: Type[ModelProtocol], owner_model: Type[ModelProtocol],
@@ -1430,8 +1434,8 @@ def belongs_to(cls: Type[ModelProtocol], owner_model: Type[ModelProtocol],
 
     relation = BelongsTo(foreign_id_column, primary_class=cls, secondary_class=owner_model)
     prop = relation.create_property()
-    prop.__doc__ = f'The related {owner_model.__name__}. Setting raises ' +\
-        'TypeError if the precondition check fails.'
+    prop.__doc__ = f'The related `{owner_model.__name__}`. Attempting to set to a ' +\
+        f'non-`{owner_model.__name__}` raises a `TypeError`.'
     return prop
 
 def belongs_to_many(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
@@ -1452,8 +1456,8 @@ def belongs_to_many(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
     relation = BelongsToMany(pivot, primary_id_column, secondary_id_column,
                              primary_class=cls, secondary_class=other_model)
     prop = relation.create_property()
-    prop.__doc__ = f'The related {other_model.__name__}s. Setting ' +\
-        'raises TypeError if the precondition check fails.'
+    prop.__doc__ = f'The related `{other_model.__name__}`s. Attempting to set to a ' +\
+        f'non-`{other_model.__name__}` raises a `TypeError`.'
     return prop
 
 def contains(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
@@ -1469,8 +1473,8 @@ def contains(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
     relation = Contains(foreign_ids_column, primary_class=cls,
                         secondary_class=other_model)
     prop = relation.create_property()
-    prop.__doc__ = f'The related {other_model.__name__}s. Setting raises ' +\
-        'TypeError if the precondition check fails.'
+    prop.__doc__ = f'The related `{other_model.__name__}`s. Attempting to set to a ' +\
+        f'non-`{other_model.__name__}` raises a `TypeError`.'
     return prop
 
 def within(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
@@ -1486,6 +1490,6 @@ def within(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
     relation = Within(foreign_ids_column, primary_class=cls,
                         secondary_class=other_model)
     prop = relation.create_property()
-    prop.__doc__ = f'The related {other_model.__name__}s. Setting raises ' +\
-        'TypeError if the precondition check fails.'
+    prop.__doc__ = f'The related `{other_model.__name__}`s. Attempting to set to a ' +\
+        f'non-`{other_model.__name__}` raises a `TypeError`.'
     return prop

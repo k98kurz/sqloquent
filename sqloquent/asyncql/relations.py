@@ -589,6 +589,7 @@ class AsyncHasMany(AsyncHasOne):
 
 
         class HasManyTuple(tuple):
+            relation: AsyncHasMany
             def __call__(self) -> AsyncHasMany:
                 return self.relation
 
@@ -1057,6 +1058,7 @@ class AsyncBelongsToMany(AsyncRelation):
 
 
         class BelongsToManyTuple(tuple):
+            relation: AsyncBelongsToMany
             def __call__(self) -> AsyncBelongsToMany:
                 return self.relation
 
@@ -1213,6 +1215,7 @@ class AsyncContains(AsyncHasMany):
 
 
         class ContainsTuple(tuple):
+            relation: AsyncContains
             def __call__(self) -> AsyncContains:
                 return self.relation
 
@@ -1344,6 +1347,7 @@ class AsyncWithin(AsyncHasMany):
 
 
         class WithinTuple(tuple):
+            relation: AsyncWithin
             def __call__(self) -> AsyncWithin:
                 return self.relation
 
@@ -1416,8 +1420,8 @@ def async_has_one(cls: Type[AsyncModelProtocol], owned_model: Type[AsyncModelPro
 
     relation = AsyncHasOne(foreign_id_column, primary_class=cls, secondary_class=owned_model)
     prop = relation.create_property()
-    prop.__doc__ = f'The related {owned_model.__name__}. Setting raises ' +\
-        'TypeError if the precondition check fails.'
+    prop.__doc__ = f'The related `{owned_model.__name__}`. Attempting to set to a ' +\
+        f'non-`{owned_model.__name__}` raises a `TypeError`.'
     return prop
 
 def async_has_many(cls: Type[AsyncModelProtocol], owned_model: Type[AsyncModelProtocol],
@@ -1433,8 +1437,8 @@ def async_has_many(cls: Type[AsyncModelProtocol], owned_model: Type[AsyncModelPr
 
     relation = AsyncHasMany(foreign_id_column, primary_class=cls, secondary_class=owned_model)
     prop = relation.create_property()
-    prop.__doc__ = f'The related {owned_model.__name__}s. Setting raises ' +\
-        'TypeError if the precondition check fails.'
+    prop.__doc__ = f'The related `{owned_model.__name__}`s. Attempting to set to a ' +\
+        f'non-`{owned_model.__name__}` raises a `TypeError`.'
     return prop
 
 def async_belongs_to(cls: Type[AsyncModelProtocol], owner_model: Type[AsyncModelProtocol],
@@ -1450,8 +1454,8 @@ def async_belongs_to(cls: Type[AsyncModelProtocol], owner_model: Type[AsyncModel
 
     relation = AsyncBelongsTo(foreign_id_column, primary_class=cls, secondary_class=owner_model)
     prop = relation.create_property()
-    prop.__doc__ = f'The related {owner_model.__name__}. Setting raises ' +\
-        'TypeError if the precondition check fails.'
+    prop.__doc__ = f'The related `{owner_model.__name__}`. Attempting to set to a ' +\
+        f'non-`{owner_model.__name__}` raises a `TypeError`.'
     return prop
 
 def async_belongs_to_many(cls: Type[AsyncModelProtocol], other_model: Type[AsyncModelProtocol],
@@ -1472,8 +1476,8 @@ def async_belongs_to_many(cls: Type[AsyncModelProtocol], other_model: Type[Async
     relation = AsyncBelongsToMany(pivot, primary_id_column, secondary_id_column,
                              primary_class=cls, secondary_class=other_model)
     prop = relation.create_property()
-    prop.__doc__ = f'The related {other_model.__name__}s. Setting ' +\
-        'raises TypeError if the precondition check fails.'
+    prop.__doc__ = f'The related `{other_model.__name__}`s. Attempting to set to a ' +\
+        f'non-`{other_model.__name__}` raises a `TypeError`.'
     return prop
 
 def async_contains(cls: Type[AsyncModelProtocol], other_model: Type[AsyncModelProtocol],
@@ -1489,8 +1493,8 @@ def async_contains(cls: Type[AsyncModelProtocol], other_model: Type[AsyncModelPr
     relation = AsyncContains(foreign_ids_column, primary_class=cls,
                         secondary_class=other_model)
     prop = relation.create_property()
-    prop.__doc__ = f'The related {other_model.__name__}s. Setting raises ' +\
-        'TypeError if the precondition check fails.'
+    prop.__doc__ = f'The related `{other_model.__name__}`s. Attempting to set to a ' +\
+        f'non-`{other_model.__name__}` raises a `TypeError`.'
     return prop
 
 def async_within(cls: Type[AsyncModelProtocol], other_model: Type[AsyncModelProtocol],
@@ -1506,6 +1510,6 @@ def async_within(cls: Type[AsyncModelProtocol], other_model: Type[AsyncModelProt
     relation = AsyncWithin(foreign_ids_column, primary_class=cls,
                         secondary_class=other_model)
     prop = relation.create_property()
-    prop.__doc__ = f'The related {other_model.__name__}s. Setting raises ' +\
-        'TypeError if the precondition check fails.'
+    prop.__doc__ = f'The related `{other_model.__name__}`s. Attempting to set to a ' +\
+        f'non-`{other_model.__name__}` raises a `TypeError`.'
     return prop
