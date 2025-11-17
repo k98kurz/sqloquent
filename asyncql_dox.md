@@ -51,8 +51,8 @@ Enter the `async with` block. Should return a cursor useful for making db calls.
 
 ##### `async __aexit__(exc_type: Optional[Type[BaseException]], exc_value: Optional[BaseException], traceback: Optional[TracebackType]) -> None:`
 
-Exit the `async with` block. Should commit any pending transactions and close
-the cursor and connection upon exiting the context.
+Exit the `async with` block. Should commit or rollback as appropriate, then
+close the connection if this is the outermost context.
 
 ### `AsyncJoinedModelProtocol(Protocol)`
 
@@ -198,11 +198,23 @@ Save the 'column < data' clause and param, then return self. Raises TypeError
 for invalid column. This method can be called with `less(column, data)` or
 `less(column1=data1, column2=data2, etc=data3)`.
 
+##### `less_or_equal(column: str, data: str = None, conditions: dict[str, Any] = None) -> AsyncQueryBuilderProtocol:`
+
+Save the 'column <= data' clause and param, then return self. Raises TypeError
+for invalid column. This method can be called with `less_or_equal(column, data)`
+or `less_or_equal(column1=data1, column2=data2, etc=data3)`.
+
 ##### `greater(column: str, data: str = None, conditions: dict[str, Any] = None) -> AsyncQueryBuilderProtocol:`
 
 Save the 'column > data' clause and param, then return self. Raises TypeError
 for invalid column. This method can be called with `greater(column, data)` or
 `greater(column1=data1, column2=data2, etc=data3)`.
+
+##### `greater_or_equal(column: str, data: str = None, conditions: dict[str, Any] = None) -> AsyncQueryBuilderProtocol:`
+
+Save the 'column >= data' clause and param, then return self. Raises TypeError
+for invalid column. This method can be called with `greater_or_equal(column, data)`
+or `greater_or_equal(column1=data1, column2=data2, etc=data3)`.
 
 ##### `like(column: str, pattern: str = None, data: str = None, conditions: dict[str, Any] = None) -> AsyncQueryBuilderProtocol:`
 
@@ -276,7 +288,7 @@ etc=list3)`.
 ##### `where(conditions: dict[str, dict[str, Any] | list[str]]) -> AsyncQueryBuilderProtocol:`
 
 Parse the conditions as if they are sequential calls to the equivalent
-SqlQueryBuilder methods. Syntax is as follows: `where(is_null=[column1,...], not_null=[column2,...], equal={'column1':data1, 'column2':data2, 'etc':data3}, not_equal={'column1':data1, 'column2':data2, 'etc':data3}, less={'column1':data1, 'column2':data2, 'etc':data3}, greater={'column1':data1, 'column2':data2, 'etc':data3}, like={'column1':(pattern1,str1), 'column2':(pattern2,str2), 'etc':(pattern3,str3)}, not_like={'column1':(pattern1,str1), 'column2':(pattern2,str2), 'etc':(pattern3,str3)}, starts_with={'column1':str1, 'column2':str2, 'etc':str3}, does_not_start_with={'column1':str1, 'column2':str2, 'etc':str3}, contains={'column1':str1, 'column2':str2, 'etc':str3}, excludes={'column1':str1, 'column2':str2, 'etc':str3}, ends_with={'column1':str1, 'column2':str2, 'etc':str3}, does_not_end_with={'column1':str1, 'column2':str2, 'etc':str3}, is_in={'column1':list1, 'column2':list2, 'etc':list3}, not_in={'column1':list1, 'column2':list2, 'etc':list3})`.
+SqlQueryBuilder methods. Syntax is as follows: `where(is_null=[column1,...], not_null=[column2,...], equal={'column1':data1, 'column2':data2, 'etc':data3}, not_equal={'column1':data1, 'column2':data2, 'etc':data3}, less={'column1':data1, 'column2':data2, 'etc':data3}, less_or_equal={'column1':data1, 'column2':data2, 'etc':data3}, greater={'column1':data1, 'column2':data2, 'etc':data3}, greater_or_equal={'column1':data1, 'column2':data2, 'etc':data3}, like={'column1':(pattern1,str1), 'column2':(pattern2,str2), 'etc':(pattern3,str3)}, not_like={'column1':(pattern1,str1), 'column2':(pattern2,str2), 'etc':(pattern3,str3)}, starts_with={'column1':str1, 'column2':str2, 'etc':str3}, does_not_start_with={'column1':str1, 'column2':str2, 'etc':str3}, contains={'column1':str1, 'column2':str2, 'etc':str3}, excludes={'column1':str1, 'column2':str2, 'etc':str3}, ends_with={'column1':str1, 'column2':str2, 'etc':str3}, does_not_end_with={'column1':str1, 'column2':str2, 'etc':str3}, is_in={'column1':list1, 'column2':list2, 'etc':list3}, not_in={'column1':list1, 'column2':list2, 'etc':list3})`.
 All kwargs are optional.
 
 ##### `order_by(column: str, direction: str = None, conditions: dict[str, str] = 'desc') -> AsyncQueryBuilderProtocol:`
@@ -453,10 +465,13 @@ model through the relation.
 
 ### `AsyncSqliteContext`
 
-Context manager for sqlite.
+Context manager for sqlite. Automatically handles connection pooling.
 
 #### Annotations
 
+- _connections: dict[str, aiosqlite.Connection]
+- _cursors: dict[str, aiosqlite.Cursor]
+- _depths: dict[str, int]
 - connection: aiosqlite.Connection
 - cursor: aiosqlite.Cursor
 - connection_info: str
@@ -465,7 +480,7 @@ Context manager for sqlite.
 
 ##### `__init__(connection_info: str = '') -> None:`
 
-Initialize the instance. Raises TypeError for non-str table.
+Initialize the instance. Raises TypeError for non-str connection_info.
 
 ##### `async __aenter__() -> AsyncCursorProtocol:`
 
@@ -474,7 +489,7 @@ Enter the context block and return the cursor.
 ##### `async __aexit__(exc_type: Optional[Type[BaseException]], exc_value: Optional[BaseException], traceback: Optional[TracebackType]) -> None:`
 
 Exit the context block. Commit or rollback as appropriate, then close the
-connection.
+connection if this is the outermost context.
 
 ### `AsyncSqlModel`
 
@@ -682,11 +697,23 @@ Save the 'column < data' clause and param, then return self. Raises TypeError
 for invalid column. This method can be called with `less(column, data)` or
 `less(column1=data1, column2=data2, etc=data3)`.
 
+##### `less_or_equal(column: str, data: Any = None, conditions: dict[str, Any] = None) -> AsyncSqlQueryBuilder:`
+
+Save the 'column <= data' clause and param, then return self. Raises TypeError
+for invalid column. This method can be called with `less_or_equal(column, data)`
+or `less_or_equal(column1=data1, column2=data2, etc=data3)`.
+
 ##### `greater(column: str, data: Any = None, conditions: dict[str, Any] = None) -> AsyncSqlQueryBuilder:`
 
 Save the 'column > data' clause and param, then return self. Raises TypeError
 for invalid column. This method can be called with `greater(column, data)` or
 `greater(column1=data1, column2=data2, etc=data3)`.
+
+##### `greater_or_equal(column: str, data: Any = None, conditions: dict[str, Any] = None) -> AsyncSqlQueryBuilder:`
+
+Save the 'column >= data' clause and param, then return self. Raises TypeError
+for invalid column. This method can be called with `greater_or_equal(column, data)`
+or `greater_or_equal(column1=data1, column2=data2, etc=data3)`.
 
 ##### `like(column: str, pattern: str = None, data: str = None, conditions: dict[str, tuple[str, str]] = None) -> AsyncSqlQueryBuilder:`
 
@@ -760,7 +787,7 @@ etc=list3)`.
 ##### `where(conditions: dict[str, dict[str, Any] | list[str]]) -> AsyncSqlQueryBuilder:`
 
 Parse the conditions as if they are sequential calls to the equivalent
-SqlQueryBuilder methods. Syntax is as follows: `where(is_null=[column1,...], not_null=[column2,...], equal={'column1':data1, 'column2':data2, 'etc':data3}, not_equal={'column1':data1, 'column2':data2, 'etc':data3}, less={'column1':data1, 'column2':data2, 'etc':data3}, greater={'column1':data1, 'column2':data2, 'etc':data3}, like={'column1':(pattern1,str1), 'column2':(pattern2,str2), 'etc':(pattern3,str3)}, not_like={'column1':(pattern1,str1), 'column2':(pattern2,str2), 'etc':(pattern3,str3)}, starts_with={'column1':str1, 'column2':str2, 'etc':str3}, does_not_start_with={'column1':str1, 'column2':str2, 'etc':str3}, contains={'column1':str1, 'column2':str2, 'etc':str3}, excludes={'column1':str1, 'column2':str2, 'etc':str3}, ends_with={'column1':str1, 'column2':str2, 'etc':str3}, does_not_end_with={'column1':str1, 'column2':str2, 'etc':str3}, is_in={'column1':list1, 'column2':list2, 'etc':list3}, not_in={'column1':list1, 'column2':list2, 'etc':list3})`.
+SqlQueryBuilder methods. Syntax is as follows: `where(is_null=[column1,...], not_null=[column2,...], equal={'column1':data1, 'column2':data2, 'etc':data3}, not_equal={'column1':data1, 'column2':data2, 'etc':data3}, less={'column1':data1, 'column2':data2, 'etc':data3}, less_or_equal={'column1':data1, 'column2':data2, 'etc':data3}, greater={'column1':data1, 'column2':data2, 'etc':data3}, greater_or_equal={'column1':data1, 'column2':data2, 'etc':data3}, like={'column1':(pattern1,str1), 'column2':(pattern2,str2), 'etc':(pattern3,str3)}, not_like={'column1':(pattern1,str1), 'column2':(pattern2,str2), 'etc':(pattern3,str3)}, starts_with={'column1':str1, 'column2':str2, 'etc':str3}, does_not_start_with={'column1':str1, 'column2':str2, 'etc':str3}, contains={'column1':str1, 'column2':str2, 'etc':str3}, excludes={'column1':str1, 'column2':str2, 'etc':str3}, ends_with={'column1':str1, 'column2':str2, 'etc':str3}, does_not_end_with={'column1':str1, 'column2':str2, 'etc':str3}, is_in={'column1':list1, 'column2':list2, 'etc':list3}, not_in={'column1':list1, 'column2':list2, 'etc':list3})`.
 All kwargs are optional.
 
 ##### `order_by(column: str, direction: str = None, conditions: dict[str, str] = 'desc') -> AsyncSqlQueryBuilder:`
@@ -1425,3 +1452,5 @@ Creates a Within relation and returns the result of calling create_property.
 Usage syntax is like `Item.children = async_within(Item, Item)`. If the column
 containing the sorted list of ids is not item_ids (i.e. cls.__name__ ->
 snake_case + '_ids'), it can be specified.
+
+

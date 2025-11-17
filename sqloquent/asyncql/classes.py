@@ -63,7 +63,7 @@ class AsyncSqliteContext:
                 exc_value: Optional[BaseException],
                 traceback: Optional[TracebackType]) -> None:
         """Exit the context block. Commit or rollback as appropriate,
-            then close the connection only if this is the outermost context.
+            then close the connection if this is the outermost context.
         """
         AsyncSqliteContext._depths[self.connection_info] -= 1
 

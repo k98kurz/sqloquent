@@ -75,9 +75,9 @@ class AsyncDBContextProtocol(Protocol):
     async def __aexit__(self, exc_type: Optional[Type[BaseException]],
                 exc_value: Optional[BaseException],
                 traceback: Optional[TracebackType]) -> None:
-        """Exit the `async with` block. Should commit any pending
-            transactions and close the cursor and connection upon
-            exiting the context.
+        """Exit the `async with` block. Should commit or rollback as
+            appropriate, then close the connection if this is the
+            outermost context.
         """
         ...
 
