@@ -906,6 +906,15 @@ class TestRelations(unittest.TestCase):
         assert owned.owner
         assert owned.owner.id == owner.id
 
+    def test_async_belongs_to_relation_does_not_error_on_empty_foreign_id_column(self):
+        self.OwnedModel.owner = async_relations.async_belongs_to(
+            self.OwnedModel,
+            self.OwnerModel,
+            'owner_id'
+        )
+        owned = run(self.OwnedModel.insert({'details': '321'}))
+        assert not owned.owner
+
     # AsyncBelongsToMany tests
     def test_AsyncBelongsToMany_extends_Relation(self):
         assert issubclass(async_relations.AsyncBelongsToMany, async_relations.AsyncRelation)

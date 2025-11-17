@@ -903,6 +903,15 @@ class TestRelations(unittest.TestCase):
         assert owned.owner
         assert owned.owner.id == owner.id
 
+    def test_belongs_to_relation_does_not_error_on_empty_foreign_id_column(self):
+        self.OwnedModel.owner = relations.belongs_to(
+            self.OwnedModel,
+            self.OwnerModel,
+            'owner_id'
+        )
+        owned = self.OwnedModel.insert({'details': '321'})
+        assert not owned.owner
+
     # BelongsToMany tests
     def test_BelongsToMany_extends_Relation(self):
         assert issubclass(relations.BelongsToMany, relations.Relation)
