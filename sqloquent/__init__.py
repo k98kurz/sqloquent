@@ -7,8 +7,6 @@
     or from invoking the tools through the CLI.
 """
 
-__version__ = '0.7.0'
-
 from sqloquent.classes import (
     SqlModel,
     SqlQueryBuilder,
@@ -54,3 +52,4 @@ from sqloquent.migration import (
     Migration,
     get_index_name,
 )
+from sqloquent.version import version
