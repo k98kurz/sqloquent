@@ -1164,7 +1164,8 @@ class AsyncContains(AsyncHasMany):
         self.secondary_to_remove = []
 
         if self.primary and self.foreign_id_column in self.primary.data:
-            secondary_ids = self.primary.data[self.foreign_id_column].split(',')
+            secondary_ids = self.primary.data[self.foreign_id_column]
+            secondary_ids = secondary_ids.split(',') if secondary_ids else []
             self._secondary = await self.secondary_class.query().is_in(
                 self.secondary_class.id_column, secondary_ids).get()
             return self
