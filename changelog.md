@@ -6,7 +6,7 @@
 - Improved relation docstrings set by ORM helper functions
 - Added library version to CLI help text
 - Added `less_or_equal` and `greater_or_equal` to query builders
-- Bugfix: ORM now gracefully handles empty relation columns
+- Bugfix: ORM now gracefully handles empty `contains` relation foriegn id column
 
 ## 0.7.0
 
