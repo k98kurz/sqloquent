@@ -1,5 +1,5 @@
 
-__version__ = '0.7.1-dev'
+__version__ = '0.7.1'
 
 def version() -> str:
     """Returns the library version."""

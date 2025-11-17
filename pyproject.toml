@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sqloquent"
-version = "0.7.0"
+version = "0.7.1"
 authors = [
   { name="k98kurz", email="k98kurz@gmail.com" },
 ]
