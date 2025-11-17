@@ -1453,6 +1453,15 @@ class TestRelations(unittest.TestCase):
         assert len(child.parents) == 1
         assert child.parents[0].id == parent.id
 
+    def test_contains_relation_does_not_error_on_empty_foreign_id_column(self):
+        self.DAGItem.parents = relations.contains(
+            self.DAGItem,
+            self.DAGItem,
+            'parent_ids',
+        )
+        child = self.DAGItem.insert({'details': '321'})
+        assert len(child.parents) == 0
+
     # Within tests
     def test_Within_extends_Relation(self):
         assert issubclass(relations.Within, relations.Relation)
