@@ -21,38 +21,64 @@ class Default(list):
 
 
 class SqliteContext:
-    """Context manager for sqlite."""
+    """Context manager for sqlite. Automatically handles connection pooling."""
+    _connections: dict[str, sqlite3.Connection] = {}
+    _cursors: dict[str, sqlite3.Cursor] = {}
+    _depths: dict[str, int] = {}
+
     connection: sqlite3.Connection
     cursor: sqlite3.Cursor
     connection_info: str
 
     def __init__(self, connection_info: str = '') -> None:
-        """Initialize the instance. Raises TypeError for non-str table.
-        """
+        """Initialize the instance. Raises TypeError for non-str connection_info."""
         if not connection_info and hasattr(self, 'connection_info'):
             connection_info = self.connection_info
-        tert(type(connection_info) in (str, bytes),
-            'connection_info must be str or bytes')
+        tert(type(connection_info) is str,
+            'connection_info must be str')
         tressa(len(connection_info) > 0, 'cannot use with empty connection_info')
-        self.connection = sqlite3.connect(connection_info)
-        self.cursor = self.connection.cursor()
+        self.connection_info = connection_info
 
     def __enter__(self) -> CursorProtocol:
         """Enter the context block and return the cursor."""
+        if self.connection_info not in SqliteContext._depths:
+            SqliteContext._depths[self.connection_info] = 0
+
+        SqliteContext._depths[self.connection_info] += 1
+
+        if self.connection_info not in SqliteContext._connections:
+            SqliteContext._connections[self.connection_info] = sqlite3.connect(
+                self.connection_info
+            )
+
+        self.connection = SqliteContext._connections[self.connection_info]
+
+        if self.connection_info not in SqliteContext._cursors:
+            SqliteContext._cursors[self.connection_info] = self.connection.cursor()
+
+        self.cursor = SqliteContext._cursors[self.connection_info]
+
         return self.cursor
 
     def __exit__(self, __exc_type: Optional[Type[BaseException]],
                 __exc_value: Optional[BaseException],
                 __traceback: Optional[TracebackType]) -> None:
         """Exit the context block. Commit or rollback as appropriate,
-            then close the connection.
+            then close the connection only if this is the outermost context.
         """
+        SqliteContext._depths[self.connection_info] -= 1
+
         if __exc_type is not None:
             self.connection.rollback()
         else:
             self.connection.commit()
 
-        self.connection.close()
+        if SqliteContext._depths[self.connection_info] == 0:
+            self.cursor.close()
+            self.connection.close()
+            del SqliteContext._connections[self.connection_info]
+            del SqliteContext._cursors[self.connection_info]
+            del SqliteContext._depths[self.connection_info]
 
 
 @dataclass
@@ -1012,14 +1038,16 @@ class SqlQueryBuilder:
         """Create the generator for chunking."""
         original_offset = self.offset
         self.offset = self.offset or 0
-        result = self.take(number)
-
-        while len(result) > 0:
-            yield result
-            self.offset += number
+        # use connection pooling
+        with self.context_manager(self.connection_info):
             result = self.take(number)
 
-        self.offset = original_offset
+            while len(result) > 0:
+                yield result
+                self.offset += number
+                result = self.take(number)
+
+            self.offset = original_offset
 
     def first(self) -> Optional[SqlModel|Row]:
         """Run the query on the datastore and return the first result."""

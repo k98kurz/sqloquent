@@ -400,6 +400,64 @@ class TestAsyncIntegration(unittest.TestCase):
         run(bob.posts().save())
         assert run(bob.posts().query().count()) == 1
 
+    def test_chunk_in_tight_loop(self):
+        """Test to reproduce a potential segfault issue with chunk()
+            method in a tight loop. This test passes if it completes
+            without causing a segfault.
+        """
+        async def inner():
+            names = ['Account', 'Entry', 'Ledger', 'Identity']
+            for name in names:
+                src = tools.make_migration_from_model_path(name, f"{MODELS_PATH}/{name}.py")
+                with open(f"{MIGRATIONS_PATH}/{name}_migration.py", 'w') as f:
+                    f.write(src)
+
+            tables = ['accounts', 'entries', 'ledgers', 'identities']
+            tools.automigrate(MIGRATIONS_PATH, DB_FILEPATH)
+            assert self.tables_exist(tables)
+
+            identity = await asyncmodels.Identity.insert({'name': 'Test Identity', 'seed': token_hex(32)})
+            ledger = await asyncmodels.Ledger.insert({
+                'name': 'Test Ledger',
+                'identity_id': identity.data['id'],
+            })
+
+            accounts = []
+            for i in range(120):
+                accounts.append({
+                    'name': f'Account {i}',
+                    'ledger_id': ledger.data['id'],
+                    'type': asyncmodels.AccountType.ASSET,
+                })
+            await asyncmodels.Account.insert_many(accounts)
+            accounts = await asyncmodels.Account.query().get()
+
+            accounts_with_entries = accounts[:20]
+            for account in accounts_with_entries:
+                if (hash(account.id) % 3) == 0:
+                    continue
+                num_entries = (hash(account.id) % 50) + 1
+                entries = []
+                for j in range(num_entries):
+                    entries.append({
+                        'account_id': account.data['id'],
+                        'nonce': token_hex(4),
+                        'type': asyncmodels.EntryType.DEBIT if j % 2 == 0 else asyncmodels.EntryType.CREDIT,
+                        'amount': Decimal('10.00'),
+                    })
+                await asyncmodels.Entry.insert_many(entries)
+
+            await ledger.accounts().reload()
+            for _ in range(20):
+                for account in ledger.accounts:
+                    sqb = account.entries().query()
+                    total = 0
+                    async for entries in sqb.chunk(1000):
+                        total += len(entries)
+                    assert total == await sqb.count()
+
+        run(inner())
+
     def table_exists(self, name: str) -> bool:
         q = f"select name from sqlite_master where type='table' and name='{name}'"
         return len(self.cursor.execute(q).fetchall()) > 0

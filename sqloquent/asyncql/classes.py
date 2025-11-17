@@ -19,39 +19,64 @@ import packify
 
 
 class AsyncSqliteContext:
-    """Context manager for sqlite."""
+    """Context manager for sqlite. Automatically handles connection pooling."""
+    _connections: dict[str, aiosqlite.Connection] = {}
+    _cursors: dict[str, aiosqlite.Cursor] = {}
+    _depths: dict[str, int] = {}
+
     connection: aiosqlite.Connection
     cursor: aiosqlite.Cursor
     connection_info: str
 
     def __init__(self, connection_info: str = '') -> None:
-        """Initialize the instance. Raises TypeError for non-str table.
-        """
+        """Initialize the instance. Raises TypeError for non-str connection_info."""
         if not connection_info and hasattr(self, 'connection_info'):
             connection_info = self.connection_info
-        tert(type(connection_info) in (str, bytes),
-            'connection_info must be str or bytes')
+        tert(type(connection_info) is str,
+            'connection_info must be str')
         tressa(len(connection_info) > 0, 'cannot use with empty connection_info')
         self.connection_info = connection_info
 
     async def __aenter__(self) -> AsyncCursorProtocol:
         """Enter the context block and return the cursor."""
-        self.connection = await aiosqlite.connect(self.connection_info)
-        self.cursor = await self.connection.cursor().__aenter__()
+        if self.connection_info not in AsyncSqliteContext._depths:
+            AsyncSqliteContext._depths[self.connection_info] = 0
+
+        AsyncSqliteContext._depths[self.connection_info] += 1
+
+        if self.connection_info not in AsyncSqliteContext._connections:
+            AsyncSqliteContext._connections[self.connection_info] = await aiosqlite.connect(
+                self.connection_info
+            )
+
+        self.connection = AsyncSqliteContext._connections[self.connection_info]
+
+        if self.connection_info not in AsyncSqliteContext._cursors:
+            cursor = self.connection.cursor()
+            AsyncSqliteContext._cursors[self.connection_info] = await cursor.__aenter__()
+
+        self.cursor = AsyncSqliteContext._cursors[self.connection_info]
+
         return self.cursor
 
     async def __aexit__(self, exc_type: Optional[Type[BaseException]],
                 exc_value: Optional[BaseException],
                 traceback: Optional[TracebackType]) -> None:
         """Exit the context block. Commit or rollback as appropriate,
-            then close the connection.
+            then close the connection only if this is the outermost context.
         """
+        AsyncSqliteContext._depths[self.connection_info] -= 1
+
         if exc_type is not None:
             await self.connection.rollback()
         else:
             await self.connection.commit()
 
-        await self.connection.close()
+        if AsyncSqliteContext._depths[self.connection_info] == 0:
+            await self.connection.close()
+            del AsyncSqliteContext._connections[self.connection_info]
+            del AsyncSqliteContext._cursors[self.connection_info]
+            del AsyncSqliteContext._depths[self.connection_info]
 
 
 @dataclass
@@ -957,14 +982,16 @@ class AsyncSqlQueryBuilder:
         """Create the generator for chunking."""
         original_offset = self.offset
         self.offset = self.offset or 0
-        result = await self.take(number)
-
-        while len(result) > 0:
-            yield result
-            self.offset += number
+        # use connection pooling
+        async with self.context_manager(self.connection_info):
             result = await self.take(number)
 
-        self.offset = original_offset
+            while len(result) > 0:
+                yield result
+                self.offset += number
+                result = await self.take(number)
+
+            self.offset = original_offset
 
     async def first(self) -> Optional[AsyncSqlModel|Row]:
         """Run the query on the datastore and return the first result."""
