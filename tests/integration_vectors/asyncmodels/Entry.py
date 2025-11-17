@@ -56,7 +56,7 @@ class Entry(AsyncHashedModel):
 
     @classmethod
     async def insert_many(cls, items: list[dict]) -> int:
-        items = [Entry._encode(data) for data in list]
+        items = [cls._encode(data) for data in items]
         return await super().insert_many(items)
 
     @classmethod

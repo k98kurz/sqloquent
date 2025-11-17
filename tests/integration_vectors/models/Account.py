@@ -45,6 +45,11 @@ class Account(HashedModel):
         return result
 
     @classmethod
+    def insert_many(cls, items: list[dict]) -> int:
+        items = [cls._encode(data) for data in items]
+        return super().insert_many(items)
+
+    @classmethod
     def query(cls, conditions: dict = None) -> QueryBuilderProtocol:
         return super().query(cls._encode(conditions))
 
