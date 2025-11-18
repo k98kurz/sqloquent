@@ -14,6 +14,7 @@ from typing import Any, Generator, Optional, Type, Callable
 from uuid import uuid4
 import packify
 import sqlite3
+import threading
 
 
 class Default(list):
@@ -22,9 +23,7 @@ class Default(list):
 
 class SqliteContext:
     """Context manager for sqlite. Automatically handles connection pooling."""
-    _connections: dict[str, sqlite3.Connection] = {}
-    _cursors: dict[str, sqlite3.Cursor] = {}
-    _depths: dict[str, int] = {}
+    _thread_local = threading.local()
 
     connection: sqlite3.Connection
     cursor: sqlite3.Cursor
@@ -41,22 +40,30 @@ class SqliteContext:
 
     def __enter__(self) -> CursorProtocol:
         """Enter the context block and return the cursor."""
-        if self.connection_info not in SqliteContext._depths:
-            SqliteContext._depths[self.connection_info] = 0
+        # Initialize thread-local storage if not already present
+        if not hasattr(SqliteContext._thread_local, 'connections'):
+            SqliteContext._thread_local.connections = {}
+        if not hasattr(SqliteContext._thread_local, 'cursors'):
+            SqliteContext._thread_local.cursors = {}
+        if not hasattr(SqliteContext._thread_local, 'depths'):
+            SqliteContext._thread_local.depths = {}
 
-        SqliteContext._depths[self.connection_info] += 1
+        if self.connection_info not in SqliteContext._thread_local.depths:
+            SqliteContext._thread_local.depths[self.connection_info] = 0
 
-        if self.connection_info not in SqliteContext._connections:
-            SqliteContext._connections[self.connection_info] = sqlite3.connect(
+        SqliteContext._thread_local.depths[self.connection_info] += 1
+
+        if self.connection_info not in SqliteContext._thread_local.connections:
+            SqliteContext._thread_local.connections[self.connection_info] = sqlite3.connect(
                 self.connection_info
             )
 
-        self.connection = SqliteContext._connections[self.connection_info]
+        self.connection = SqliteContext._thread_local.connections[self.connection_info]
 
-        if self.connection_info not in SqliteContext._cursors:
-            SqliteContext._cursors[self.connection_info] = self.connection.cursor()
+        if self.connection_info not in SqliteContext._thread_local.cursors:
+            SqliteContext._thread_local.cursors[self.connection_info] = self.connection.cursor()
 
-        self.cursor = SqliteContext._cursors[self.connection_info]
+        self.cursor = SqliteContext._thread_local.cursors[self.connection_info]
 
         return self.cursor
 
@@ -66,19 +73,19 @@ class SqliteContext:
         """Exit the context block. Commit or rollback as appropriate,
             then close the connection if this is the outermost context.
         """
-        SqliteContext._depths[self.connection_info] -= 1
+        SqliteContext._thread_local.depths[self.connection_info] -= 1
 
         if exc_type is not None:
             self.connection.rollback()
         else:
             self.connection.commit()
 
-        if SqliteContext._depths[self.connection_info] == 0:
+        if SqliteContext._thread_local.depths[self.connection_info] == 0:
             self.cursor.close()
             self.connection.close()
-            del SqliteContext._connections[self.connection_info]
-            del SqliteContext._cursors[self.connection_info]
-            del SqliteContext._depths[self.connection_info]
+            del SqliteContext._thread_local.connections[self.connection_info]
+            del SqliteContext._thread_local.cursors[self.connection_info]
+            del SqliteContext._thread_local.depths[self.connection_info]
 
 
 @dataclass

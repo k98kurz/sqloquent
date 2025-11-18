@@ -1,3 +1,7 @@
+## 0.7.2
+
+- Made the connection pooling and cursor tracking in `SqliteContext` thread-local
+
 ## 0.7.1
 
 - Added automatic connection pooling to `SqliteContext` and `AsyncSqliteContext`

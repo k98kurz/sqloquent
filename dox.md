@@ -369,9 +369,6 @@ Context manager for sqlite. Automatically handles connection pooling.
 
 #### Annotations
 
-- _connections: dict[str, sqlite3.Connection]
-- _cursors: dict[str, sqlite3.Cursor]
-- _depths: dict[str, int]
 - connection: sqlite3.Connection
 - cursor: sqlite3.Cursor
 - connection_info: str
