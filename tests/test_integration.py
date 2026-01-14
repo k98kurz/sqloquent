@@ -322,7 +322,7 @@ class TestIntegration(unittest.TestCase):
         assert bvostro.ledger.owner.id
 
         # test accessing HasMany through a HasOne
-        alice: models.Identity = models.Identity.find(alice.id)
+        alice = models.Identity.find(alice.id)
         assert alice.ledger.id
         assert len(alice.ledger.accounts), alice.ledger.accounts
 
@@ -332,7 +332,7 @@ class TestIntegration(unittest.TestCase):
         assert len(acct.entries)
 
         # test accessing BelongsTo through a Contains
-        txn: models.Transaction = models.Transaction.query().first()
+        txn = models.Transaction.query().first()
         assert len(txn.entries)
         entry: models.Entry = txn.entries[0]
         assert entry.account

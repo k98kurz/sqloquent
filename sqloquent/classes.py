@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from hashlib import sha256
 from time import time
 from types import MappingProxyType, TracebackType, UnionType
-from typing import Any, Generator, Optional, Type, Callable
+from typing import Any, Generator, Optional, Type, Callable, Generic, TypeVar, Optional, Generator, TYPE_CHECKING, cast, overload
 from uuid import uuid4
 import packify
 import sqlite3
@@ -230,7 +230,8 @@ def quote_identifier(identifier: str) -> str:
     return '.'.join(parts)
 
 
-class SqlQueryBuilder:
+T_Model = TypeVar('T_Model', bound='SqlModel')
+class SqlQueryBuilder(Generic[T_Model]):
     """Main query builder class. Extend with child class to bind to a
         specific database by supplying the context_manager param to a
         call to `super().__init__()`. Default binding is to sqlite3.
@@ -248,7 +249,7 @@ class SqlQueryBuilder:
     columns: list[str]
     grouping: str
 
-    def __init__(self, model_or_table: Type[SqlModel]|str = None,
+    def __init__(self, model_or_table: type[SqlModel]|str = None,
                  context_manager: Type[DBContextProtocol] = SqliteContext,
                  connection_info: str = '', model: Type[SqlModel] = None,
                  table: str = '', columns: list[str] = []
@@ -292,7 +293,7 @@ class SqlQueryBuilder:
         self.grouping = None
 
     @property
-    def model(self) -> Type[SqlModel]:
+    def model(self) -> Type[T_Model]:
         """The model type that non-joined query results will be. Setting
             raises TypeError if supplied something other than a subclass
             of SqlModel.
@@ -300,7 +301,7 @@ class SqlQueryBuilder:
         return self._model
 
     @model.setter
-    def model(self, model: Type[SqlModel]) -> None:
+    def model(self, model: Type[T_Model]) -> None:
         tert(type(model) is type, 'model must be SqlModel subclass')
         tert(issubclass(model, SqlModel), 'model must be SqlModel subclass')
         self._model = model
@@ -766,7 +767,7 @@ class SqlQueryBuilder:
             connection_info=self.connection_info
         )
 
-    def insert(self, data: dict) -> Optional[SqlModel|Row]:
+    def insert(self, data: dict) -> Optional[T_Model|Row]:
         """Insert a record and return a model instance. Raises TypeError
             for invalid data or ValueError if a record with the same id
             already exists.
@@ -814,7 +815,7 @@ class SqlQueryBuilder:
         with self.context_manager(self.connection_info) as cursor:
             return cursor.executemany(sql, rows).rowcount
 
-    def find(self, id: Any) -> Optional[SqlModel|Row]:
+    def find(self, id: Any) -> Optional[T_Model|Row]:
         """Find a record by its id and return it."""
         with self.context_manager(self.connection_info) as cursor:
             cursor.execute(
@@ -920,7 +921,7 @@ class SqlQueryBuilder:
         self.grouping = by
         return self
 
-    def get(self) -> list[SqlModel]|list[JoinedModel]|list[Row]:
+    def get(self) -> list[T_Model]|list[JoinedModel]|list[Row]:
         """Run the query on the datastore and return a list of results.
             Return SqlModels when running a simple query. Return
             JoinedModels when running a JOIN query. Return Rows when
@@ -1004,7 +1005,7 @@ class SqlQueryBuilder:
                 ]
             return models
 
-    def _get_normal(self) -> list[SqlModel|Row]:
+    def _get_normal(self) -> list[T_Model|Row]:
         """Run the query on the datastore and return a list of results
             without joins. Used by the `get` method when appropriate. Do
             not call this method manually.
@@ -1069,7 +1070,7 @@ class SqlQueryBuilder:
             cursor.execute(sql, self.params)
             return cursor.fetchone()[0]
 
-    def take(self, limit: int) -> list[SqlModel]|list[JoinedModel]|list[Row]:
+    def take(self, limit: int) -> list[T_Model]|list[JoinedModel]|list[Row]:
         """Takes the specified number of rows. Raises TypeError or
             ValueError for invalid limit.
         """
@@ -1078,7 +1079,7 @@ class SqlQueryBuilder:
         self.limit = limit
         return self.get()
 
-    def chunk(self, number: int) -> Generator[list[SqlModel]|list[JoinedModel]|list[Row], None, None]:
+    def chunk(self, number: int) -> Generator[list[T_Model]|list[JoinedModel]|list[Row], None, None]:
         """Chunk all matching rows the specified number of rows at a
             time. Raises TypeError or ValueError for invalid number.
         """
@@ -1086,7 +1087,7 @@ class SqlQueryBuilder:
         vert(number > 0, 'number must be int > 0')
         return self._chunk(number)
 
-    def _chunk(self, number: int) -> Generator[list[SqlModel]|list[JoinedModel]|list[Row], None, None]:
+    def _chunk(self, number: int) -> Generator[list[T_Model]|list[JoinedModel]|list[Row], None, None]:
         """Create the generator for chunking."""
         original_offset = self.offset
         self.offset = self.offset or 0
@@ -1101,7 +1102,7 @@ class SqlQueryBuilder:
 
             self.offset = original_offset
 
-    def first(self) -> Optional[SqlModel|Row]:
+    def first(self) -> Optional[T_Model|Row]:
         """Run the query on the datastore and return the first result."""
         sql = f'select {",".join(self.model.columns)} from {self.table}'
 
@@ -1354,14 +1355,14 @@ class SqlModel:
         return uuid4().bytes.hex()
 
     @classmethod
-    def find(cls, id: Any) -> Optional[SqlModel]:
+    def find(cls: type[T_Model], id: Any) -> Optional[T_Model]:
         """Find a record by its id and return it. Return None if it does
             not exist.
         """
         return cls().query().find(id)
 
     @classmethod
-    def insert(cls, data: dict, /, *, suppress_events: bool = False) -> Optional[SqlModel]:
+    def insert(cls: type[T_Model], data: dict, /, *, suppress_events: bool = False) -> Optional[T_Model|Row]:
         """Insert a new record to the datastore. Return instance. Raises
             TypeError if data is not a dict.
         """
@@ -1493,7 +1494,7 @@ class SqlModel:
         return self
 
     @classmethod
-    def query(cls, conditions: dict = None, connection_info: str = None) -> QueryBuilderProtocol:
+    def query(cls: type[T_Model], conditions: dict = None, connection_info: str = None) -> QueryBuilderProtocol[T_Model]:
         """Returns a query builder with any conditions provided.
             Conditions are parsed as key=value and cannot handle other
             comparison types. If connection_info is not injected and was
@@ -1508,7 +1509,7 @@ class SqlModel:
             for key in conditions:
                 sqb.equal(key, conditions[key])
 
-        return sqb
+        return cast(QueryBuilderProtocol[T_Model], sqb)  # type: ignore[type-arg]
 
 
 class DeletedModel(SqlModel):
