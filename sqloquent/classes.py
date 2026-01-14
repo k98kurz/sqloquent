@@ -1577,6 +1577,7 @@ class HashedModel(SqlModel):
     table: str = 'hashed_records'
     columns: tuple[str] = ('id', 'details')
     columns_excluded_from_hash: tuple[str] = tuple()
+    deleted_model_class = DeletedModel
     id: str
     details: bytes
 
@@ -1727,7 +1728,7 @@ class HashedModel(SqlModel):
         model_class = self.__class__.__name__
         record_id = self.data[self.id_column]
         record = packify.pack(self.data)
-        deleted = DeletedModel.insert({
+        deleted = self.deleted_model_class.insert({
             'model_class': model_class,
             'record_id': record_id,
             'record': record
@@ -1749,11 +1750,15 @@ class Attachment(HashedModel):
     _related: SqlModel = None
     _details: packify.SerializableType = None
 
-    def related(self, reload: bool = False) -> SqlModel:
+    def related(
+            self, reload: bool = False, inject: dict = {}
+        ) -> SqlModel:
         """Return the related record."""
+        dependencies = {**globals(), **inject}
         if self._related is None or reload:
-            vert(self.data['related_model'] in globals(), 'model_class must be accessible')
-            model_class: type[SqlModel] = globals()[self.data['related_model']]
+            vert(self.data['related_model'] in dependencies,
+                'model_class must be accessible')
+            model_class: type[SqlModel] = dependencies[self.data['related_model']]
             tert(issubclass(model_class, SqlModel),
                 'related_model must inherit from SqlModel')
             self._related = model_class.find(self.data['related_id'])

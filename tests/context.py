@@ -17,3 +17,6 @@ from sqloquent.asyncql import (
     interfaces as async_interfaces,
     relations as async_relations,
 )
+from sqloquent.sqlcipher import (
+    classes as cipher_classes
+)

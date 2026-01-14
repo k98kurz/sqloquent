@@ -133,6 +133,12 @@ To use the async version, instead install with the following:
 pip install sqloquent[asyncql]
 ```
 
+For encrypted database support using SQLCipher, install with the following:
+
+```bash
+pip install sqloquent[sqlcipher]
+```
+
 ### Usage
 
 There are two primary ways to use this package: either with a bundled sqlite3
@@ -818,6 +824,45 @@ Attachment.query_builder_class = CustomQueryBuilder
 The latter must be done exactly once. The value supplied for `connection_info`
 should be set with some environment configuration system, but here it is only
 poorly mocked.
+
+#### Encrypted SQLite Support
+
+For encrypted database support using SQLCipher, use the `sqloquent.sqlcipher` module:
+
+```python
+from sqloquent.sqlcipher import SqlcipherModel, SqlcipherContext
+
+SqlcipherContext.encryption_key = 'yellowsubmarine' # or import from os.env
+
+class SecureUser(SqlcipherModel):
+    connection_info = 'encrypted.db'
+    table = 'users'
+    columns = ('id', 'name', 'email')
+
+# Use just like regular SqlModel
+user = SecureUser.insert({'name': 'Alice', 'email': 'alice@example.com'})
+```
+
+For cryptographic audit trails with encryption:
+
+```python
+from sqloquent.sqlcipher import HashedSqlcipherModel
+
+class SecureAuditRecord(HashedSqlcipherModel):
+    connection_info = 'encrypted_audit.db'
+    table = 'audit_records'
+    columns = ('id', 'details')
+```
+
+The `sqloquent.sqlcipher` module provides six classes that mirror the standard
+sqloquent classes but use SQLCipher for encryption:
+
+- `SqlcipherContext`
+- `SqlcipherQueryBuilder`
+- `SqlcipherModel`
+- `DeletedSqlcipherModel`
+- `HashedSqlcipherModel`
+- `SqlcipherAttachment`
 
 #### Using the ORM
 
