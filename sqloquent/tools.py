@@ -35,6 +35,8 @@ def _make_migration_src_start(ctx: tuple = None) -> str:
         vert(len(ctx) in (1, 2), 'ctx must be (str,) or (str, str)')
         if len(ctx) == 2:
             src += f"from {ctx[1]} import {ctx[0]}\n"
+        else:
+            src += f"import {ctx[0]}\n"
     return f"{src}\n\n"
 
 def make_migration_create(name: str, connection_string: str = '',
@@ -316,11 +318,16 @@ def make_model(name: str, base: str = 'SqlModel', columns: dict[str, str] = None
 
 def _import_migration(path: str, connection_string: str = '') -> Migration:
     module = _import(path)
-    tressa(hasattr(module, 'migration') and callable(module.migration),
-           f"{path} is missing the `migration` function")
+    tressa(
+        hasattr(module, 'migration') and callable(module.migration),
+        f"{path} is missing the `migration` function"
+    )
     migration = module.migration(connection_string)
-    tert(isinstance(migration, MigrationProtocol),
-         f"{path} invalid; migration() must return instance implementing MigrationProtocol")
+    tert(
+        isinstance(migration, MigrationProtocol),
+         f"{path} invalid; migration() must return instance implementing "
+         "MigrationProtocol"
+    )
     return migration
 
 def migrate(path: str, connection_string: str = '') -> None:
@@ -353,7 +360,18 @@ def _get_migration_model(connection_string: str = '') -> Type[SqlModel]:
         columns: tuple[str] = ('id', 'batch', 'date')
     return MigrationModel
 
-def _make_migrations_table_migration(connection_string: str = '') -> Migration:
+def _get_migration_ciphermodel(connection_string: str = '') -> Type[SqlModel]:
+    """Generate a MigrationModel with the given connection_string."""
+    from sqloquent.sqlcipher import SqlcipherModel
+    class MigrationModel(SqlcipherModel):
+        connection_info: str = connection_string
+        table: str = 'migrations'
+        columns: tuple[str] = ('id', 'batch', 'date')
+    return MigrationModel
+
+def _make_migrations_table_migration(
+        connection_string: str = '', use_cipher: bool = False
+    ) -> Migration:
     """Creates and returns a migration for the migrations table."""
     def create_migrations_table() -> list[Table]:
         t = Table.create('migrations')
@@ -366,11 +384,16 @@ def _make_migrations_table_migration(connection_string: str = '') -> Migration:
         return [Table.drop('migrations')]
 
     migration = Migration(connection_string)
+    if use_cipher:
+        from sqloquent.sqlcipher import SqlcipherContext
+        migration.context_manager = SqlcipherContext
     migration.up(create_migrations_table)
     migration.down(drop_migrations_table)
     return migration
 
-def automigrate(path: str, connection_string: str = '') -> None:
+def automigrate(
+        path: str, connection_string: str = '', use_cipher: bool = False
+    ) -> None:
     """Enumerate the python files at the path, then connect to the db to
         read out the migrations table (creating it if it does not exist),
         then apply the migrations that have not been applied and add a
@@ -380,12 +403,20 @@ def automigrate(path: str, connection_string: str = '') -> None:
     files = [f for f in listdir(path) if isfile(f"{path}/{f}") and f[-3:] == ".py"]
     files.sort()
     m = _import_migration(f"{path}/{files[0]}", connection_string)
-    MigrationModel = _get_migration_model(connection_string)
+    if use_cipher:
+        MigrationModel = _get_migration_ciphermodel(connection_string)
+    else:
+        MigrationModel = _get_migration_model(connection_string)
     done: list[SqlModel] = []
     with m.context_manager(connection_string) as cursor:
         q = "select name from sqlite_master where type='table' and name='migrations'"
         if len(cursor.execute(q).fetchall()) == 0:
-            _make_migrations_table_migration(connection_string).apply()
+            if use_cipher:
+                _make_migrations_table_migration(
+                    connection_string, use_cipher
+                ).apply()
+            else:
+                _make_migrations_table_migration(connection_string).apply()
         else:
             done = MigrationModel.query().order_by('batch').get()
 
@@ -400,7 +431,10 @@ def automigrate(path: str, connection_string: str = '') -> None:
         MigrationModel.insert({"id": f, "batch": batch_id, "date": timestamp})
         print(f"Applied migration {f}")
 
-def autorollback(path: str, connection_string: str = '', all: bool = False) -> None:
+def autorollback(
+        path: str, connection_string: str = '', all: bool = False,
+        use_cipher: bool = False
+    ) -> None:
     """Enumerate the python files at the path, then connect to the db to
         read out the migrations table (creating it if it does not exist),
         then rollback the previous batch of migrations that were applied
@@ -410,7 +444,10 @@ def autorollback(path: str, connection_string: str = '', all: bool = False) -> N
     files = [f for f in listdir(path) if isfile(f"{path}/{f}") and f[-3:] == ".py"]
     files.sort()
     m = _import_migration(f"{path}/{files[0]}", connection_string)
-    MigrationModel = _get_migration_model(connection_string)
+    if use_cipher:
+        MigrationModel = _get_migration_ciphermodel(connection_string)
+    else:
+        MigrationModel = _get_migration_model(connection_string)
     done: list[SqlModel] = []
     with m.context_manager(connection_string) as cursor:
         q = "select name from sqlite_master where type='table' and name='migrations'"
