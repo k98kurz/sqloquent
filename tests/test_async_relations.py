@@ -1475,6 +1475,18 @@ class TestRelations(unittest.TestCase):
         child = run(self.DAGItem.insert({'details': '321'}))
         assert len(child.parents) == 0
 
+        try:
+            run(child.parents().reload())
+            assert True, 'contains().reload() should not error on empty column'
+        except BaseException as e:
+            assert False, 'contains().reload() should not error on empty column'
+
+        try:
+            child.parents().query()
+            assert True, 'contains().query() should not error on empty column'
+        except BaseException as e:
+            assert False, 'contains().query() should not error on empty column'
+
     # Within tests
     def test_AsyncWithin_extends_Relation(self):
         assert issubclass(async_relations.AsyncWithin, async_relations.AsyncRelation)

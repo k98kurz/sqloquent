@@ -1166,8 +1166,11 @@ class AsyncContains(AsyncHasMany):
         if self.primary and self.foreign_id_column in self.primary.data:
             secondary_ids = self.primary.data[self.foreign_id_column]
             secondary_ids = secondary_ids.split(',') if secondary_ids else []
-            self._secondary = await self.secondary_class.query().is_in(
-                self.secondary_class.id_column, secondary_ids).get()
+            if secondary_ids:
+                self._secondary = await self.secondary_class.query().is_in(
+                    self.secondary_class.id_column, secondary_ids).get()
+            else:
+                self._secondary = tuple()
             return self
 
         if self.secondary and all([
@@ -1187,8 +1190,10 @@ class AsyncContains(AsyncHasMany):
     def query(self) -> AsyncQueryBuilderProtocol|None:
         """Creates the base query for the underlying relation."""
         if self.primary and self.foreign_id_column in self.primary.data:
-            secondary_ids = self.primary.data[self.foreign_id_column] or ''
-            secondary_ids = secondary_ids.split(',')
+            secondary_ids = self.primary.data[self.foreign_id_column]
+            secondary_ids = secondary_ids.split(',') if secondary_ids else []
+            if not secondary_ids:
+                return self.secondary_class.query().equal('1', '2')
             return self.secondary_class.query().is_in(
                 self.secondary_class.id_column, secondary_ids
             )

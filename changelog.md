@@ -1,3 +1,11 @@
+## 0.7.3 (WIP)
+
+- Bug fix: `contains` relation `reload()` raised `ValueError` if the foreign key
+column was empty
+    - Now it sets an empty tuple as the secondary values instead
+    - Fixed in both sync and async relations
+    - Also updated `query()` for consistent handling of secondary ids
+
 ## 0.7.2
 
 - Made the connection pooling and cursor tracking in `SqliteContext` thread-local
@@ -5,7 +13,8 @@
 ## 0.7.1
 
 - Added automatic connection pooling to `SqliteContext` and `AsyncSqliteContext`
-- Updated `SqlQueryBuilder` and `AsyncSqlQueryBuilder` to use the connection pooling in `chunk`
+- Updated `SqlQueryBuilder` and `AsyncSqlQueryBuilder` to use the connection pooling
+in `chunk`
 - Updated packify dependency to 0.3.1
 - Improved relation docstrings set by ORM helper functions
 - Added library version to CLI help text
