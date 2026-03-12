@@ -5,6 +5,7 @@ column was empty
     - Now it sets an empty tuple as the secondary values instead
     - Fixed in both sync and async relations
     - Also updated `query()` for consistent handling of secondary ids
+- Added new documentation file: migrations.md
 
 ## 0.7.2
 
