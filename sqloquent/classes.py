@@ -498,12 +498,17 @@ class SqlQueryBuilder:
         if column is not None:
             tert(type(column) is str, 'column must be str')
             tert(type(pattern) is str, 'pattern must be str')
-            tert(type(data) is str, 'data must be str')
+            tert(type(data) in (str, bytes), 'data must be str')
             vert(len(column), 'column cannot be empty')
             vert(len(pattern), 'pattern cannot be empty')
             vert(len(data), 'data cannot be empty')
             self.clauses.append(f'{quote_identifier(column)} like ?')
-            self.params.append(pattern.replace('?', data))
+            if type(data) is bytes:
+                self.params.append(
+                    pattern.encode().replace(b'?', data)
+                )
+            else:
+                self.params.append(pattern.replace('?', data))
 
         for column, val in conditions.items():
             tert(type(val) in (tuple, list),
@@ -1753,6 +1758,8 @@ class HashedModel(SqlModel):
             columns_excluded_from_hash tuple will be excluded from the
             sha256 hash.
         """
+        if cls.__annotations__.get(cls.id_column, str) is bytes:
+            return sha256(cls.preimage(data)).digest()
         return sha256(cls.preimage(data)).digest().hex()
 
     @classmethod

@@ -10,6 +10,7 @@ from .tools import _pascalcase_to_snake_case
 from abc import abstractmethod
 from copy import deepcopy
 from types import MappingProxyType
+import packify
 
 
 """
@@ -1172,10 +1173,20 @@ class Contains(HasMany):
             secondary.append(s)
         self._secondary = tuple(secondary)
 
-        ids = ",".join(sorted([
-            s.data[self.secondary_class.id_column]
-            for s in self._secondary
-        ]))
+        if  (
+                self.secondary_class.__annotations__.get(
+                    self.secondary_class.id_column, str
+                ) is bytes
+            ):
+            ids = packify.pack(sorted([
+                s.data[self.secondary_class.id_column]
+                for s in self._secondary
+            ]))
+        else:
+            ids = ",".join(sorted([
+                s.data[self.secondary_class.id_column]
+                for s in self._secondary
+            ]))
 
         self.primary.data[self.foreign_id_column] = ids
         self._primary = self.primary.save()
@@ -1199,7 +1210,10 @@ class Contains(HasMany):
 
         if self.primary and self.foreign_id_column in self.primary.data:
             secondary_ids = self.primary.data[self.foreign_id_column]
-            secondary_ids = secondary_ids.split(',') if secondary_ids else []
+            if type(secondary_ids) is bytes:
+                secondary_ids = packify.unpack(secondary_ids) or []
+            else:
+                secondary_ids = secondary_ids.split(',') if secondary_ids else []
             if secondary_ids:
                 self._secondary = self.secondary_class.query().is_in(
                     self.secondary_class.id_column, secondary_ids).get()
@@ -1208,12 +1222,23 @@ class Contains(HasMany):
             return self
 
         if self.secondary and all([
-            self.secondary_class.id_column in s.data for s in self.secondary
-        ]):
-            secondary_ids = ",".join(sorted([
-                s.data[self.secondary_class.id_column]
+                self.secondary_class.id_column in s.data
                 for s in self.secondary
-            ]))
+            ]):
+            if  (
+                    self.secondary_class.__annotations__.get(
+                        self.secondary_class.id_column, str
+                    ) is bytes
+                ):
+                secondary_ids = packify.pack(sorted([
+                    s.data[self.secondary_class.id_column]
+                    for s in self.secondary
+                ]))
+            else:
+                secondary_ids = ",".join(sorted([
+                    s.data[self.secondary_class.id_column]
+                    for s in self.secondary
+                ]))
             self._primary = self.primary_class.query({
                 self.foreign_id_column: secondary_ids
             }).first()
@@ -1225,13 +1250,19 @@ class Contains(HasMany):
         """Creates the base query for the underlying relation."""
         if self.primary and self.foreign_id_column in self.primary.data:
             secondary_ids = self.primary.data[self.foreign_id_column]
-            secondary_ids = secondary_ids.split(',') if secondary_ids else []
+            if type(secondary_ids) is bytes:
+                secondary_ids = packify.unpack(secondary_ids) or []
+            else:
+                secondary_ids = secondary_ids.split(',') if secondary_ids else []
             if not secondary_ids:
                 return self.secondary_class.query().equal('1', '2')
             return self.secondary_class.query().is_in(
                 self.secondary_class.id_column, secondary_ids
             )
-        if self.secondary:
+        if self.secondary and all([
+                self.secondary_class.id_column in s.data
+                for s in self.secondary
+            ]):
             secondary_ids = [
                 s.data[self.secondary_class.id_column]
                 for s in self.secondary
@@ -1333,7 +1364,10 @@ class Within(HasMany):
 
         for s in self.secondary:
             ids = s.data.get(self.foreign_id_column, '')
-            ids: list = ids.split(',')
+            if type(ids) is bytes:
+                ids: list = packify.unpack(ids) or []
+            else:
+                ids: list = ids.split(',') or []
             if self.primary.data[self.primary_class.id_column] not in ids:
                 ids.append(self.primary.data[self.primary_class.id_column])
 
@@ -1346,7 +1380,13 @@ class Within(HasMany):
                     ))
 
             ids.sort()
-            s.data[self.foreign_id_column] = ",".join(ids)
+            if  (   self.secondary_class.__annotations__.get(
+                        self.secondary_class.id_column, str
+                    ) is bytes
+                ):
+                s.data[self.foreign_id_column] = packify.pack(ids)
+            else:
+                s.data[self.foreign_id_column] = ",".join(ids)
             s.save()
 
         self.primary_to_add = None

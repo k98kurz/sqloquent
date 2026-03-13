@@ -36,6 +36,8 @@ class TestRelations(unittest.TestCase):
             'create table owned (id text, owner_id text, details text)')
         self.cursor.execute(
             'create table dag (id text, details text, parent_ids text)')
+        self.cursor.execute(
+            'create table dag2 (id blob, details text, parent_ids blob)')
         self.cursor.execute('create table deleted_records (id text not null, '
             'model_class text not null, record_id text not null, '
             'record blob not null, timestamp text not null)')
@@ -58,14 +60,19 @@ class TestRelations(unittest.TestCase):
             parents: interfaces.RelatedCollection
             children: interfaces.RelatedCollection
 
-            @classmethod
-            def insert(cls, data: dict) -> DAGItem|None:
-                # """For better type hinting."""
-                return super().insert(data)
+        class DAGItem2(classes.HashedModel):
+            connection_info: str = DB_FILEPATH
+            table: str = 'dag2'
+            columns: tuple = ('id', 'details', 'parent_ids')
+            id: bytes
+            parent_ids: bytes|None
+            parents: interfaces.RelatedCollection
+            children: interfaces.RelatedCollection
 
         self.OwnedModel = OwnedModel
         self.OwnerModel = OwnerModel
         self.DAGItem = DAGItem
+        self.DAGItem2 = DAGItem2
         classes.DeletedModel.connection_info = DB_FILEPATH
 
         return super().setUp()
@@ -1515,6 +1522,21 @@ class TestRelations(unittest.TestCase):
         })
         assert len(child.parents) == 1
         assert child.parents[0].id == parent.id
+        
+        self.DAGItem2.parents = relations.contains(
+            self.DAGItem2,
+            self.DAGItem2,
+            'parent_ids',
+        )
+
+        parent = self.DAGItem2.insert({'details': '123'})
+        child = self.DAGItem2.insert({
+            'details': '321',
+            'parent_ids': parent.id,
+        })
+        assert len(child.parents) == 1
+        assert child.parents[0].id == parent.id
+
 
     def test_contains_relation_does_not_error_on_empty_foreign_id_column(self):
         self.DAGItem.parents = relations.contains(
@@ -1808,6 +1830,21 @@ class TestRelations(unittest.TestCase):
         })
         assert len(parent.children) == 1
         assert parent.children[0].id == child.id
+        
+        self.DAGItem2.children = relations.within(
+            self.DAGItem2,
+            self.DAGItem2,
+            'parent_ids',
+        )
+
+        parent = self.DAGItem2.insert({'details': '123'})
+        child = self.DAGItem2.insert({
+            'details': '321',
+            'parent_ids': parent.id,
+        })
+        assert len(parent.children) == 1
+        assert parent.children[0].id == child.id
+
 
     # e2e tests
     def test_HasOne_BelongsTo_e2e(self):
