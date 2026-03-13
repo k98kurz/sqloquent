@@ -27,19 +27,21 @@ from typing import (
 @runtime_checkable
 class CursorProtocol(Protocol):
     """Interface showing how a DB cursor should function."""
-    def execute(self, sql: str, parameters: list[str] = []) -> CursorProtocol:
+    def execute(
+            self, sql: str, parameters: list[str] | None = None
+        ) -> CursorProtocol:
         """Execute a single query with the given parameters."""
         ...
 
     def executemany(
-            self, sql: str, seq_of_parameters: Iterable[list[str]] = []
+            self, sql: str, seq_of_parameters: Iterable[list[str]] | None = None
         ) -> CursorProtocol:
         """Execute a query once for each list of parameters."""
         ...
 
     def executescript(self, sql: str) -> CursorProtocol:
         """Execute a SQL script without parameters. No implicit
-            transaciton handling.
+            transaction handling.
         """
         ...
 
@@ -236,7 +238,8 @@ class QueryBuilderProtocol(Protocol):
     def __init__(
             self, model_or_table: type[ModelProtocol] | str,
             context_manager: type[DBContextProtocol], connection_info: str = '',
-            model: type[ModelProtocol] = None, table: str = None
+            model: type[ModelProtocol] = None, table: str = None,
+            columns: list[str] | None = None
         ) -> None:
         """Initialize the instance. A class implementing ModelProtocol
             or the str name of a table must be provided.
@@ -254,7 +257,7 @@ class QueryBuilderProtocol(Protocol):
         ...
 
     def is_null(
-            self, column: str | list[str,] | tuple[str,]
+            self, column: str | list[str] | tuple[str]
         ) -> QueryBuilderProtocol:
         """Save the 'column is null' clause, then return self. Raises
             TypeError for invalid column. If a list or tuple is supplied,
@@ -263,7 +266,7 @@ class QueryBuilderProtocol(Protocol):
         ...
 
     def not_null(
-            self, column: str | list[str,] | tuple[str,]
+            self, column: str | list[str] | tuple[str]
         ) -> QueryBuilderProtocol:
         """Save the 'column is not null' clause, then return self.
             Raises TypeError for invalid column. If a list or tuple is
@@ -563,7 +566,7 @@ class QueryBuilderProtocol(Protocol):
         """Run the query on the datastore and return the first result."""
         ...
 
-    def update(self, updates: dict, conditions: dict = {}) -> int:
+    def update(self, updates: dict, conditions: dict | None = None) -> int:
         """Update the datastore and return number of records updated."""
         ...
 

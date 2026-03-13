@@ -144,11 +144,14 @@ def _get_column_type_from_annotation(
         if bytes in annotation:
             return ('blob', nullable, default) if has_default else ('blob', nullable)
         if int in annotation:
-            return ('integer', nullable, default) if has_default \
+            return (
+                ('integer', nullable, default)
+                if has_default 
                 else ('integer', nullable)
+            )
         if bool in annotation:
-            return ('boolean', nullable, default) if has_default \
-                else ('boolean', nullable)
+            return (('boolean', nullable, default) if has_default
+                else ('boolean', nullable))
         if float in annotation:
             return ('real', nullable, default) if has_default else ('real', nullable)
         return ('text', nullable, default) if has_default else ('text', nullable)
@@ -158,11 +161,11 @@ def _get_column_type_from_annotation(
         if annotation is bytes:
             return ('blob', nullable, default) if has_default else ('blob', nullable)
         if annotation is int:
-            return ('integer', nullable, default) if has_default \
-                else ('integer', nullable)
+            return (('integer', nullable, default) if has_default
+                else ('integer', nullable))
         if annotation is bool:
-            return ('boolean', nullable, default) if has_default \
-                else ('boolean', nullable)
+            return (('boolean', nullable, default) if has_default
+                else ('boolean', nullable))
         if annotation is float:
             return ('real', nullable, default) if has_default else ('real', nullable)
         return ('text', nullable, default) if has_default else ('text', nullable)
@@ -185,11 +188,11 @@ def _get_column_type_from_annotation(
         if 'bytes' in annotation:
             return ('blob', nullable, default) if has_default else ('blob', nullable)
         if 'int' in annotation:
-            return ('integer', nullable, default) if has_default \
-                else ('integer', nullable)
+            return (('integer', nullable, default) if has_default
+                else ('integer', nullable))
         if 'bool' in annotation:
-            return ('boolean', nullable, default) if has_default \
-                else ('boolean', nullable)
+            return (('boolean', nullable, default) if has_default
+                else ('boolean', nullable))
         if 'float' in annotation:
             return ('real', nullable, default) if has_default else ('real', nullable)
         return ('text', nullable, default) if has_default else ('text', nullable)

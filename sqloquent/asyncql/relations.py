@@ -46,8 +46,8 @@ class AsyncRelation:
         secondary_class: type[AsyncModelProtocol],
         primary_to_add: AsyncModelProtocol = None,
         primary_to_remove: AsyncModelProtocol = None,
-        secondary_to_add: list[AsyncModelProtocol] = [],
-        secondary_to_remove: list[AsyncModelProtocol] = [],
+        secondary_to_add: list[AsyncModelProtocol] | None = None,
+        secondary_to_remove: list[AsyncModelProtocol] | None = None,
         primary: AsyncModelProtocol = None,
         secondary: AsyncModelProtocol | tuple[AsyncModelProtocol] = None,
     ) -> None:
@@ -57,8 +57,8 @@ class AsyncRelation:
         self.secondary_class = secondary_class
         self.primary_to_add = primary_to_add
         self.primary_to_remove = primary_to_remove
-        self.secondary_to_add = secondary_to_add
-        self.secondary_to_remove = secondary_to_remove
+        self.secondary_to_add = secondary_to_add or []
+        self.secondary_to_remove = secondary_to_remove or []
         self.primary = primary
         self.secondary = secondary
 
@@ -399,9 +399,9 @@ class AsyncHasOne(AsyncRelation):
             """The secondary model instance. Setting raises TypeError if
                 the precondition check fails.
             """
-            if cache_key not in self.relations or \
-                self.relations[cache_key] is None:
-
+            if  (   cache_key not in self.relations
+                    or self.relations[cache_key] is None
+                ):
                 if  (   cache_key not in self.relations
                         or self.relations[cache_key] is None
                     ):
@@ -652,9 +652,9 @@ class AsyncHasMany(AsyncHasOne):
             """The secondary model instances. Setting raises TypeError
                 if the precondition check fails.
             """
-            if cache_key not in self.relations or \
-                self.relations[cache_key] is None:
-
+            if  (   cache_key not in self.relations
+                    or self.relations[cache_key] is None
+                ):
                 if  (   cache_key not in self.relations
                         or self.relations[cache_key] is None
                     ):
@@ -804,9 +804,9 @@ class AsyncBelongsTo(AsyncHasOne):
             """The secondary model instance. Setting raises TypeError if
                 the precondition check fails.
             """
-            if cache_key not in self.relations or \
-                self.relations[cache_key] is None:
-
+            if  (   cache_key not in self.relations
+                    or self.relations[cache_key] is None
+                ):
                 if  (   cache_key not in self.relations
                         or self.relations[cache_key] is None
                     ):
@@ -979,8 +979,8 @@ class AsyncBelongsToMany(AsyncRelation):
         must_remove_secondary = (len(secondary_ids_to_remove) > 0
             and len(primary_ids_for_delete) > 0)
         must_remove_primary = self.primary_to_remove is not None
-        must_add_secondary = len(secondary_ids_to_add) > 0 and \
-            (self.primary or self.primary_to_add) is not None
+        must_add_secondary = (len(secondary_ids_to_add) > 0
+            and (self.primary or self.primary_to_add) is not None)
         must_add_primary = self.primary_to_add is not None
 
         if must_remove_secondary:
@@ -1137,9 +1137,9 @@ class AsyncBelongsToMany(AsyncRelation):
             """The secondary model instances. Setting raises TypeError
                 if a precondition check fails.
             """
-            if cache_key not in self.relations or \
-                self.relations[cache_key] is None:
-
+            if  (   cache_key not in self.relations
+                    or self.relations[cache_key] is None
+                ):
                 if  (   cache_key not in self.relations
                         or self.relations[cache_key] is None
                     ):
@@ -1307,9 +1307,9 @@ class AsyncContains(AsyncHasMany):
             """The secondary model instances. Setting raises TypeError
                 if the precondition check fails.
             """
-            if cache_key not in self.relations or \
-                self.relations[cache_key] is None:
-
+            if  (   cache_key not in self.relations
+                    or self.relations[cache_key] is None
+                ):
                 if  (   cache_key not in self.relations
                         or self.relations[cache_key] is None
                     ):
@@ -1367,8 +1367,9 @@ class AsyncWithin(AsyncHasMany):
             if self.primary.data[self.primary_class.id_column] not in ids:
                 ids.append(self.primary.data[self.primary_class.id_column])
 
-            if self.primary_to_remove is not None and \
-            self.primary_class.id_column in self.primary_to_remove.data:
+            if  (   self.primary_to_remove is not None
+                    and self.primary_class.id_column in self.primary_to_remove.data
+                ):
                 if self.primary_to_remove.data[self.primary_class.id_column] in ids:
                     ids.remove(self.primary_to_remove.data.get(
                         self.primary_class.id_column, None
@@ -1445,9 +1446,9 @@ class AsyncWithin(AsyncHasMany):
             """The secondary model instances. Setting raises TypeError
                 if a precondition check fails.
             """
-            if cache_key not in self.relations or \
-                self.relations[cache_key] is None:
-
+            if  (   cache_key not in self.relations
+                    or self.relations[cache_key] is None
+                ):
                 if  (   cache_key not in self.relations
                         or self.relations[cache_key] is None
                     ):

@@ -198,7 +198,7 @@ class AsyncSqlQueryBuilder:
             self, model_or_table: type[AsyncSqlModel] | str = None,
             context_manager: type[AsyncDBContextProtocol] = AsyncSqliteContext,
             connection_info: str = '', model: type[AsyncSqlModel] = None,
-            table: str = '', columns: list[str] = []
+            table: str = '', columns: list[str] | None = None
         ) -> None:
         """Initialize the instance. Must supply model_or_table or model
             or table. Must supply context_manager.
@@ -225,6 +225,7 @@ class AsyncSqlQueryBuilder:
             and issubclass(context_manager, AsyncDBContextProtocol),
             'context_manager must be class implementing AsyncDBContextProtocol'
         )
+        columns = columns or []
         tressa(type(model_or_table) is type or len(columns),
                'must provide class implementing AsyncModelProtocol or columns')
         if not connection_info and hasattr(self.__class__, 'connection_info'):
@@ -276,14 +277,14 @@ class AsyncSqlQueryBuilder:
         self._table = name
 
     def is_null(
-        self, column: str | list[str,] | tuple[str,]
+        self, column: str | list[str] | tuple[str]
     ) -> AsyncSqlQueryBuilder:
         """Save the 'column is null' clause, then return self. Raises
             TypeError for invalid column. If a list or tuple is supplied,
             each element is treated as a separate clause.
         """
         tert(type(column) in (str, list, tuple),
-             'column must be str, list[str,], or tuple[str,]')
+             'column must be str, list[str], or tuple[str]')
         if type(column) in (list, tuple):
             tert(all([type(c) is str for c in column]),
                  'column must be str or list[str]')
@@ -294,14 +295,14 @@ class AsyncSqlQueryBuilder:
         return self
 
     def not_null(
-            self, column: str | list[str,] | tuple[str,]
+            self, column: str | list[str] | tuple[str]
         ) -> AsyncSqlQueryBuilder:
         """Save the 'column is not null' clause, then return self.
             Raises TypeError for invalid column. If a list or tuple is
             supplied, each element is treated as a separate clause.
         """
         tert(type(column) in (str, list, tuple),
-             'column must be str, list[str,], or tuple[str,]')
+             'column must be str, list[str], or tuple[str]')
         if type(column) in (list, tuple):
             tert(all([type(c) is str for c in column]),
                  'column must be str or list[str]')
@@ -1179,11 +1180,12 @@ class AsyncSqlQueryBuilder:
                     for key, value in zip()
                 })
 
-    async def update(self, updates: dict, conditions: dict = {}) -> int:
+    async def update(self, updates: dict, conditions: dict | None = None) -> int:
         """Update the datastore and return number of records updated.
             Raises TypeError for invalid updates or conditions.
         """
         tert(type(updates) is dict, 'updates must be dict')
+        conditions = conditions or {}
         tert(type(conditions) is dict, 'conditions must be dict')
 
         # parse conditions
@@ -1285,10 +1287,11 @@ class AsyncSqlModel:
     data_original: MappingProxyType
     _event_hooks: dict[str, list[Callable]] = {'class': 'AsyncSqlModel'}
 
-    def __init__(self, data: dict = {}) -> None:
+    def __init__(self, data: dict | None = None) -> None:
         """Initialize the instance. Raises TypeError or ValueError if
             _post_init_hooks is not dict[Any, callable].
         """
+        data = data or {}
         self.data = {}
 
         if not hasattr(self.__class__, 'disable_column_property_mapping'):
@@ -1629,7 +1632,8 @@ class AsyncDeletedModel(AsyncSqlModel):
     record: bytes
     timestamp: str
 
-    def __init__(self, data: dict = {}) -> None:
+    def __init__(self, data: dict | None = None) -> None:
+        data = data or {}
         if 'timestamp' not in data:
             data['timestamp'] = str(int(time()))
         super().__init__(data)
@@ -1657,15 +1661,16 @@ class AsyncDeletedModel(AsyncSqlModel):
         return val
 
     async def restore(
-            self, inject: dict = {}, /, *,
+            self, inject: dict | None = None, /, *,
             suppress_events: bool = False, parallel_events: bool = False
         ) -> AsyncSqlModel:
         """Restore a deleted record, remove from deleted_records, and
-            return the restored model. Raises ValueError if model_class
+            return restored model. Raises ValueError if model_class
             cannot be found. Raises TypeError if model_class is not a
-            subclass of AsyncSqlModel. Uses packify.unpack to unpack the
+            subclass of AsyncSqlModel. Uses packify.unpack to unpack
             record. Raises TypeError if packed record is not a dict.
         """
+        inject = inject or {}
         if not suppress_events:
             await self.invoke_hooks(
                 'before_restore', self=self, inject=inject,
@@ -1938,12 +1943,13 @@ class AsyncAttachment(AsyncHashedModel):
             self._details = packify.unpack(self.data['details'])
         return self._details
 
-    def set_details(self, details: packify.SerializableType = {}) -> AsyncAttachment:
+    def set_details(self, details: packify.SerializableType | None = None) -> AsyncAttachment:
         """Set the details column using either supplied data or by
             packifying self._details. Return self in monad pattern.
             Raises packify.UsageError or TypeError if details contains
             unseriazliable type.
         """
+        details = details or {}
         if details:
             self._details = details
         self.data['details'] = packify.pack(self._details)

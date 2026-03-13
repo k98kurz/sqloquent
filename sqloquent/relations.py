@@ -41,8 +41,8 @@ class Relation:
         secondary_class: type[ModelProtocol],
         primary_to_add: ModelProtocol = None,
         primary_to_remove: ModelProtocol = None,
-        secondary_to_add: list[ModelProtocol] = [],
-        secondary_to_remove: list[ModelProtocol] = [],
+        secondary_to_add: list[ModelProtocol] | None = None,
+        secondary_to_remove: list[ModelProtocol] | None = None,
         primary: ModelProtocol = None,
         secondary: ModelProtocol | tuple[ModelProtocol] = None,
     ) -> None:
@@ -52,8 +52,8 @@ class Relation:
         self.secondary_class = secondary_class
         self.primary_to_add = primary_to_add
         self.primary_to_remove = primary_to_remove
-        self.secondary_to_add = secondary_to_add
-        self.secondary_to_remove = secondary_to_remove
+        self.secondary_to_add = secondary_to_add or []
+        self.secondary_to_remove = secondary_to_remove or []
         self.primary = primary
         self.secondary = secondary
 
@@ -392,11 +392,13 @@ class HasOne(Relation):
             """The secondary model instance. Setting raises TypeError if
                 the precondition check fails.
             """
-            if cache_key not in self.relations or \
-                self.relations[cache_key] is None:
+            if  (   cache_key not in self.relations
+                    or self.relations[cache_key] is None
+                ):
 
-                if cache_key not in self.relations \
-                    or self.relations[cache_key] is None:
+                if  (   cache_key not in self.relations
+                        or self.relations[cache_key] is None
+                    ):
                     self.relations[cache_key] = deepcopy(relation)
                     self.relations[cache_key].primary = self
 
@@ -414,8 +416,9 @@ class HasOne(Relation):
                 empty.relations[cache_key] = relation
                 return empty
 
-            if not hasattr(relation, 'secondary_wrapped') or \
-                relation.secondary_wrapped is None:
+            if  (   not hasattr(relation, 'secondary_wrapped')
+                    or relation.secondary_wrapped is None
+                ):
                 relation.secondary_wrapped = HasOneWrapped(
                     relation.secondary
                 )
@@ -638,11 +641,12 @@ class HasMany(HasOne):
             """The secondary model instances. Setting raises TypeError
                 if the precondition check fails.
             """
-            if cache_key not in self.relations or \
-                self.relations[cache_key] is None:
-
-                if cache_key not in self.relations \
-                    or self.relations[cache_key] is None:
+            if  (   cache_key not in self.relations
+                    or self.relations[cache_key] is None
+                ):
+                if  (   cache_key not in self.relations
+                        or self.relations[cache_key] is None
+                    ):
                     self.relations[cache_key] = deepcopy(relation)
                     self.relations[cache_key].primary = self
 
@@ -782,11 +786,12 @@ class BelongsTo(HasOne):
             """The secondary model instance. Setting raises TypeError if
                 the precondition check fails.
             """
-            if cache_key not in self.relations or \
-                self.relations[cache_key] is None:
-
-                if cache_key not in self.relations \
-                    or self.relations[cache_key] is None:
+            if  (   cache_key not in self.relations
+                    or self.relations[cache_key] is None
+                ):
+                if  (   cache_key not in self.relations
+                        or self.relations[cache_key] is None
+                    ):
                     self.relations[cache_key] = deepcopy(relation)
                     self.relations[cache_key].primary = self
 
@@ -802,8 +807,9 @@ class BelongsTo(HasOne):
                 empty.relations[f'{cache_key}'] = self.relations[cache_key]
                 return empty
 
-            if not hasattr(self.relations[cache_key], 'secondary_wrapped') or \
-                self.relations[cache_key].secondary_wrapped is None:
+            if  (   not hasattr(self.relations[cache_key], 'secondary_wrapped')
+                    or self.relations[cache_key].secondary_wrapped is None
+                ):
                 self.relations[cache_key].secondary_wrapped = BelongsToWrapped(
                     self.relations[cache_key].secondary
                 )
@@ -907,8 +913,9 @@ class BelongsToMany(Relation):
                 for model in self.secondary_to_remove
             )
 
-            if item_id not in secondary_ids \
-                and item_id not in secondary_to_remove_ids:
+            if  (   item_id not in secondary_ids
+                    and item_id not in secondary_to_remove_ids
+                ):
                 self.secondary_to_add.append(item)
             if item_id in secondary_to_remove_ids:
                 self.secondary_to_remove = [
@@ -949,8 +956,8 @@ class BelongsToMany(Relation):
         ]
 
         query_builder = self.pivot.query()
-        must_remove_secondary = len(secondary_ids_to_remove) > 0 \
-            and len(primary_ids_for_delete) > 0
+        must_remove_secondary = (len(secondary_ids_to_remove) > 0
+            and len(primary_ids_for_delete) > 0)
         must_remove_primary = self.primary_to_remove is not None
         must_add_secondary = (len(secondary_ids_to_add) > 0 
             and (self.primary or self.primary_to_add) is not None)
@@ -1270,9 +1277,9 @@ class Contains(HasMany):
             """The secondary model instances. Setting raises TypeError
                 if the precondition check fails.
             """
-            if cache_key not in self.relations or \
-                self.relations[cache_key] is None:
-
+            if  (   cache_key not in self.relations
+                    or self.relations[cache_key] is None
+                ):
                 if  (   cache_key not in self.relations
                         or self.relations[cache_key] is None
                     ):
@@ -1330,8 +1337,9 @@ class Within(HasMany):
             if self.primary.data[self.primary_class.id_column] not in ids:
                 ids.append(self.primary.data[self.primary_class.id_column])
 
-            if self.primary_to_remove is not None and \
-            self.primary_class.id_column in self.primary_to_remove.data:
+            if  (   self.primary_to_remove is not None
+                    and self.primary_class.id_column in self.primary_to_remove.data
+                ):
                 if self.primary_to_remove.data[self.primary_class.id_column] in ids:
                     ids.remove(self.primary_to_remove.data.get(
                         self.primary_class.id_column, None
@@ -1405,9 +1413,9 @@ class Within(HasMany):
             """The secondary model instances. Setting raises TypeError
                 if a precondition check fails.
             """
-            if cache_key not in self.relations or \
-                self.relations[cache_key] is None:
-
+            if  (   cache_key not in self.relations
+                    or self.relations[cache_key] is None
+                ):
                 if  (   cache_key not in self.relations
                         or self.relations[cache_key] is None
                     ):

@@ -26,20 +26,20 @@ from typing import (
 class AsyncCursorProtocol(Protocol):
     """Interface showing how a DB cursor should function."""
     async def execute(
-            self, sql: str, parameters: list[str] = []
+            self, sql: str, parameters: list[str] | None = None
         ) -> AsyncCursorProtocol:
         """Execute a single query with the given parameters."""
         ...
 
     async def executemany(
-            self, sql: str, seq_of_parameters: Iterable[list[str]] = []
+            self, sql: str, seq_of_parameters: Iterable[list[str]] | None = None
         ) -> AsyncCursorProtocol:
         """Execute a query once for each list of parameters."""
         ...
 
     async def executescript(self, sql: str) -> AsyncCursorProtocol:
         """Execute a SQL script without parameters. No implicit
-            transaciton handling.
+            transaction handling.
         """
         ...
 
@@ -244,7 +244,7 @@ class AsyncQueryBuilderProtocol(Protocol):
             self, model_or_table: type[AsyncModelProtocol] | str,
             context_manager: type[AsyncDBContextProtocol],
             connection_info: str = '', model: type[AsyncModelProtocol] = None,
-            table: str = '', columns: list[str] = []
+            table: str = '', columns: list[str] | None = None
         ) -> None:
         """Initialize the instance. A class implementing AsyncModelProtocol
             or the str name of a table must be provided.
@@ -262,7 +262,7 @@ class AsyncQueryBuilderProtocol(Protocol):
         ...
 
     def is_null(
-            self, column: str | list[str,] | tuple[str,]
+            self, column: str | list[str] | tuple[str]
         ) -> AsyncQueryBuilderProtocol:
         """Save the 'column is null' clause, then return self. Raises
             TypeError for invalid column. If a list or tuple is supplied,
@@ -271,7 +271,7 @@ class AsyncQueryBuilderProtocol(Protocol):
         ...
 
     def not_null(
-            self, column: str | list[str,] | tuple[str,]
+            self, column: str | list[str] | tuple[str]
         ) -> AsyncQueryBuilderProtocol:
         """Save the 'column is not null' clause, then return self.
             Raises TypeError for invalid column. If a list or tuple is
@@ -577,7 +577,7 @@ class AsyncQueryBuilderProtocol(Protocol):
         """Run the query on the datastore and return the first result."""
         ...
 
-    async def update(self, updates: dict, conditions: dict = {}) -> int:
+    async def update(self, updates: dict, conditions: dict | None = None) -> int:
         """Update the datastore and return number of records updated."""
         ...
 

@@ -308,15 +308,15 @@ class TestAsyncClasses(unittest.TestCase):
     def test_AsyncSqlModel_insert_and_find(self):
         # e2e test
         inserted = run(async_classes.AsyncSqlModel.insert({'name': 'test1'}))
-        assert (isinstance(inserted, async_classes.AsyncSqlModel),
+        assert isinstance(inserted, async_classes.AsyncSqlModel), (
             'insert() must return AsyncSqlModel instance')
-        assert (async_classes.AsyncSqlModel.id_column in inserted.data,
+        assert async_classes.AsyncSqlModel.id_column in inserted.data, (
             'insert() return value must have id')
 
         found = run(async_classes.AsyncSqlModel.find(
             inserted.data[async_classes.AsyncSqlModel.id_column]
         ))
-        assert (isinstance(found, async_classes.AsyncSqlModel),
+        assert isinstance(found, async_classes.AsyncSqlModel), (
             'find() must return AsyncSqlModel instance')
 
         assert inserted == found, 'inserted must equal found'
@@ -325,7 +325,7 @@ class TestAsyncClasses(unittest.TestCase):
         # e2e test
         inserted = run(async_classes.AsyncSqlModel.insert({'name': 'test1'}))
         updated = run(inserted.update({'name': 'test2'}))
-        assert (isinstance(updated, async_classes.AsyncSqlModel),
+        assert isinstance(updated, async_classes.AsyncSqlModel), (
             'update() must return AsyncSqlModel instance')
         assert updated.data['name'] == 'test2', 'value must be updated'
         assert updated == inserted, 'must be equal'
@@ -336,7 +336,7 @@ class TestAsyncClasses(unittest.TestCase):
 
         updated.data['name'] = 'test3'
         saved = run(updated.save())
-        assert (isinstance(saved, async_classes.AsyncSqlModel),
+        assert isinstance(saved, async_classes.AsyncSqlModel), (
             'save() must return AsyncSqlModel instance')
         assert saved == updated, 'must be equal'
         found = run(async_classes.AsyncSqlModel.find(
@@ -1648,13 +1648,13 @@ class TestAsyncClasses(unittest.TestCase):
         sqb = async_classes.AsyncSqlQueryBuilder(model=async_classes.AsyncSqlModel)
         assert run(sqb.count()) == 0, 'count() must return 0'
         inserted = run(sqb.insert({'name': 'test1'}))
-        assert (isinstance(inserted, sqb.model),
+        assert isinstance(inserted, sqb.model), (
             'insert() must return instance of sqb.model')
-        assert (inserted.id_column not in inserted.data,
+        assert inserted.id_column not in inserted.data, (
             'insert() must not assign id')
         assert run(sqb.count()) == 1, 'count() must return 1'
         inserted = run(sqb.insert({'name': 'test2', 'id': '321'}))
-        assert (run(sqb.find('321')) is not None,
+        assert run(sqb.find('321')) is not None, (
             'find() must return a record that was inserted')
 
     def test_AsyncSqlQueryBuilder_insert_many_inserts_records_into_datastore(self):
@@ -1671,7 +1671,7 @@ class TestAsyncClasses(unittest.TestCase):
         inserted = run(sqb.insert_many([{'name': 'test3', 'id': 'abc'}]))
         assert inserted == 1
         assert run(sqb.count()) == 3, 'count() must return 3'
-        assert (run(sqb.find('321')) is not None,
+        assert run(sqb.find('321')) is not None, (
             'find() must return a record that was inserted')
 
     def test_AsyncSqlQueryBuilder_get_returns_all_matching_records(self):
