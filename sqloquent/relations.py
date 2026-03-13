@@ -1176,7 +1176,7 @@ class Contains(HasMany):
         if  (
                 self.secondary_class.__annotations__.get(
                     self.secondary_class.id_column, str
-                ) is bytes
+                ) in (bytes, 'bytes')
             ):
             ids = packify.pack(sorted([
                 s.data[self.secondary_class.id_column]
@@ -1228,7 +1228,7 @@ class Contains(HasMany):
             if  (
                     self.secondary_class.__annotations__.get(
                         self.secondary_class.id_column, str
-                    ) is bytes
+                    ) in (bytes, 'bytes')
                 ):
                 secondary_ids = packify.pack(sorted([
                     s.data[self.secondary_class.id_column]
@@ -1363,11 +1363,11 @@ class Within(HasMany):
             self.primary.save()
 
         for s in self.secondary:
-            ids = s.data.get(self.foreign_id_column, '')
+            ids = s.data.get(self.foreign_id_column, None) or ''
             if type(ids) is bytes:
                 ids: list = packify.unpack(ids) or []
             else:
-                ids: list = ids.split(',') or []
+                ids: list = ids.split(',') if ids else []
             if self.primary.data[self.primary_class.id_column] not in ids:
                 ids.append(self.primary.data[self.primary_class.id_column])
 
@@ -1382,7 +1382,7 @@ class Within(HasMany):
             ids.sort()
             if  (   self.secondary_class.__annotations__.get(
                         self.secondary_class.id_column, str
-                    ) is bytes
+                    ) in (bytes, 'bytes')
                 ):
                 s.data[self.foreign_id_column] = packify.pack(ids)
             else:

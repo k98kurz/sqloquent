@@ -1758,7 +1758,7 @@ class HashedModel(SqlModel):
             columns_excluded_from_hash tuple will be excluded from the
             sha256 hash.
         """
-        if cls.__annotations__.get(cls.id_column, str) is bytes:
+        if cls.__annotations__.get(cls.id_column, str) in (bytes, 'bytes'):
             return sha256(cls.preimage(data)).digest()
         return sha256(cls.preimage(data)).digest().hex()
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 from context import classes, errors, interfaces, relations
 from genericpath import isfile
 import os
+import packify
 import sqlite3
 import unittest
 
@@ -37,7 +38,7 @@ class TestRelations(unittest.TestCase):
         self.cursor.execute(
             'create table dag (id text, details text, parent_ids text)')
         self.cursor.execute(
-            'create table dag2 (id blob, details text, parent_ids blob)')
+            'create table dag2 ("id" blob, "details" text, "parent_ids" blob)')
         self.cursor.execute('create table deleted_records (id text not null, '
             'model_class text not null, record_id text not null, '
             'record blob not null, timestamp text not null)')
@@ -65,6 +66,7 @@ class TestRelations(unittest.TestCase):
             table: str = 'dag2'
             columns: tuple = ('id', 'details', 'parent_ids')
             id: bytes
+            details: str
             parent_ids: bytes|None
             parents: interfaces.RelatedCollection
             children: interfaces.RelatedCollection
@@ -1520,6 +1522,7 @@ class TestRelations(unittest.TestCase):
             'details': '321',
             'parent_ids': parent.id,
         })
+        child = self.DAGItem.find(child.id)
         assert len(child.parents) == 1
         assert child.parents[0].id == parent.id
         
@@ -1530,10 +1533,12 @@ class TestRelations(unittest.TestCase):
         )
 
         parent = self.DAGItem2.insert({'details': '123'})
+        assert type(parent.id) is bytes, (type(parent.id), parent.id)
         child = self.DAGItem2.insert({
             'details': '321',
-            'parent_ids': parent.id,
+            'parent_ids': packify.pack((parent.id,)),
         })
+        child = self.DAGItem2.find(child.id)
         assert len(child.parents) == 1
         assert child.parents[0].id == parent.id
 
@@ -1828,6 +1833,7 @@ class TestRelations(unittest.TestCase):
             'details': '321',
             'parent_ids': parent.id,
         })
+        parent = self.DAGItem.find(parent.id)
         assert len(parent.children) == 1
         assert parent.children[0].id == child.id
         
@@ -1838,10 +1844,19 @@ class TestRelations(unittest.TestCase):
         )
 
         parent = self.DAGItem2.insert({'details': '123'})
+        assert self.DAGItem2.id_column in self.DAGItem2.__annotations__, (
+            self.DAGItem2.__annotations__
+        )
+        anno = self.DAGItem2.__annotations__[self.DAGItem2.id_column]
+        assert anno in (bytes, 'bytes'), (anno, type(anno))
+        assert type(parent.id) is bytes, (type(parent.id), parent.id)
         child = self.DAGItem2.insert({
-            'details': '321',
-            'parent_ids': parent.id,
+            'details': '321'
         })
+        assert type(child.id) is bytes, (type(child.id), child.id)
+        parent.children = [child]
+        parent.children().save()
+        parent = self.DAGItem2.find(parent.id)
         assert len(parent.children) == 1
         assert parent.children[0].id == child.id
 
