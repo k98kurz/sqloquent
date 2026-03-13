@@ -95,7 +95,9 @@ class TestIntegration(unittest.TestCase):
 
     def test_make_migration_from_model_path_returns_str_with_correct_content(self):
         name = 'Attachment'
-        result = tools.make_migration_from_model_path(name, 'sqloquent/classes.py', DB_FILEPATH)
+        result = tools.make_migration_from_model_path(
+            name, 'sqloquent/classes.py', DB_FILEPATH
+        )
         assert type(result) is str
         assert name.lower() in result, "table name should be in migration"
         assert 'Table.drop' in result
@@ -110,7 +112,9 @@ class TestIntegration(unittest.TestCase):
     def test_make_migration_from_model_returns_str_with_correct_content(self):
         model = classes.Attachment
         name = model.__name__
-        result = tools.make_migration_from_model(model, name, connection_string=DB_FILEPATH)
+        result = tools.make_migration_from_model(
+            model, name, connection_string=DB_FILEPATH
+        )
         assert type(result) is str
         assert name.lower() in result, "table name should be in migration"
         assert 'Table.drop' in result
@@ -131,7 +135,9 @@ class TestIntegration(unittest.TestCase):
             is_something_else: bool|None
 
         name = CustomModel.table
-        result = tools.make_migration_from_model(CustomModel, name, connection_string=DB_FILEPATH)
+        result = tools.make_migration_from_model(
+            CustomModel, name, connection_string=DB_FILEPATH
+        )
         assert type(result) is str
         assert name.lower() in result, "table name should be in migration"
         assert "t.boolean('is_active')" in result
@@ -146,7 +152,9 @@ class TestIntegration(unittest.TestCase):
             is_active: bool|classes.Default[True]
 
         name = CustomModel.table
-        result = tools.make_migration_from_model(CustomModel, name, connection_string=DB_FILEPATH)
+        result = tools.make_migration_from_model(
+            CustomModel, name, connection_string=DB_FILEPATH
+        )
         assert type(result) is str
         assert name.lower() in result, "table name should be in migration"
         assert "t.text('some_text').default('foobar')" in result, result
@@ -154,9 +162,12 @@ class TestIntegration(unittest.TestCase):
 
     def test_make_migration_from_async_model_returns_str_with_correct_content(self):
         name = 'AsyncAttachment'
-        result = tools.make_migration_from_model_path(name, 'sqloquent/asyncql/classes.py', DB_FILEPATH)
+        result = tools.make_migration_from_model_path(
+            name, 'sqloquent/asyncql/classes.py', DB_FILEPATH
+        )
         assert type(result) is str
-        assert name.replace('Async', '').lower() in result, "table name should be in migration"
+        assert name.replace('Async', '').lower() in result, (
+            "table name should be in migration")
         assert 'Table.drop' in result
         assert 'Table.create' in result
         assert 'Migration' in result
@@ -172,7 +183,9 @@ class TestIntegration(unittest.TestCase):
         assert 'SqliteContext' not in result
         assert 'Migration(connection_string, SqliteContext)' not in result
         assert 'Migration(connection_string)' in result
-        result = tools.make_migration_create(name, DB_FILEPATH, ('SqliteContext', 'sqloquent'))
+        result = tools.make_migration_create(
+            name, DB_FILEPATH, ('SqliteContext', 'sqloquent')
+        )
         assert 'from sqloquent import SqliteContext' in result
         assert 'Migration(connection_string, SqliteContext)' in result
         assert 'Migration(connection_string)' not in result
@@ -183,7 +196,9 @@ class TestIntegration(unittest.TestCase):
         assert 'SqliteContext' not in result
         assert 'Migration(connection_string, SqliteContext)' not in result
         assert 'Migration(connection_string)' in result
-        result = tools.make_migration_alter(name, DB_FILEPATH, ('SqliteContext', 'sqloquent'))
+        result = tools.make_migration_alter(
+            name, DB_FILEPATH, ('SqliteContext', 'sqloquent')
+        )
         assert 'from sqloquent import SqliteContext' in result
         assert 'Migration(connection_string, SqliteContext)' in result
         assert 'Migration(connection_string)' not in result
@@ -194,19 +209,25 @@ class TestIntegration(unittest.TestCase):
         assert 'SqliteContext' not in result
         assert 'Migration(connection_string, SqliteContext)' not in result
         assert 'Migration(connection_string)' in result
-        result = tools.make_migration_drop(name, DB_FILEPATH, ('SqliteContext', 'sqloquent'))
+        result = tools.make_migration_drop(
+            name, DB_FILEPATH, ('SqliteContext', 'sqloquent')
+        )
         assert 'from sqloquent import SqliteContext' in result
         assert 'Migration(connection_string, SqliteContext)' in result
         assert 'Migration(connection_string)' not in result
 
     def test_make_miration_from_model_sets_context_manager(self):
         name = 'Attachment'
-        result = tools.make_migration_from_model_path(name, 'sqloquent/classes.py', DB_FILEPATH)
+        result = tools.make_migration_from_model_path(
+            name, 'sqloquent/classes.py', DB_FILEPATH
+        )
         assert 'SqliteContext' not in result
         assert 'Migration(connection_string, SqliteContext)' not in result
         assert 'Migration(connection_string)' in result
         result = tools.make_migration_from_model_path(
-            name, 'sqloquent/classes.py', DB_FILEPATH, ('SqliteContext', 'sqloquent'))
+            name, 'sqloquent/classes.py', DB_FILEPATH,
+            ('SqliteContext', 'sqloquent')
+        )
         assert 'from sqloquent import SqliteContext' in result
         assert 'Migration(connection_string, SqliteContext)' in result
         assert 'Migration(connection_string)' not in result
@@ -251,7 +272,9 @@ class TestIntegration(unittest.TestCase):
             else:
                 assert f"from sqloquent import {base}, Default" in result, result
             assert f"class {name}({base}):" in result, result
-            assert f"columns: tuple[str] = {tuple([c for c in columns])}" in result, result
+            assert (
+                f"columns: tuple[str] = {tuple([c for c in columns])}" in result
+            ), result
             assert f"connection_info: str = '{DB_FILEPATH}'" in result, result
             assert f"id: str" in result, result
             assert f"thing1: int" in result, result
@@ -279,7 +302,9 @@ class TestIntegration(unittest.TestCase):
         name = "TestClass"
         result = tools.make_model(name)
         assert 'AsyncSqlQueryBuilder' not in result
-        result = tools.make_model(name, sqb=('AsyncSqlQueryBuilder', 'sqloquent.asyncql'))
+        result = tools.make_model(
+            name, sqb=('AsyncSqlQueryBuilder', 'sqloquent.asyncql')
+        )
         assert 'from sqloquent.asyncql import AsyncSqlQueryBuilder' in result
 
     def test_make_model_sets_table(self):
@@ -291,7 +316,9 @@ class TestIntegration(unittest.TestCase):
         assert f"table: str = '{table_name}'" in result, result
 
     def test_publish_migrations_creates_attachments_and_deleted_model_migrations(self):
-        list_files = lambda: [f for f in os.listdir(MIGRATIONS_PATH) if f[-3:] == '.py']
+        list_files = lambda: [
+            f for f in os.listdir(MIGRATIONS_PATH) if f[-3:] == '.py'
+        ]
         assert len(list_files()) == 0
         tools.publish_migrations(MIGRATIONS_PATH)
         assert len(list_files()) == 3
@@ -362,14 +389,16 @@ class TestIntegration(unittest.TestCase):
 
     def tables_exist(self, names: list[str]) -> bool:
         for name in names:
-            q = f"select name from sqlite_master where type='table' and name='{name}'"
+            q = (f"select name from sqlite_master where type='table' and "
+                f"name='{name}'")
             if len(self.cursor.execute(q).fetchall()) == 0:
                 return False
         return True
 
     def tables_do_not_exist(self, names: list[str]) -> bool:
         for name in names:
-            q = f"select name from sqlite_master where type='table' and name='{name}'"
+            q = (f"select name from sqlite_master where type='table' and "
+                f"name='{name}'")
             if len(self.cursor.execute(q).fetchall()) > 0:
                 return False
         return True

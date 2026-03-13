@@ -86,32 +86,39 @@ class TestClasses(unittest.TestCase):
             ...
         self.db = sqlite3.connect(DB_FILEPATH)
         self.cursor = self.db.cursor()
-        self.cursor.execute('create table deleted_records (id text not null, ' +
-            'model_class text not null, record_id text not null, ' +
+        self.cursor.execute('create table deleted_records (id text not null, '
+            'model_class text not null, record_id text not null, '
             'record blob not null, timestamp text not null)')
         self.cursor.execute('create table example (id text, name text)')
         self.cursor.execute('create table hashed_records (id text, details text)')
-        self.cursor.execute('create table hashed_subclass (id text, column1 text, column2 text)')
-        self.cursor.execute('create table attachments (id text, ' +
+        self.cursor.execute('create table hashed_subclass (id text, '
+            'column1 text, column2 text)')
+        self.cursor.execute('create table attachments (id text, '
             'related_model text, related_id text, details blob)')
-        self.cursor.execute('create table example_models (id text, ' +
-            'field1 text, field2 integer, field3 boolean, field4 blob, ' +
-            'field5 real, field1n text nullable, field2n integer nullable, ' +
-            'field3n boolean nullable, field4n blob nullable, field5n real nullable, ' +
-            "field1d text default 'foobar', field2d integer default 123, " +
-            "field3d boolean default true, field4d blob default (x'313233'), " +
-            'field5d real default 1.23, field1nd text nullable default ''foobar'', ' +
-            'field2nd integer nullable default 123, field3nd boolean nullable default true, ' +
-            "field4nd blob nullable default (x'313233'), field5nd real nullable default 1.23)")
-        self.cursor.execute('create table example_hashed_models (id text, ' +
-            'field1 text, field2 integer, field3 boolean, field4 blob, ' +
-            'field5 real, field1n text nullable, field2n integer nullable, ' +
-            'field3n boolean nullable, field4n blob nullable, field5n real nullable, ' +
-            'field1d text default ''foobar'', field2d integer default 123, ' +
-            'field3d boolean default true, field4d blob default X''313233'', ' +
-            'field5d real default 1.23, field1nd text nullable default ''foobar'', ' +
-            'field2nd integer nullable default 123, field3nd boolean nullable default true, ' +
-            'field4nd blob nullable default X''313233'', field5nd real nullable default 1.23)')
+        self.cursor.execute('create table example_models (id text, '
+            'field1 text, field2 integer, field3 boolean, field4 blob, '
+            'field5 real, field1n text nullable, field2n integer nullable, '
+            'field3n boolean nullable, field4n blob nullable, '
+            "field5n real nullable, field1d text default 'foobar', "
+            'field2d integer default 123, field3d boolean default true, '
+            "field4d blob default (x'313233'), field5d real default 1.23, "
+            "field1nd text nullable default 'foobar', "
+            'field2nd integer nullable default 123, '
+            'field3nd boolean nullable default true, '
+            "field4nd blob nullable default (x'313233'), "
+            "field5nd real nullable default 1.23)")
+        self.cursor.execute('create table example_hashed_models (id text, '
+            'field1 text, field2 integer, field3 boolean, field4 blob, '
+            'field5 real, field1n text nullable, field2n integer nullable, '
+            'field3n boolean nullable, field4n blob nullable, '
+            "field5n real nullable, field1d text default 'foobar', "
+            'field2d integer default 123, field3d boolean default true, '
+            "field4d blob default X'313233', field5d real default 1.23, "
+            "field1nd text nullable default 'foobar', "
+            'field2nd integer nullable default 123, '
+            'field3nd boolean nullable default true, '
+            "field4nd blob nullable default X'313233', "
+            'field5nd real nullable default 1.23)')
 
         return super().setUp()
 
@@ -203,7 +210,12 @@ class TestClasses(unittest.TestCase):
     def test_SqlModel_column_property_mapping_disabled_for_colliding_names(self):
         class Derived(classes.SqlModel):
             columns: tuple[str] = ('id', 'name', 'save', 'data')
-        model = Derived({'id': '123', 'name': 'Bob', 'save': 'to-do', 'data': '321'})
+        model = Derived({
+            'id': '123',
+            'name': 'Bob',
+            'save': 'to-do',
+            'data': '321'
+        })
         assert hasattr(model, 'save') and callable(model.save)
         assert 'save' in model.data and model.data['save'] == 'to-do'
         assert 'data' in model.data and model.data['data'] == '321'
@@ -230,12 +242,16 @@ class TestClasses(unittest.TestCase):
         TestModel._post_init_hooks = []
         with self.assertRaises(TypeError) as e:
             _ = TestModel()
-        assert str(e.exception) == '_post_init_hooks must be a dict mapping names to Callables'
+        assert str(e.exception) == (
+            '_post_init_hooks must be a dict mapping names to Callables'
+        ), e.exception
 
         TestModel._post_init_hooks = {'name': 'not callable'}
         with self.assertRaises(ValueError) as e:
             _ = TestModel()
-        assert str(e.exception) == '_post_init_hooks must be a dict mapping names to Callables'
+        assert str(e.exception) == (
+            '_post_init_hooks must be a dict mapping names to Callables'
+        ), e.exception
 
     def test_SqlModel_encode_value_raises_packify_UsageError_for_unrecognized_type(self):
         with self.assertRaises(packify.UsageError) as e:
@@ -485,7 +501,8 @@ class TestClasses(unittest.TestCase):
         assert issubclass(modelclass, classes.SqlModel)
         model = modelclass()
         assert isinstance(model, interfaces.ModelProtocol)
-        assert hasattr(model, "connection_info") and model.connection_info == filepath
+        assert (hasattr(model, "connection_info")
+            and model.connection_info == filepath)
         assert hasattr(model, "table") and model.table == tablename
         assert hasattr(model, "columns") and model.columns == columns
 
@@ -494,7 +511,8 @@ class TestClasses(unittest.TestCase):
         assert issubclass(modelclass, classes.SqlModel)
         model = modelclass()
         assert isinstance(model, interfaces.ModelProtocol)
-        assert hasattr(model, "connection_info") and model.connection_info == filepath
+        assert (hasattr(model, "connection_info")
+            and model.connection_info == filepath)
         assert model.table == ""
         assert model.columns == ()
 
@@ -628,7 +646,11 @@ class TestClasses(unittest.TestCase):
 
     def test_SqlQueryBuilder_less_or_equal_raises_TypeError_for_nonstr_column(self):
         with self.assertRaises(TypeError) as e:
-            classes.SqlQueryBuilder(classes.SqlModel).less_or_equal(b'not a str', '')
+            classes.SqlQueryBuilder(
+                classes.SqlModel
+            ).less_or_equal(
+                b'not a str', ''
+            )
         assert str(e.exception) == 'column must be str'
 
     def test_SqlQueryBuilder_less_or_equal_adds_correct_clause_and_param(self):
@@ -678,7 +700,11 @@ class TestClasses(unittest.TestCase):
 
     def test_SqlQueryBuilder_greater_or_equal_raises_TypeError_for_nonstr_column(self):
         with self.assertRaises(TypeError) as e:
-            classes.SqlQueryBuilder(classes.SqlModel).greater_or_equal(b'not a str', '')
+            classes.SqlQueryBuilder(
+                classes.SqlModel
+            ).greater_or_equal(
+                b'not a str', ''
+            )
         assert str(e.exception) == 'column must be str'
 
     def test_SqlQueryBuilder_greater_or_equal_adds_correct_clause_and_param(self):
@@ -728,18 +754,30 @@ class TestClasses(unittest.TestCase):
 
         with self.assertRaises(TypeError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).like(name='thing')
-        assert str(e.exception) == 'each value must be tuple or list with 2 elements: pattern, data'
+        assert str(e.exception) == (
+            'each value must be tuple or list with 2 elements: pattern, data'
+        ), e.exception
 
         with self.assertRaises(ValueError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).like(name=('thing',))
-        assert str(e.exception) == 'each value must be tuple or list with 2 elements: pattern, data'
+        assert str(e.exception) == (
+            'each value must be tuple or list with 2 elements: pattern, data'
+        ), e.exception
 
         with self.assertRaises(TypeError) as e:
-            classes.SqlQueryBuilder(classes.SqlModel).like(name=(b'not a str', 'test'))
+            classes.SqlQueryBuilder(
+                classes.SqlModel
+            ).like(
+                name=(b'not a str', 'test')
+            )
         assert 'pattern must be str' in str(e.exception), str(e.exception)
 
         with self.assertRaises(TypeError) as e:
-            classes.SqlQueryBuilder(classes.SqlModel).like(name=('thing', b'not a str'))
+            classes.SqlQueryBuilder(
+                classes.SqlModel
+            ).like(
+                name=('thing', b'not a str')
+            )
         assert 'data must be str' in str(e.exception), str(e.exception)
 
     def test_SqlQueryBuilder_like_adds_correct_clause_and_param(self):
@@ -764,7 +802,11 @@ class TestClasses(unittest.TestCase):
 
     def test_SqlQueryBuilder_not_like_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
-            classes.SqlQueryBuilder(classes.SqlModel).not_like(b'not a str', '', '')
+            classes.SqlQueryBuilder(
+                classes.SqlModel
+            ).not_like(
+                b'not a str', '', ''
+            )
         assert str(e.exception) == 'column must be str'
 
         with self.assertRaises(TypeError) as e:
@@ -789,18 +831,30 @@ class TestClasses(unittest.TestCase):
 
         with self.assertRaises(TypeError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).not_like(name='thing')
-        assert str(e.exception) == 'each value must be tuple or list with 2 elements: pattern, data'
+        assert str(e.exception) == (
+            'each value must be tuple or list with 2 elements: pattern, data'
+        ), e.exception
 
         with self.assertRaises(ValueError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).not_like(name=('thing',))
-        assert str(e.exception) == 'each value must be tuple or list with 2 elements: pattern, data'
+        assert str(e.exception) == (
+            'each value must be tuple or list with 2 elements: pattern, data'
+        ), e.exception
 
         with self.assertRaises(TypeError) as e:
-            classes.SqlQueryBuilder(classes.SqlModel).not_like(name=(b'not a str', 'test'))
+            classes.SqlQueryBuilder(
+                classes.SqlModel
+            ).not_like(
+                name=(b'not a str', 'test')
+            )
         assert str(e.exception) == 'each pattern must be str'
 
         with self.assertRaises(TypeError) as e:
-            classes.SqlQueryBuilder(classes.SqlModel).not_like(name=('thing', b'not a str'))
+            classes.SqlQueryBuilder(
+                classes.SqlModel
+            ).not_like(
+                name=('thing', b'not a str')
+            )
         assert str(e.exception) == 'each data must be str'
 
     def test_SqlQueryBuilder_not_like_adds_correct_clause_and_param(self):
@@ -866,24 +920,36 @@ class TestClasses(unittest.TestCase):
 
     def test_SqlQueryBuilder_does_not_start_with_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
-            classes.SqlQueryBuilder(classes.SqlModel).does_not_start_with(b'not a str', '')
-        assert str(e.exception) == 'column must be str'
+            classes.SqlQueryBuilder(
+                classes.SqlModel
+            ).does_not_start_with(
+                b'not a str', ''
+            )
+        assert str(e.exception) == 'column must be str', e.exception
 
         with self.assertRaises(TypeError) as e:
-            classes.SqlQueryBuilder(classes.SqlModel).does_not_start_with('', b'not a str')
-        assert str(e.exception) == 'data must be str'
+            classes.SqlQueryBuilder(
+                classes.SqlModel
+            ).does_not_start_with(
+                '', b'not a str'
+            )
+        assert str(e.exception) == 'data must be str', e.exception
 
         with self.assertRaises(ValueError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).does_not_start_with('', 'sds')
-        assert str(e.exception) == 'column cannot be empty'
+        assert str(e.exception) == 'column cannot be empty', e.exception
 
         with self.assertRaises(ValueError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).does_not_start_with('sds', '')
-        assert str(e.exception) == 'data cannot be empty'
+        assert str(e.exception) == 'data cannot be empty', e.exception
 
         with self.assertRaises(TypeError) as e:
-            classes.SqlQueryBuilder(classes.SqlModel).does_not_start_with(name=b'not a str')
-        assert str(e.exception) == 'data must be str'
+            classes.SqlQueryBuilder(
+                classes.SqlModel
+            ).does_not_start_with(
+                name=b'not a str'
+            )
+        assert str(e.exception) == 'data must be str', e.exception
 
     def test_SqlQueryBuilder_does_not_start_with_adds_correct_clause_and_param(self):
         sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
@@ -1030,24 +1096,36 @@ class TestClasses(unittest.TestCase):
 
     def test_SqlQueryBuilder_does_not_end_with_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
-            classes.SqlQueryBuilder(classes.SqlModel).does_not_end_with(b'not a str', '')
-        assert str(e.exception) == 'column must be str'
+            classes.SqlQueryBuilder(
+                classes.SqlModel
+            ).does_not_end_with(
+                b'not a str', ''
+            )
+        assert str(e.exception) == 'column must be str', e.exception
 
         with self.assertRaises(TypeError) as e:
-            classes.SqlQueryBuilder(classes.SqlModel).does_not_end_with('', b'not a str')
-        assert str(e.exception) == 'data must be str'
+            classes.SqlQueryBuilder(
+                classes.SqlModel
+            ).does_not_end_with(
+                '', b'not a str'
+            )
+        assert str(e.exception) == 'data must be str', e.exception
 
         with self.assertRaises(ValueError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).does_not_end_with('', 'sds')
-        assert str(e.exception) == 'column cannot be empty'
+        assert str(e.exception) == 'column cannot be empty', e.exception
 
         with self.assertRaises(ValueError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).does_not_end_with('sds', '')
-        assert str(e.exception) == 'data cannot be empty'
+        assert str(e.exception) == 'data cannot be empty', e.exception
 
         with self.assertRaises(TypeError) as e:
-            classes.SqlQueryBuilder(classes.SqlModel).does_not_end_with(name=b'not a str')
-        assert str(e.exception) == 'data must be str'
+            classes.SqlQueryBuilder(
+                classes.SqlModel
+            ).does_not_end_with(
+                name=b'not a str'
+            )
+        assert str(e.exception) == 'data must be str', e.exception
 
     def test_SqlQueryBuilder_does_not_end_with_adds_correct_clause_and_param(self):
         sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
@@ -1088,7 +1166,7 @@ class TestClasses(unittest.TestCase):
 
         with self.assertRaises(TypeError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).is_in(name='not a list')
-        assert 'data must be tuple or list' in str(e.exception), str(e.exception)
+        assert 'data must be tuple or list' in str(e.exception), e.exception
 
     def test_SqlQueryBuilder_is_in_adds_correct_clause_and_param(self):
         sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
@@ -1115,24 +1193,28 @@ class TestClasses(unittest.TestCase):
 
     def test_SqlQueryBuilder_not_in_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
-            classes.SqlQueryBuilder(classes.SqlModel).not_in(b'not a str', 'not list')
-        assert str(e.exception) == 'column must be str'
+            classes.SqlQueryBuilder(
+                classes.SqlModel
+            ).not_in(
+                b'not a str', 'not list'
+            )
+        assert str(e.exception) == 'column must be str', e.exception
 
         with self.assertRaises(TypeError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).not_in('', 'not a list')
-        assert str(e.exception) == 'data must be tuple or list'
+        assert str(e.exception) == 'data must be tuple or list', e.exception
 
         with self.assertRaises(ValueError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).not_in('', ['sds'])
-        assert str(e.exception) == 'column cannot be empty'
+        assert str(e.exception) == 'column cannot be empty', e.exception
 
         with self.assertRaises(ValueError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).not_in('sds', [])
-        assert str(e.exception) == 'data cannot be empty'
+        assert str(e.exception) == 'data cannot be empty', e.exception
 
         with self.assertRaises(TypeError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).not_in(name='not a list')
-        assert 'data must be tuple or list' in str(e.exception), str(e.exception)
+        assert 'data must be tuple or list' in str(e.exception), e.exception
 
     def test_SqlQueryBuilder_not_in_adds_correct_clause_and_param(self):
         sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
@@ -1159,12 +1241,16 @@ class TestClasses(unittest.TestCase):
 
     def test_SqlQueryBuilder_where_raises_errors_for_invalid_input(self):
         with self.assertRaises(ValueError) as e:
-            classes.SqlQueryBuilder(classes.SqlModel).where(not_a_condition='should not work')
-        assert 'unrecognized condition type' in str(e.exception)
+            classes.SqlQueryBuilder(
+                classes.SqlModel
+            ).where(
+                not_a_condition='should not work'
+            )
+        assert 'unrecognized condition type' in str(e.exception), e.exception
 
         with self.assertRaises(TypeError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).where(equal=b'not a dict')
-        assert 'must be dict' in str(e.exception)
+        assert 'must be dict' in str(e.exception), e.exception
 
     def test_SqlQueryBuilder_where_adds_correct_clauses_and_params(self):
         sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
@@ -1279,23 +1365,31 @@ class TestClasses(unittest.TestCase):
     def test_SqlQueryBuilder_order_by_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).order_by(b'not a str', 'asc')
-        assert str(e.exception) == 'column must be str'
+        assert str(e.exception) == 'column must be str', e.exception
 
         with self.assertRaises(TypeError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).order_by('', b'not a str')
-        assert str(e.exception) == 'direction must be str'
+        assert str(e.exception) == 'direction must be str', e.exception
 
         with self.assertRaises(ValueError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).order_by('', '')
-        assert 'unrecognized column' in str(e.exception)
+        assert 'unrecognized column' in str(e.exception), e.exception
 
         with self.assertRaises(ValueError) as e:
-            classes.SqlQueryBuilder(classes.SqlModel).order_by('id', 'not asc or desc')
-        assert str(e.exception) == 'direction must be asc or desc'
+            classes.SqlQueryBuilder(
+                classes.SqlModel
+            ).order_by(
+                'id', 'not asc or desc'
+            )
+        assert str(e.exception) == 'direction must be asc or desc', e.exception
 
         with self.assertRaises(TypeError) as e:
-            classes.SqlQueryBuilder(classes.SqlModel).order_by(name=b'not a str')
-        assert str(e.exception) == 'direction must be str'
+            classes.SqlQueryBuilder(
+                classes.SqlModel
+            ).order_by(
+                name=b'not a str'
+            )
+        assert str(e.exception) == 'direction must be str', e.exception
 
     def test_SqlQueryBuilder_order_by_sets_order_column_and_order_dir(self):
         sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
@@ -1308,11 +1402,11 @@ class TestClasses(unittest.TestCase):
     def test_SqlQueryBuilder_skip_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).skip('not an int')
-        assert str(e.exception) == 'offset must be positive int'
+        assert str(e.exception) == 'offset must be positive int', e.exception
 
         with self.assertRaises(ValueError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).skip(-1)
-        assert str(e.exception) == 'offset must be positive int'
+        assert str(e.exception) == 'offset must be positive int', e.exception
 
     def test_SqlQueryBuilder_skip_sets_offset(self):
         sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
@@ -1322,7 +1416,7 @@ class TestClasses(unittest.TestCase):
     def test_SqlQueryBuilder_insert_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).insert('not a dict')
-        assert str(e.exception) == 'data must be dict'
+        assert str(e.exception) == 'data must be dict', e.exception
 
         model_id = classes.SqlModel.insert({}).data['id']
 
@@ -1331,7 +1425,7 @@ class TestClasses(unittest.TestCase):
                 classes.SqlModel,
                 classes.SqliteContext
             ).insert({'id': model_id})
-        assert str(e.exception) == 'record with this id already exists'
+        assert str(e.exception) == 'record with this id already exists', e.exception
 
     def test_SqlQueryBuilder_insert_inserts_record_into_database(self):
         sqb = classes.SqlQueryBuilder(classes.SqlModel, classes.SqliteContext)
@@ -1343,39 +1437,39 @@ class TestClasses(unittest.TestCase):
     def test_SqlQueryBuilder_insert_many_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).insert_many('not a list')
-        assert str(e.exception) == 'items must be list[dict]'
+        assert str(e.exception) == 'items must be list[dict]', e.exception
 
         with self.assertRaises(TypeError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).insert_many(['not a dict'])
-        assert str(e.exception) == 'items must be list[dict]'
+        assert str(e.exception) == 'items must be list[dict]', e.exception
 
     def test_SqlQueryBuilder_take_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).take('not an int')
-        assert str(e.exception) == 'limit must be positive int'
+        assert str(e.exception) == 'limit must be positive int', e.exception
 
         with self.assertRaises(ValueError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).take(0)
-        assert str(e.exception) == 'limit must be positive int'
+        assert str(e.exception) == 'limit must be positive int', e.exception
 
     def test_SqlQueryBuilder_chunk_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
             sqb = classes.SqlQueryBuilder(classes.SqlModel, classes.SqliteContext)
             sqb.chunk('not an int')
-        assert str(e.exception) == 'number must be int > 0'
+        assert str(e.exception) == 'number must be int > 0', e.exception
 
         with self.assertRaises(ValueError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).chunk(0)
-        assert str(e.exception) == 'number must be int > 0'
+        assert str(e.exception) == 'number must be int > 0', e.exception
 
     def test_SqlQueryBuilder_update_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).update('not a dict')
-        assert str(e.exception) == 'updates must be dict'
+        assert str(e.exception) == 'updates must be dict', e.exception
 
         with self.assertRaises(TypeError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).update({}, 'not a dict')
-        assert str(e.exception) == 'conditions must be dict'
+        assert str(e.exception) == 'conditions must be dict', e.exception
 
     def test_SqlQueryBuilder_to_sql_returns_correct_sql_str(self):
         sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
@@ -1386,28 +1480,36 @@ class TestClasses(unittest.TestCase):
         assert sqb.to_sql() == ' where "name" = \'foo\'', sqb.to_sql()
 
         sqb.order_by('id')
-        assert sqb.to_sql() == ' where "name" = \'foo\' order by "id" desc', sqb.to_sql()
+        assert sqb.to_sql() == (
+            ' where "name" = \'foo\' order by "id" desc'
+        ), sqb.to_sql()
 
         sqb.skip(3)
-        assert sqb.to_sql() == ' where "name" = \'foo\' order by "id" desc', sqb.to_sql()
+        assert sqb.to_sql() == (
+            ' where "name" = \'foo\' order by "id" desc'
+        ), sqb.to_sql()
 
         sqb.offset = None
         sqb.limit = 5
-        assert sqb.to_sql() == ' where "name" = \'foo\' order by "id" desc limit 5', sqb.to_sql()
+        assert sqb.to_sql() == (
+            ' where "name" = \'foo\' order by "id" desc limit 5'
+        ), sqb.to_sql()
 
         sqb.skip(3)
-        assert sqb.to_sql() == ' where "name" = \'foo\' order by "id" desc limit 5 offset 3', sqb.to_sql()
+        assert sqb.to_sql() == (
+            ' where "name" = \'foo\' order by "id" desc limit 5 offset 3'
+        ), sqb.to_sql()
 
     def test_SqlQueryBuilder_to_sql_without_interpolate_params_returns_str_and_list(self):
         sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
-        assert type(sqb.to_sql(interpolate_params=False)) is tuple, \
-            'to_sql(interpolate_params=False) must return tuple(str, list)'
-        assert len(sqb.to_sql(interpolate_params=False)) == 2, \
-            'to_sql(interpolate_params=False) must return tuple(str, list)'
-        assert type(sqb.to_sql(interpolate_params=False)[0]) is str, \
-            'to_sql(interpolate_params=False) must return tuple(str, list)'
-        assert type(sqb.to_sql(interpolate_params=False)[1]) is list, \
-            'to_sql(interpolate_params=False) must return tuple(str, list)'
+        assert type(sqb.to_sql(interpolate_params=False)) is tuple, (
+            'to_sql(interpolate_params=False) must return tuple(str, list)')
+        assert len(sqb.to_sql(interpolate_params=False)) == 2, (
+            'to_sql(interpolate_params=False) must return tuple(str, list)')
+        assert type(sqb.to_sql(interpolate_params=False)[0]) is str, (
+            'to_sql(interpolate_params=False) must return tuple(str, list)')
+        assert type(sqb.to_sql(interpolate_params=False)[1]) is list, (
+            'to_sql(interpolate_params=False) must return tuple(str, list)')
         assert sqb.to_sql(interpolate_params=False)[0] == ' where '
 
         sqb.equal('name', 'foo')
@@ -1415,21 +1517,28 @@ class TestClasses(unittest.TestCase):
         assert sqb.to_sql(interpolate_params=False)[1] == ['foo']
 
         sqb.order_by('id')
-        assert sqb.to_sql(interpolate_params=False)[0] == ' where "name" = ? order by "id" desc', \
-            sqb.to_sql(interpolate_params=False)[0]
+        assert sqb.to_sql(interpolate_params=False)[0] == (
+            ' where "name" = ? order by "id" desc'
+        ), sqb.to_sql(interpolate_params=False)[0]
         assert sqb.to_sql(interpolate_params=False)[1] == ['foo']
 
         sqb.skip(3)
-        assert sqb.to_sql(interpolate_params=False)[0] == ' where "name" = ? order by "id" desc'
+        assert sqb.to_sql(interpolate_params=False)[0] == (
+            ' where "name" = ? order by "id" desc'
+        )
         assert sqb.to_sql(interpolate_params=False)[1] == ['foo']
 
         sqb.offset = None
         sqb.limit = 5
-        assert sqb.to_sql(interpolate_params=False)[0] == ' where "name" = ? order by "id" desc limit 5'
+        assert sqb.to_sql(interpolate_params=False)[0] == (
+            ' where "name" = ? order by "id" desc limit 5'
+        )
         assert sqb.to_sql(interpolate_params=False)[1] == ['foo']
 
         sqb.skip(3)
-        assert sqb.to_sql(interpolate_params=False)[0] == ' where "name" = ? order by "id" desc limit 5 offset 3'
+        assert sqb.to_sql(interpolate_params=False)[0] == (
+            ' where "name" = ? order by "id" desc limit 5 offset 3'
+        )
         assert sqb.to_sql(interpolate_params=False)[1] == ['foo']
 
     def test_SqlQueryBuilder_reset_returns_fresh_instance(self):
@@ -1442,21 +1551,21 @@ class TestClasses(unittest.TestCase):
     def test_SqlQueryBuilder_execute_raw_raises_TypeError_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
             classes.SqlQueryBuilder(classes.SqlModel).execute_raw(b'not str')
-        assert str(e.exception) == 'sql must be str'
+        assert str(e.exception) == 'sql must be str', e.exception
 
     def test_SqlQueryBuilder_insert_inserts_record_into_datastore(self):
         # e2e test
         sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
         assert sqb.count() == 0, 'count() must return 0'
         inserted = sqb.insert({'name': 'test1'})
-        assert isinstance(inserted, sqb.model), \
-            'insert() must return instance of sqb.model'
-        assert inserted.id_column not in inserted.data, \
-            'insert() must not assign id'
+        assert isinstance(inserted, sqb.model), (
+            'insert() must return instance of sqb.model')
+        assert inserted.id_column not in inserted.data, (
+            'insert() must not assign id')
         assert sqb.count() == 1, 'count() must return 1'
         inserted = sqb.insert({'name': 'test2', 'id': '321'})
-        assert sqb.find('321') is not None, \
-            'find() must return a record that was inserted'
+        assert sqb.find('321') is not None, (
+            'find() must return a record that was inserted')
 
     def test_SqlQueryBuilder_insert_many_inserts_records_into_datastore(self):
         # e2e test
@@ -1546,7 +1655,9 @@ class TestClasses(unittest.TestCase):
         sqb.insert_many(dicts)
 
         assert sqb.count() == 25
-        assert isinstance(sqb.chunk(10), GeneratorType), 'chunk must return generator'
+        assert isinstance(sqb.chunk(10), GeneratorType), (
+            'chunk must return generator'
+        )
         for results in sqb.chunk(10):
             assert type(results) is list
             for record in results:
@@ -1560,7 +1671,9 @@ class TestClasses(unittest.TestCase):
         inserted = sqb.insert({'name': 'test1', 'id': '123'})
         sqb.insert({'name': 'test2', 'id': '321'})
         first = sqb.first()
-        assert isinstance(first, sqb.model), 'first() must return instance of sqb.model'
+        assert isinstance(first, sqb.model), (
+            'first() must return instance of sqb.model'
+        )
         first = sqb.order_by('id', 'asc').first()
         assert first == inserted, 'first() must return correct instance'
 
@@ -1588,11 +1701,15 @@ class TestClasses(unittest.TestCase):
         # e2e test
         sqb = classes.SqlQueryBuilder(model=classes.SqlModel)
         assert sqb.count() == 0, 'count() must return 0'
-        result = sqb.execute_raw("insert into example (id, name) values ('123', '321')")
+        result = sqb.execute_raw(
+            "insert into example (id, name) values ('123', '321')"
+        )
         assert type(result) is tuple, 'execute_raw must return tuple'
         assert result[0] == 1, 'execute_raw returns wrong rowcount'
         assert type(result[1]) is list
-        result = sqb.execute_raw("insert into example (id, name) values ('321', '123'), ('abc', 'cba')")
+        result = sqb.execute_raw(
+            "insert into example (id, name) values ('321', '123'), ('abc', 'cba')"
+        )
         assert result[0] == 2, 'execute_raw returns wrong rowcount'
         assert sqb.count() == 3, 'count() must return 3'
 
@@ -1644,7 +1761,9 @@ class TestClasses(unittest.TestCase):
 
         # with a join
         for model in models:
-            attachment = classes.Attachment({"details": f"test for {model.data['name']}"})
+            attachment = classes.Attachment({
+                "details": f"test for {model.data['name']}"
+            })
             attachment.attach_to(model).save()
         sqb = classes.SqlModel.query()
         sqb.join(classes.Attachment, ["id", "related_id"])
@@ -1652,9 +1771,15 @@ class TestClasses(unittest.TestCase):
         results = sqb.get()
         assert type(results) is list
         assert len(results) == 2
-        assert all(["example" in r.data and "attachments" in r.data for r in results])
-        assert all([list(dict.keys(r.data["example"])) == ["name"] for r in results])
-        assert all([list(dict.keys(r.data["attachments"])) == ["id"] for r in results])
+        assert all([
+            "example" in r.data and "attachments" in r.data for r in results
+        ])
+        assert all([
+            list(dict.keys(r.data["example"])) == ["name"] for r in results
+        ])
+        assert all([
+            list(dict.keys(r.data["attachments"])) == ["id"] for r in results
+        ])
 
     def test_SqlQueryBuilder_group_groups_results(self):
         names = ['model1', 'model2']
@@ -1668,7 +1793,10 @@ class TestClasses(unittest.TestCase):
         results = sqb.get()
         assert type(results) is list
         assert all([isinstance(r, classes.Row) for r in results])
-        assert all([list(dict.keys(r.data)) == ["count(*)", "related_id"] for r in results])
+        assert all([
+            list(dict.keys(r.data)) == ["count(*)", "related_id"]
+            for r in results
+        ])
 
     def test_SqlQueryBuilder_group_works_with_join(self):
         names = ['model1', 'model2']
@@ -1678,12 +1806,19 @@ class TestClasses(unittest.TestCase):
                 attachment = classes.Attachment({"details": f"test data {i}"})
                 attachment.attach_to(model).save()
         sqb = classes.SqlModel.query().join(
-            classes.Attachment, ['id', 'related_id']
-        ).group("attachments.related_id").select(["count(*)", "name", "related_id"])
+                classes.Attachment, ['id', 'related_id']
+            ).group(
+                "attachments.related_id"
+            ).select([
+                "count(*)", "name", "related_id"
+            ])
         results = sqb.get()
         assert type(results) is list
         assert all([isinstance(r, classes.Row) for r in results])
-        assert all([list(dict.keys(r.data)) == ["count(*)", "name", "related_id"] for r in results])
+        assert all([
+            list(dict.keys(r.data)) == ["count(*)", "name", "related_id"]
+            for r in results
+        ])
 
     def test_SqlQueryBuilder_works_with_table_or_model(self):
         sqb1 = classes.SqlQueryBuilder(model=classes.HashedModel)
@@ -1736,7 +1871,9 @@ class TestClasses(unittest.TestCase):
             SQBUnbound('example', columns=('id')).count()
 
         # no error when injected or bound
-        assert SQBUnbound('example', connection_info=DB_FILEPATH, columns=('id')).count() == 0
+        assert SQBUnbound(
+            'example', connection_info=DB_FILEPATH, columns=('id')
+        ).count() == 0
         assert SQBBound('example', columns=('id')).count() == 0
 
 
@@ -1770,9 +1907,13 @@ class TestClasses(unittest.TestCase):
         assert classes.HashedModel.id_column in inserted.data
         assert type(inserted.data[classes.HashedModel.id_column]) == str
         assert len(inserted.data[classes.HashedModel.id_column]) == 64
-        assert len(bytes.fromhex(inserted.data[classes.HashedModel.id_column])) == 32
+        assert len(
+            bytes.fromhex(inserted.data[classes.HashedModel.id_column])
+        ) == 32
 
-        found = classes.HashedModel.find(inserted.data[classes.HashedModel.id_column])
+        found = classes.HashedModel.find(
+            inserted.data[classes.HashedModel.id_column]
+        )
         assert isinstance(found, classes.HashedModel)
         assert found == inserted
 
@@ -1800,7 +1941,9 @@ class TestClasses(unittest.TestCase):
             assert classes.HashedModel.id_column in item.data
             assert type(item.data[classes.HashedModel.id_column]) == str
             assert len(item.data[classes.HashedModel.id_column]) == 64
-            assert len(bytes.fromhex(item.data[classes.HashedModel.id_column])) == 32
+            assert len(
+                bytes.fromhex(item.data[classes.HashedModel.id_column])
+            ) == 32
 
     def test_HashedModel_update_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
@@ -1856,7 +1999,10 @@ class TestClasses(unittest.TestCase):
             column1: str
             column2: str
 
-        original = HashedSubclass.insert({'column1': 'stuff', 'column2': 'something'})
+        original = HashedSubclass.insert({
+            'column1': 'stuff',
+            'column2': 'something'
+        })
         expected_id = sha256(
             packify.pack({'column1': 'stuff'})
         ).digest().hex()
@@ -1873,7 +2019,10 @@ class TestClasses(unittest.TestCase):
             column1: str
             column2: str
 
-        original = HashedSubclass.insert({'column1': 'stuff', 'column2': 'something'})
+        original = HashedSubclass.insert({
+            'column1': 'stuff',
+            'column2': 'something'
+        })
         original.update({'column2': 'something else'})
         same = HashedSubclass.find(original.id)
         assert same.column2 == 'something else', same
@@ -1900,7 +2049,9 @@ class TestClasses(unittest.TestCase):
         assert len(log) == 0, 'invalid test precondition'
         classes.HashedModel.insert({'details': next_details()})
         assert len(log) == 2
-        classes.HashedModel.insert({'details': next_details()}, suppress_events=True)
+        classes.HashedModel.insert(
+            {'details': next_details()}, suppress_events=True
+        )
         assert len(log) == 2
         HashedSubclass.insert({'column1': next_details()})
         assert len(log) == 2, len(log)
@@ -1932,7 +2083,9 @@ class TestClasses(unittest.TestCase):
         assert len(log) == 0, 'invalid test precondition'
         classes.HashedModel.insert_many([{'details': next_details()}])
         assert len(log) == 2
-        classes.HashedModel.insert_many([{'details': next_details()}], suppress_events=True)
+        classes.HashedModel.insert_many(
+            [{'details': next_details()}], suppress_events=True
+        )
         assert len(log) == 2
         classes.HashedModel.clear_hooks('before_insert_many')
         classes.HashedModel.clear_hooks('after_insert_many')
@@ -1983,13 +2136,17 @@ class TestClasses(unittest.TestCase):
         item = classes.HashedModel.insert({'data': '123'})
 
         deleted = item.delete()
-        assert classes.DeletedModel.find(deleted.data[deleted.id_column]) is not None
+        assert (
+            classes.DeletedModel.find(deleted.data[deleted.id_column]) is not None
+        )
         assert classes.HashedModel.find(item.data[item.id_column]) is None
 
         restored = deleted.restore()
         assert isinstance(restored, classes.SqlModel)
         assert classes.DeletedModel.find(deleted.data[deleted.id_column]) is None
-        assert classes.HashedModel.find(restored.data[restored.id_column]) is not None
+        assert (
+            classes.HashedModel.find(restored.data[restored.id_column]) is not None
+        )
 
     def test_DeletedModel_restore_raises_errors_for_invalid_target_record(self):
         class NotValidClass:
@@ -2029,8 +2186,12 @@ class TestClasses(unittest.TestCase):
             return addlog
 
         # insert
-        classes.DeletedModel.add_hook('before_insert', make_handler('before_insert'))
-        classes.DeletedModel.add_hook('after_insert', make_handler('after_insert'))
+        classes.DeletedModel.add_hook(
+            'before_insert', make_handler('before_insert')
+        )
+        classes.DeletedModel.add_hook(
+            'after_insert', make_handler('after_insert')
+        )
         model = classes.HashedModel.insert({'details': 'test'})
         assert len(log) == 0, 'invalid test precondition'
         deleted = model.delete()
@@ -2045,8 +2206,12 @@ class TestClasses(unittest.TestCase):
         log.clear()
 
         # restore
-        classes.DeletedModel.add_hook('before_restore', make_handler('before_restore'))
-        classes.DeletedModel.add_hook('after_restore', make_handler('after_restore'))
+        classes.DeletedModel.add_hook(
+            'before_restore', make_handler('before_restore')
+        )
+        classes.DeletedModel.add_hook(
+            'after_restore', make_handler('after_restore')
+        )
         assert len(log) == 0, 'invalid test precondition'
         model = deleted.restore()
         assert len(log) == 2
@@ -2069,7 +2234,9 @@ class TestClasses(unittest.TestCase):
             ...
 
         with self.assertRaises(TypeError) as e:
-            classes.Attachment({'details': 'should fail'}).attach_to(NotValidClass())
+            classes.Attachment({
+                'details': 'should fail'
+            }).attach_to(NotValidClass())
         assert str(e.exception) == 'related must inherit from SqlModel'
 
     def test_Attachment_attach_to_sets_related_model_and_related_id(self):
@@ -2138,8 +2305,12 @@ class TestClasses(unittest.TestCase):
                 log.append((name, args, kwargs))
             return addlog
 
-        classes.Attachment.add_hook('before_insert', make_handler('before_insert'))
-        classes.Attachment.add_hook('after_insert', make_handler('before_insert'))
+        classes.Attachment.add_hook(
+            'before_insert', make_handler('before_insert')
+        )
+        classes.Attachment.add_hook(
+            'after_insert', make_handler('before_insert')
+        )
         assert len(log) == 0, 'invalid test precondition'
         classes.Attachment.insert({
             'related_model': 'HashedModel',

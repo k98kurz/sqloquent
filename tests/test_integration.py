@@ -72,16 +72,24 @@ class TestIntegration(unittest.TestCase):
 
     def test_integration_e2e(self):
         # generate migrations
-        names = ['Account', 'Correspondence', 'Entry', 'Identity', 'Ledger', 'Transaction']
+        names = [
+            'Account', 'Correspondence', 'Entry', 'Identity', 'Ledger',
+            'Transaction'
+        ]
         for name in names:
-            src = tools.make_migration_from_model_path(name, f"{MODELS_PATH}/{name}.py")
+            src = tools.make_migration_from_model_path(
+                name, f"{MODELS_PATH}/{name}.py"
+            )
             if name == 'Account':
                 assert "t.boolean('is_active').default(True)" in src, src
             with open(f"{MIGRATIONS_PATH}/{name}_migration.py", 'w') as f:
                 f.write(src)
 
         # run migrations
-        tables = ['accounts', 'correspondences', 'identities', 'ledgers', 'entries', 'transactions']
+        tables = [
+            'accounts', 'correspondences', 'identities', 'ledgers', 'entries',
+            'transactions'
+        ]
         assert not self.table_exists('migrations')
         assert self.tables_do_not_exist(tables)
         tools.automigrate(MIGRATIONS_PATH, DB_FILEPATH)
@@ -175,14 +183,18 @@ class TestIntegration(unittest.TestCase):
             'type': models.AccountType.EQUITY,
         })
         assert len(aledger.accounts) == 4
-        assert hasattr(aledger.accounts[0], 'data') and type(aledger.accounts[0].data) is dict
-        assert hasattr(aledger.accounts[0], 'id') and type(aledger.accounts[0].id) is str
+        assert (hasattr(aledger.accounts[0], 'data')
+            and type(aledger.accounts[0].data) is dict)
+        assert (hasattr(aledger.accounts[0], 'id')
+            and type(aledger.accounts[0].id) is str)
         assert len(aledger.accounts().query().get()) == 4
         assert anostro.ledger_id == aledger.id
         anostro.ledger().reload()
         assert anostro.ledger.id == aledger.id
         assert len(models.Account.find(anostro.id).ledger().query().get()) == 1
-        assert models.Account.find(anostro.id).ledger().query().first().id == aledger.id
+        assert models.Account.find(
+            anostro.id
+        ).ledger().query().first().id == aledger.id
 
         assert anostro.is_active is True, anostro.data
         anostro = models.Account.find(anostro.id)
@@ -241,7 +253,11 @@ class TestIntegration(unittest.TestCase):
         txn.entries().reload()
         aledger.transactions().reload()
         assert len(aledger.transactions) == 1
-        assert set([e.data['id'] for e in txn.entries]) == set([e.data['id'] for e in entries])
+        assert set([
+            e.data['id'] for e in txn.entries
+        ]) == set([
+            e.data['id'] for e in entries
+        ])
         entries[0].transactions().reload()
         assert len(entries[0].transactions) == 1
         assert entries[0].transactions[0].data['id'] == txn.data['id']
@@ -356,7 +372,9 @@ class TestIntegration(unittest.TestCase):
         # generate migrations
         names = ['User', 'Avatar', 'Post', 'Friendship']
         for name in names:
-            src = tools.make_migration_from_model_path(name, f"{MODELS_PATH}2.py")
+            src = tools.make_migration_from_model_path(
+                name, f"{MODELS_PATH}2.py"
+            )
             with open(f"{MIGRATIONS_PATH}/{name}_migration.py", 'w') as f:
                 f.write(src)
 
@@ -378,8 +396,8 @@ class TestIntegration(unittest.TestCase):
         })
         alice.avatar().save()
         bob.avatar = models2.Avatar.insert({
-            "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/90" +
-            "/Walrus_(Odobenus_rosmarus)_on_Svalbard.jpg/1200px-Walrus_(Odobe" +
+            "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/90"
+            "/Walrus_(Odobenus_rosmarus)_on_Svalbard.jpg/1200px-Walrus_(Odobe"
             "nus_rosmarus)_on_Svalbard.jpg",
         })
         bob.avatar().save()
@@ -414,7 +432,9 @@ class TestIntegration(unittest.TestCase):
         """
         names = ['Account', 'Entry', 'Ledger', 'Identity']
         for name in names:
-            src = tools.make_migration_from_model_path(name, f"{MODELS_PATH}/{name}.py")
+            src = tools.make_migration_from_model_path(
+                name, f"{MODELS_PATH}/{name}.py"
+            )
             with open(f"{MIGRATIONS_PATH}/{name}_migration.py", 'w') as f:
                 f.write(src)
 
@@ -422,7 +442,10 @@ class TestIntegration(unittest.TestCase):
         tools.automigrate(MIGRATIONS_PATH, DB_FILEPATH)
         assert self.tables_exist(tables)
 
-        identity = models.Identity.insert({'name': 'Test Identity', 'seed': token_hex(32)})
+        identity = models.Identity.insert({
+            'name': 'Test Identity',
+            'seed': token_hex(32)
+        })
         ledger = models.Ledger.insert({
             'name': 'Test Ledger',
             'identity_id': identity.data['id'],
@@ -448,7 +471,9 @@ class TestIntegration(unittest.TestCase):
                 entries.append({
                     'account_id': account.data['id'],
                     'nonce': token_hex(4),
-                    'type': models.EntryType.DEBIT if j % 2 == 0 else models.EntryType.CREDIT,
+                    'type': models.EntryType.DEBIT
+                        if j % 2 == 0
+                        else models.EntryType.CREDIT,
                     'amount': Decimal('10.00'),
                 })
             models.Entry.insert_many(entries)
@@ -468,14 +493,16 @@ class TestIntegration(unittest.TestCase):
 
     def tables_exist(self, names: list[str]) -> bool:
         for name in names:
-            q = f"select name from sqlite_master where type='table' and name='{name}'"
+            q = (f"select name from sqlite_master where type='table' and "
+                f"name='{name}'")
             if len(self.cursor.execute(q).fetchall()) == 0:
                 return False
         return True
 
     def tables_do_not_exist(self, names: list[str]) -> bool:
         for name in names:
-            q = f"select name from sqlite_master where type='table' and name='{name}'"
+            q = (f"select name from sqlite_master where type='table' and "
+                f"name='{name}'")
             if len(self.cursor.execute(q).fetchall()) > 0:
                 return False
         return True

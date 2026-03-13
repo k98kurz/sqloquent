@@ -73,16 +73,24 @@ class TestAsyncIntegration(unittest.TestCase):
 
     def test_integration_e2e(self):
         # generate migrations
-        names = ['Account', 'Correspondence', 'Entry', 'Identity', 'Ledger', 'Transaction']
+        names = [
+            'Account', 'Correspondence', 'Entry', 'Identity', 'Ledger',
+            'Transaction'
+        ]
         for name in names:
-            src = tools.make_migration_from_model_path(name, f"{MODELS_PATH}/{name}.py")
+            src = tools.make_migration_from_model_path(
+                name, f"{MODELS_PATH}/{name}.py"
+            )
             if name == 'Account':
                 assert "t.boolean('is_active').default(True)" in src, src
             with open(f"{MIGRATIONS_PATH}/{name}_migration.py", 'w') as f:
                 f.write(src)
 
         # run migrations
-        tables = ['accounts', 'correspondences', 'identities', 'ledgers', 'entries', 'transactions']
+        tables = [
+            'accounts', 'correspondences', 'identities', 'ledgers', 'entries',
+            'transactions'
+        ]
         assert not self.table_exists('migrations')
         assert self.tables_do_not_exist(tables)
         tools.automigrate(MIGRATIONS_PATH, DB_FILEPATH)
@@ -176,21 +184,33 @@ class TestAsyncIntegration(unittest.TestCase):
             'type': asyncmodels.AccountType.EQUITY,
         }))
         assert len(aledger.accounts) == 4
-        assert hasattr(aledger.accounts[0], 'data') and type(aledger.accounts[0].data) is dict
-        assert hasattr(aledger.accounts[0], 'id') and type(aledger.accounts[0].id) is str
+        assert (hasattr(aledger.accounts[0], 'data')
+            and type(aledger.accounts[0].data) is dict)
+        assert (hasattr(aledger.accounts[0], 'id')
+            and type(aledger.accounts[0].id) is str)
         assert len(run(aledger.accounts().query().get())) == 4
         assert anostro.ledger_id == aledger.id
         run(anostro.ledger().reload())
         assert anostro.ledger.id == aledger.id
-        assert len(run(run(asyncmodels.Account.find(anostro.id)).ledger().query().get())) == 1
-        assert run(run(asyncmodels.Account.find(anostro.id)).ledger().query().first()).id == aledger.id
+        assert len(run(
+            run(
+                asyncmodels.Account.find(anostro.id)
+            ).ledger().query().get()
+        )) == 1
+        assert run(
+            run(
+                asyncmodels.Account.find(anostro.id)
+            ).ledger().query().first()
+        ).id == aledger.id
 
         assert anostro.is_active is True, anostro.data
         anostro = run(asyncmodels.Account.find(anostro.id))
         assert anostro.is_active is True, anostro.data
 
         # test that a join properly casts boolean column
-        query = asyncmodels.Account.query().join(asyncmodels.Ledger, ['ledger_id', 'id'])
+        query = asyncmodels.Account.query().join(
+            asyncmodels.Ledger, ['ledger_id', 'id']
+        )
         val = run(query.get())[0]
         acct = val.data['accounts']
         assert type(acct['is_active']) is bool, acct['is_active']
@@ -242,7 +262,11 @@ class TestAsyncIntegration(unittest.TestCase):
         run(txn.entries().reload())
         run(aledger.transactions().reload())
         assert len(aledger.transactions) == 1
-        assert set([e.data['id'] for e in txn.entries]) == set([e.data['id'] for e in entries])
+        assert set([
+            e.data['id'] for e in txn.entries
+        ]) == set([
+            e.data['id'] for e in entries
+        ])
         run(entries[0].transactions().reload())
         assert len(entries[0].transactions) == 1
         assert entries[0].transactions[0].data['id'] == txn.data['id']
@@ -347,13 +371,21 @@ class TestAsyncIntegration(unittest.TestCase):
 
         # test some querying
         sqb = asyncmodels.Entry.query().less(amount=6900)
-        assert run(sqb.count()) == 0, (run(sqb.count()), [m.data for m in run(sqb.get())])
+        assert run(sqb.count()) == 0, (
+            run(sqb.count()), [m.data for m in run(sqb.get())]
+        )
         sqb = asyncmodels.Entry.query().less_or_equal(amount=6900)
-        assert run(sqb.count()) == 4, (run(sqb.count()), [m.data for m in run(sqb.get())])
+        assert run(sqb.count()) == 4, (
+            run(sqb.count()), [m.data for m in run(sqb.get())]
+        )
         sqb = asyncmodels.Entry.query().greater(amount=42069)
-        assert run(sqb.count()) == 0, (run(sqb.count()), [m.data for m in run(sqb.get())])
+        assert run(sqb.count()) == 0, (
+            run(sqb.count()), [m.data for m in run(sqb.get())]
+        )
         sqb = asyncmodels.Entry.query().greater_or_equal(amount=42069)
-        assert run(sqb.count()) == 4, (run(sqb.count()), [m.data for m in run(sqb.get())])
+        assert run(sqb.count()) == 4, (
+            run(sqb.count()), [m.data for m in run(sqb.get())]
+        )
 
     def test_integration_e2e_models2(self):
         # generate migrations
@@ -381,8 +413,8 @@ class TestAsyncIntegration(unittest.TestCase):
         }))
         run(alice.avatar().save())
         bob.avatar = run(asyncmodels2.Avatar.insert({
-            "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/90" +
-            "/Walrus_(Odobenus_rosmarus)_on_Svalbard.jpg/1200px-Walrus_(Odobe" +
+            "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/90"
+            "/Walrus_(Odobenus_rosmarus)_on_Svalbard.jpg/1200px-Walrus_(Odobe"
             "nus_rosmarus)_on_Svalbard.jpg",
         }))
         run(bob.avatar().save())
@@ -418,7 +450,9 @@ class TestAsyncIntegration(unittest.TestCase):
         async def inner():
             names = ['Account', 'Entry', 'Ledger', 'Identity']
             for name in names:
-                src = tools.make_migration_from_model_path(name, f"{MODELS_PATH}/{name}.py")
+                src = tools.make_migration_from_model_path(
+                    name, f"{MODELS_PATH}/{name}.py"
+                )
                 with open(f"{MIGRATIONS_PATH}/{name}_migration.py", 'w') as f:
                     f.write(src)
 
@@ -426,7 +460,10 @@ class TestAsyncIntegration(unittest.TestCase):
             tools.automigrate(MIGRATIONS_PATH, DB_FILEPATH)
             assert self.tables_exist(tables)
 
-            identity = await asyncmodels.Identity.insert({'name': 'Test Identity', 'seed': token_hex(32)})
+            identity = await asyncmodels.Identity.insert({
+                'name': 'Test Identity',
+                'seed': token_hex(32)
+            })
             ledger = await asyncmodels.Ledger.insert({
                 'name': 'Test Ledger',
                 'identity_id': identity.data['id'],
@@ -452,7 +489,9 @@ class TestAsyncIntegration(unittest.TestCase):
                     entries.append({
                         'account_id': account.data['id'],
                         'nonce': token_hex(4),
-                        'type': asyncmodels.EntryType.DEBIT if j % 2 == 0 else asyncmodels.EntryType.CREDIT,
+                        'type': asyncmodels.EntryType.DEBIT
+                            if j % 2 == 0
+                            else asyncmodels.EntryType.CREDIT,
                         'amount': Decimal('10.00'),
                     })
                 await asyncmodels.Entry.insert_many(entries)
@@ -474,14 +513,16 @@ class TestAsyncIntegration(unittest.TestCase):
 
     def tables_exist(self, names: list[str]) -> bool:
         for name in names:
-            q = f"select name from sqlite_master where type='table' and name='{name}'"
+            q = (f"select name from sqlite_master where type='table' and "
+                f"name='{name}'")
             if len(self.cursor.execute(q).fetchall()) == 0:
                 return False
         return True
 
     def tables_do_not_exist(self, names: list[str]) -> bool:
         for name in names:
-            q = f"select name from sqlite_master where type='table' and name='{name}'"
+            q = (f"select name from sqlite_master where type='table' and "
+                f"name='{name}'")
             if len(self.cursor.execute(q).fetchall()) > 0:
                 return False
         return True

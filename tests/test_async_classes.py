@@ -91,32 +91,40 @@ class TestAsyncClasses(unittest.TestCase):
             ...
         self.db = run(connect(DB_FILEPATH))
         self.cursor = run(self.db.cursor())
-        run(self.cursor.execute('create table deleted_records (id text not null, ' +
-            'model_class text not null, record_id text not null, ' +
+        run(self.cursor.execute('create table deleted_records (id text not null, '
+            'model_class text not null, record_id text not null, '
             'record blob not null, timestamp text not null)'))
         run(self.cursor.execute('create table example (id text, name text)'))
-        run(self.cursor.execute('create table hashed_records (id text, details text)'))
-        run(self.cursor.execute('create table hashed_subclass (id text, column1 text, column2 text)'))
-        run(self.cursor.execute('create table attachments (id text, ' +
+        run(self.cursor.execute(
+            'create table hashed_records (id text, details text)'))
+        run(self.cursor.execute(
+            'create table hashed_subclass (id text, column1 text, column2 text)'))
+        run(self.cursor.execute('create table attachments (id text, '
             'related_model text, related_id text, details blob)'))
-        run(self.cursor.execute('create table example_models (id text, ' +
-            'field1 text, field2 integer, field3 boolean, field4 blob, ' +
-            'field5 real, field1n text nullable, field2n integer nullable, ' +
-            'field3n boolean nullable, field4n blob nullable, field5n real nullable, ' +
-            "field1d text default 'foobar', field2d integer default 123, " +
-            "field3d boolean default true, field4d blob default (x'313233'), " +
-            'field5d real default 1.23, field1nd text nullable default ''foobar'', ' +
-            'field2nd integer nullable default 123, field3nd boolean nullable default true, ' +
-            "field4nd blob nullable default (x'313233'), field5nd real nullable default 1.23)"))
-        run(self.cursor.execute('create table example_hashed_models (id text, ' +
-            'field1 text, field2 integer, field3 boolean, field4 blob, ' +
-            'field5 real, field1n text nullable, field2n integer nullable, ' +
-            'field3n boolean nullable, field4n blob nullable, field5n real nullable, ' +
-            'field1d text default ''foobar'', field2d integer default 123, ' +
-            'field3d boolean default true, field4d blob default X''313233'', ' +
-            'field5d real default 1.23, field1nd text nullable default ''foobar'', ' +
-            'field2nd integer nullable default 123, field3nd boolean nullable default true, ' +
-            'field4nd blob nullable default X''313233'', field5nd real nullable default 1.23)'))
+        run(self.cursor.execute('create table example_models (id text, '
+            'field1 text, field2 integer, field3 boolean, field4 blob, '
+            'field5 real, field1n text nullable, field2n integer nullable, '
+            'field3n boolean nullable, field4n blob nullable, '
+            'field5n real nullable, '
+            "field1d text default 'foobar', field2d integer default 123, "
+            "field3d boolean default true, field4d blob default (x'313233'), "
+            "field5d real default 1.23, field1nd text nullable default 'foobar', "
+            'field2nd integer nullable default 123, '
+            'field3nd boolean nullable default true, '
+            "field4nd blob nullable default (x'313233'), "
+            'field5nd real nullable default 1.23)'))
+        run(self.cursor.execute('create table example_hashed_models (id text, '
+            'field1 text, field2 integer, field3 boolean, field4 blob, '
+            'field5 real, field1n text nullable, field2n integer nullable, '
+            'field3n boolean nullable, field4n blob nullable, '
+            'field5n real nullable, '
+            'field1d text default ''foobar'', field2d integer default 123, '
+            'field3d boolean default true, field4d blob default X''313233'', '
+            'field5d real default 1.23, field1nd text nullable default ''foobar'', '
+            'field2nd integer nullable default 123, '
+            'field3nd boolean nullable default true, '
+            "field4nd blob nullable default X'313233', "
+            'field5nd real nullable default 1.23)'))
 
         return super().setUp()
 
@@ -170,7 +178,10 @@ class TestAsyncClasses(unittest.TestCase):
 
     # context manager tests
     def test_AsyncSqliteContext_implements_DBContextProtocol(self):
-        assert issubclass(async_classes.AsyncSqliteContext, async_interfaces.AsyncDBContextProtocol)
+        assert issubclass(
+            async_classes.AsyncSqliteContext,
+            async_interfaces.AsyncDBContextProtocol
+        )
 
     def test_AsyncSqliteContext_raises_errors_for_invalid_use(self):
         with self.assertRaises(TypeError) as e:
@@ -190,7 +201,9 @@ class TestAsyncClasses(unittest.TestCase):
 
     # AsyncSqlModel tests
     def test_AsyncSqlModel_implements_AsyncModelProtocol(self):
-        assert isinstance(async_classes.AsyncSqlModel(), async_interfaces.AsyncModelProtocol)
+        assert isinstance(
+            async_classes.AsyncSqlModel(), async_interfaces.AsyncModelProtocol
+        )
 
     def test_AsyncSqlModel_columns_are_set_as_properties(self):
         model = async_classes.AsyncSqlModel({'id': '123', 'name': 'Bob'})
@@ -229,12 +242,16 @@ class TestAsyncClasses(unittest.TestCase):
         TestModel._post_init_hooks = []
         with self.assertRaises(TypeError) as e:
             _ = TestModel()
-        assert str(e.exception) == '_post_init_hooks must be a dict mapping names to Callables'
+        assert str(e.exception) == (
+            '_post_init_hooks must be a dict mapping names to Callables'
+        ), e.exception
 
         TestModel._post_init_hooks = {'name': 'not callable'}
         with self.assertRaises(ValueError) as e:
             _ = TestModel()
-        assert str(e.exception) == '_post_init_hooks must be a dict mapping names to Callables'
+        assert str(e.exception) == (
+            '_post_init_hooks must be a dict mapping names to Callables'
+        ), e.exception
 
     def test_AsyncSqlModel_encode_value_raises_packify_UsageError_for_unrecognized_type(self):
         with self.assertRaises(packify.UsageError) as e:
@@ -242,7 +259,12 @@ class TestAsyncClasses(unittest.TestCase):
 
     def test_AsyncSqlModel_encode_value_encodes_values_properly(self):
         bstr = b'123'
-        assert async_classes.AsyncSqlModel.encode_value(bstr) == packify.pack(bstr).hex()
+        assert async_classes.AsyncSqlModel.encode_value(bstr) == (
+            packify.pack(bstr).hex()
+        ), (
+            async_classes.AsyncSqlModel.encode_value(bstr),
+            packify.pack(bstr).hex()
+        )
 
         list_of_bytes = [b'123', b'321']
         expected = packify.pack(list_of_bytes).hex()
@@ -286,41 +308,46 @@ class TestAsyncClasses(unittest.TestCase):
     def test_AsyncSqlModel_insert_and_find(self):
         # e2e test
         inserted = run(async_classes.AsyncSqlModel.insert({'name': 'test1'}))
-        assert isinstance(inserted, async_classes.AsyncSqlModel), \
-            'insert() must return AsyncSqlModel instance'
-        assert async_classes.AsyncSqlModel.id_column in inserted.data, \
-            'insert() return value must have id'
+        assert (isinstance(inserted, async_classes.AsyncSqlModel),
+            'insert() must return AsyncSqlModel instance')
+        assert (async_classes.AsyncSqlModel.id_column in inserted.data,
+            'insert() return value must have id')
 
         found = run(async_classes.AsyncSqlModel.find(
             inserted.data[async_classes.AsyncSqlModel.id_column]
         ))
-        assert isinstance(found, async_classes.AsyncSqlModel), \
-            'find() must return AsyncSqlModel instance'
+        assert (isinstance(found, async_classes.AsyncSqlModel),
+            'find() must return AsyncSqlModel instance')
 
-        assert inserted == found, \
-            'inserted must equal found'
+        assert inserted == found, 'inserted must equal found'
 
     def test_AsyncSqlModel_update_save_and_delete(self):
         # e2e test
         inserted = run(async_classes.AsyncSqlModel.insert({'name': 'test1'}))
         updated = run(inserted.update({'name': 'test2'}))
-        assert isinstance(updated, async_classes.AsyncSqlModel), \
-            'update() must return AsyncSqlModel instance'
+        assert (isinstance(updated, async_classes.AsyncSqlModel),
+            'update() must return AsyncSqlModel instance')
         assert updated.data['name'] == 'test2', 'value must be updated'
         assert updated == inserted, 'must be equal'
-        found = run(async_classes.AsyncSqlModel.find(inserted.data[inserted.id_column]))
+        found = run(async_classes.AsyncSqlModel.find(
+            inserted.data[inserted.id_column]
+        ))
         assert updated == found, 'must be equal'
 
         updated.data['name'] = 'test3'
         saved = run(updated.save())
-        assert isinstance(saved, async_classes.AsyncSqlModel), \
-            'save() must return AsyncSqlModel instance'
+        assert (isinstance(saved, async_classes.AsyncSqlModel),
+            'save() must return AsyncSqlModel instance')
         assert saved == updated, 'must be equal'
-        found = run(async_classes.AsyncSqlModel.find(inserted.data[inserted.id_column]))
+        found = run(async_classes.AsyncSqlModel.find(
+            inserted.data[inserted.id_column]
+        ))
         assert saved == found, 'must be equal'
 
         run(updated.delete())
-        found = run(async_classes.AsyncSqlModel.find(inserted.data[inserted.id_column]))
+        found = run(async_classes.AsyncSqlModel.find(
+            inserted.data[inserted.id_column]
+        ))
         assert found is None, 'found must be None'
 
     def test_AsyncSqlModel_insert_many_and_count(self):
@@ -369,7 +396,9 @@ class TestAsyncClasses(unittest.TestCase):
         async_classes.AsyncSqlModel.add_hook('after_insert', addlog)
         run(async_classes.AsyncSqlModel.insert({'name': 'foobar'}))
         assert len(log) == 2, log
-        run(async_classes.AsyncSqlModel.insert({'name': 'foobar'}, suppress_events = True))
+        run(async_classes.AsyncSqlModel.insert(
+            {'name': 'foobar'}, suppress_events = True
+        ))
         assert len(log) == 2, log
         log.clear()
         async_classes.AsyncSqlModel.remove_hook('before_insert', addlog)
@@ -382,7 +411,9 @@ class TestAsyncClasses(unittest.TestCase):
         async_classes.AsyncSqlModel.add_hook('after_insert_many', addlog)
         run(async_classes.AsyncSqlModel.insert_many([{'name': 'foobar'}]))
         assert len(log) == 2, log
-        run(async_classes.AsyncSqlModel.insert_many([{'name': 'foobar'}], suppress_events = True))
+        run(async_classes.AsyncSqlModel.insert_many(
+            [{'name': 'foobar'}], suppress_events = True
+        ))
         assert len(log) == 2, log
         log.clear()
         async_classes.AsyncSqlModel.remove_hook('before_insert_many', addlog)
@@ -446,12 +477,15 @@ class TestAsyncClasses(unittest.TestCase):
         filepath = "some/path/to/file.db"
         tablename = "some_table"
         columns = ('id', 'name', 'etc')
-        modelclass = async_classes.async_dynamic_sqlmodel(filepath, tablename, columns)
+        modelclass = async_classes.async_dynamic_sqlmodel(
+            filepath, tablename, columns
+        )
         assert type(modelclass) is type
         assert issubclass(modelclass, async_classes.AsyncSqlModel)
         model = modelclass()
         assert isinstance(model, async_interfaces.AsyncModelProtocol)
-        assert hasattr(model, "connection_info") and model.connection_info == filepath
+        assert (hasattr(model, "connection_info")
+            and model.connection_info == filepath)
         assert hasattr(model, "table") and model.table == tablename
         assert hasattr(model, "columns") and model.columns == columns
 
@@ -460,14 +494,18 @@ class TestAsyncClasses(unittest.TestCase):
         assert issubclass(modelclass, async_classes.AsyncSqlModel)
         model = modelclass()
         assert isinstance(model, async_interfaces.AsyncModelProtocol)
-        assert hasattr(model, "connection_info") and model.connection_info == filepath
+        assert (hasattr(model, "connection_info")
+            and model.connection_info == filepath)
         assert model.table == ""
         assert model.columns == ()
 
 
     # AsyncSqlQueryBuilder tests
     def test_AsyncSqlQueryBuilder_implements_QueryBuilderProtocol(self):
-        assert isinstance(async_classes.AsyncSqlQueryBuilder, async_interfaces.AsyncQueryBuilderProtocol)
+        assert isinstance(
+            async_classes.AsyncSqlQueryBuilder,
+            async_interfaces.AsyncQueryBuilderProtocol
+        )
 
     def test_AsyncSqlQueryBuilder_rejects_invalid_model(self):
         with self.assertRaises(TypeError) as e:
@@ -478,7 +516,9 @@ class TestAsyncClasses(unittest.TestCase):
 
     def test_AsyncSqlQueryBuilder_is_null_raises_TypeError_for_nonstr_column(self):
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).is_null(b'not a str', '')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).is_null(b'not a str', '')
 
     def test_AsyncSqlQueryBuilder_is_null_adds_correct_clause(self):
         sqb = async_classes.AsyncSqlQueryBuilder(model=async_classes.AsyncSqlModel)
@@ -499,7 +539,9 @@ class TestAsyncClasses(unittest.TestCase):
 
     def test_AsyncSqlQueryBuilder_not_null_raises_TypeError_for_nonstr_column(self):
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).not_null(b'not a str', '')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).not_null(b'not a str', '')
 
     def test_AsyncSqlQueryBuilder_not_null_adds_correct_clause(self):
         sqb = async_classes.AsyncSqlQueryBuilder(model=async_classes.AsyncSqlModel)
@@ -520,7 +562,9 @@ class TestAsyncClasses(unittest.TestCase):
 
     def test_AsyncSqlQueryBuilder_equal_raises_TypeError_for_nonstr_column(self):
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).equal(b'not a str', '')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).equal(b'not a str', '')
 
     def test_AsyncSqlQueryBuilder_equal_adds_correct_clause_and_param(self):
         sqb = async_classes.AsyncSqlQueryBuilder(model=async_classes.AsyncSqlModel)
@@ -544,7 +588,9 @@ class TestAsyncClasses(unittest.TestCase):
 
     def test_AsyncSqlQueryBuilder_not_equal_raises_TypeError_for_nonstr_column(self):
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).not_equal(b'not a str', '')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).not_equal(b'not a str', '')
         assert str(e.exception) == 'column must be str'
 
     def test_AsyncSqlQueryBuilder_not_equal_adds_correct_clause_and_param(self):
@@ -569,7 +615,9 @@ class TestAsyncClasses(unittest.TestCase):
 
     def test_AsyncSqlQueryBuilder_less_raises_TypeError_for_nonstr_column(self):
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).less(b'not a str', '')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).less(b'not a str', '')
         assert str(e.exception) == 'column must be str'
 
     def test_AsyncSqlQueryBuilder_less_adds_correct_clause_and_param(self):
@@ -594,7 +642,9 @@ class TestAsyncClasses(unittest.TestCase):
 
     def test_AsyncSqlQueryBuilder_less_or_equal_raises_TypeError_for_nonstr_column(self):
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).less_or_equal(b'not a str', '')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).less_or_equal(b'not a str', '')
         assert str(e.exception) == 'column must be str'
 
     def test_AsyncSqlQueryBuilder_less_or_equal_adds_correct_clause_and_param(self):
@@ -619,7 +669,9 @@ class TestAsyncClasses(unittest.TestCase):
 
     def test_AsyncSqlQueryBuilder_greater_raises_TypeError_for_nonstr_column(self):
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).greater(b'not a str', '')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).greater(b'not a str', '')
         assert str(e.exception) == 'column must be str'
 
     def test_AsyncSqlQueryBuilder_greater_adds_correct_clause_and_param(self):
@@ -644,7 +696,9 @@ class TestAsyncClasses(unittest.TestCase):
 
     def test_AsyncSqlQueryBuilder_greater_or_equal_raises_TypeError_for_nonstr_column(self):
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).greater_or_equal(b'not a str', '')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).greater_or_equal(b'not a str', '')
         assert str(e.exception) == 'column must be str'
 
     def test_AsyncSqlQueryBuilder_greater_or_equal_adds_correct_clause_and_param(self):
@@ -707,12 +761,16 @@ class TestAsyncClasses(unittest.TestCase):
         with self.assertRaises(TypeError) as e:
             async_classes.AsyncSqlQueryBuilder(
                 async_classes.AsyncSqlModel).like(name='thing')
-        assert str(e.exception) == 'each value must be tuple or list with 2 elements: pattern, data'
+        assert str(e.exception) == (
+            'each value must be tuple or list with 2 elements: pattern, data'
+        ), e.exception
 
         with self.assertRaises(ValueError) as e:
             async_classes.AsyncSqlQueryBuilder(
                 async_classes.AsyncSqlModel).like(name=('thing',))
-        assert str(e.exception) == 'each value must be tuple or list with 2 elements: pattern, data'
+        assert str(e.exception) == (
+            'each value must be tuple or list with 2 elements: pattern, data'
+        ), e.exception
 
         with self.assertRaises(TypeError) as e:
             async_classes.AsyncSqlQueryBuilder(
@@ -785,13 +843,17 @@ class TestAsyncClasses(unittest.TestCase):
             async_classes.AsyncSqlQueryBuilder(
                 async_classes.AsyncSqlModel
             ).not_like(name='thing')
-        assert str(e.exception) == 'each value must be tuple or list with 2 elements: pattern, data'
+        assert str(e.exception) == (
+            'each value must be tuple or list with 2 elements: pattern, data'
+        ), e.exception
 
         with self.assertRaises(ValueError) as e:
             async_classes.AsyncSqlQueryBuilder(
                 async_classes.AsyncSqlModel
             ).not_like(name=('thing',))
-        assert str(e.exception) == 'each value must be tuple or list with 2 elements: pattern, data'
+        assert str(e.exception) == (
+            'each value must be tuple or list with 2 elements: pattern, data'
+        ), e.exception
 
         with self.assertRaises(TypeError) as e:
             async_classes.AsyncSqlQueryBuilder(
@@ -827,23 +889,33 @@ class TestAsyncClasses(unittest.TestCase):
 
     def test_AsyncSqlQueryBuilder_starts_with_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).starts_with(b'not a str', '')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).starts_with(b'not a str', '')
         assert str(e.exception) == 'column must be str'
 
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).starts_with('', b'not a str')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).starts_with('', b'not a str')
         assert str(e.exception) == 'data must be str'
 
         with self.assertRaises(ValueError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).starts_with('', 'sds')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).starts_with('', 'sds')
         assert str(e.exception) == 'column cannot be empty'
 
         with self.assertRaises(ValueError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).starts_with('sds', '')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).starts_with('sds', '')
         assert str(e.exception) == 'data cannot be empty'
 
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).starts_with(name=b'not a str')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).starts_with(name=b'not a str')
         assert str(e.exception) == 'data must be str'
 
     def test_AsyncSqlQueryBuilder_starts_with_adds_correct_clause_and_param(self):
@@ -919,23 +991,33 @@ class TestAsyncClasses(unittest.TestCase):
 
     def test_AsyncSqlQueryBuilder_contains_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).contains(b'not a str', '')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).contains(b'not a str', '')
         assert str(e.exception) == 'column must be str'
 
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).contains('', b'not a str')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).contains('', b'not a str')
         assert str(e.exception) == 'data must be str'
 
         with self.assertRaises(ValueError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).contains('', 'sds')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).contains('', 'sds')
         assert str(e.exception) == 'column cannot be empty'
 
         with self.assertRaises(ValueError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).contains('sds', '')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).contains('sds', '')
         assert str(e.exception) == 'data cannot be empty'
 
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).contains(name=b'not a str')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).contains(name=b'not a str')
         assert str(e.exception) == 'data must be str'
 
     def test_AsyncSqlQueryBuilder_contains_adds_correct_clause_and_param(self):
@@ -960,27 +1042,39 @@ class TestAsyncClasses(unittest.TestCase):
 
     def test_AsyncSqlQueryBuilder_excludes_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).excludes(b'not a str', '')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).excludes(b'not a str', '')
         assert str(e.exception) == 'column must be str'
 
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).excludes('', b'not a str')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).excludes('', b'not a str')
         assert str(e.exception) == 'data must be str'
 
         with self.assertRaises(ValueError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).excludes('', 'sds')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).excludes('', 'sds')
         assert str(e.exception) == 'column cannot be empty'
 
         with self.assertRaises(ValueError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).excludes('sds', '')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).excludes('sds', '')
         assert str(e.exception) == 'data cannot be empty'
 
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).excludes(name=b'not a str')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).excludes(name=b'not a str')
         assert str(e.exception) == 'data must be str'
 
     def test_AsyncSqlQueryBuilder_excludes_adds_correct_clause_and_param(self):
-        sqb = async_classes.AsyncSqlQueryBuilder(model=async_classes.AsyncSqlModel)
+        sqb = async_classes.AsyncSqlQueryBuilder(
+            model=async_classes.AsyncSqlModel
+        )
         assert len(sqb.clauses) == 0, 'clauses must start at 0 len'
         assert len(sqb.params) == 0, 'params must start at 0 len'
         sqb.excludes('name', '123')
@@ -1001,23 +1095,33 @@ class TestAsyncClasses(unittest.TestCase):
 
     def test_AsyncSqlQueryBuilder_ends_with_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).ends_with(b'not a str', '')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).ends_with(b'not a str', '')
         assert str(e.exception) == 'column must be str'
 
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).ends_with('', b'not a str')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).ends_with('', b'not a str')
         assert str(e.exception) == 'data must be str'
 
         with self.assertRaises(ValueError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).ends_with('', 'sds')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).ends_with('', 'sds')
         assert str(e.exception) == 'column cannot be empty'
 
         with self.assertRaises(ValueError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).ends_with('sds', '')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).ends_with('sds', '')
         assert str(e.exception) == 'data cannot be empty'
 
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).ends_with(name=b'not a str')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).ends_with(name=b'not a str')
         assert str(e.exception) == 'data must be str'
 
     def test_AsyncSqlQueryBuilder_ends_with_adds_correct_clause_and_param(self):
@@ -1093,23 +1197,33 @@ class TestAsyncClasses(unittest.TestCase):
 
     def test_AsyncSqlQueryBuilder_is_in_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).is_in(b'not a str', 'not list')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).is_in(b'not a str', 'not list')
         assert str(e.exception) == 'column must be str'
 
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).is_in('', 'not a list')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).is_in('', 'not a list')
         assert str(e.exception) == 'data must be tuple or list'
 
         with self.assertRaises(ValueError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).is_in('', ['sds'])
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).is_in('', ['sds'])
         assert str(e.exception) == 'column cannot be empty'
 
         with self.assertRaises(ValueError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).is_in('sds', [])
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).is_in('sds', [])
         assert str(e.exception) == 'data cannot be empty'
 
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).is_in(name='not a list')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).is_in(name='not a list')
         assert 'data must be tuple or list' in str(e.exception), str(e.exception)
 
     def test_AsyncSqlQueryBuilder_is_in_adds_correct_clause_and_param(self):
@@ -1137,23 +1251,33 @@ class TestAsyncClasses(unittest.TestCase):
 
     def test_AsyncSqlQueryBuilder_not_in_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).not_in(b'not a str', 'not list')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).not_in(b'not a str', 'not list')
         assert str(e.exception) == 'column must be str'
 
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).not_in('', 'not a list')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).not_in('', 'not a list')
         assert str(e.exception) == 'data must be tuple or list'
 
         with self.assertRaises(ValueError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).not_in('', ['sds'])
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).not_in('', ['sds'])
         assert str(e.exception) == 'column cannot be empty'
 
         with self.assertRaises(ValueError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).not_in('sds', [])
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).not_in('sds', [])
         assert str(e.exception) == 'data cannot be empty'
 
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).not_in(name='not a list')
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).not_in(name='not a list')
         assert 'data must be tuple or list' in str(e.exception), str(e.exception)
 
     def test_AsyncSqlQueryBuilder_not_in_adds_correct_clause_and_param(self):
@@ -1304,24 +1428,34 @@ class TestAsyncClasses(unittest.TestCase):
 
     def test_AsyncSqlQueryBuilder_order_by_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).order_by(b'not a str', 'asc')
-        assert str(e.exception) == 'column must be str'
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).order_by(b'not a str', 'asc')
+        assert str(e.exception) == 'column must be str', e.exception
 
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).order_by('', b'not a str')
-        assert str(e.exception) == 'direction must be str'
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).order_by('', b'not a str')
+        assert str(e.exception) == 'direction must be str', e.exception
 
         with self.assertRaises(ValueError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).order_by('', '')
-        assert 'unrecognized column' in str(e.exception)
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).order_by('', '')
+        assert 'unrecognized column' in str(e.exception), e.exception
 
         with self.assertRaises(ValueError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).order_by('id', 'not asc or desc')
-        assert str(e.exception) == 'direction must be asc or desc'
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).order_by('id', 'not asc or desc')
+        assert str(e.exception) == 'direction must be asc or desc', e.exception
 
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).order_by(name=b'not a str')
-        assert str(e.exception) == 'direction must be str'
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).order_by(name=b'not a str')
+        assert str(e.exception) == 'direction must be str', e.exception
 
     def test_AsyncSqlQueryBuilder_order_by_sets_order_column_and_order_dir(self):
         sqb = async_classes.AsyncSqlQueryBuilder(model=async_classes.AsyncSqlModel)
@@ -1333,12 +1467,14 @@ class TestAsyncClasses(unittest.TestCase):
 
     def test_AsyncSqlQueryBuilder_skip_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).skip('not an int')
-        assert str(e.exception) == 'offset must be positive int'
+            async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).skip('not an int')
+        assert str(e.exception) == 'offset must be positive int', e.exception
 
         with self.assertRaises(ValueError) as e:
             async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).skip(-1)
-        assert str(e.exception) == 'offset must be positive int'
+        assert str(e.exception) == 'offset must be positive int', e.exception
 
     def test_AsyncSqlQueryBuilder_skip_sets_offset(self):
         sqb = async_classes.AsyncSqlQueryBuilder(model=async_classes.AsyncSqlModel)
@@ -1347,7 +1483,9 @@ class TestAsyncClasses(unittest.TestCase):
 
     def test_AsyncSqlQueryBuilder_insert_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
-            run(async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).insert('not a dict'))
+            run(async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).insert('not a dict'))
         assert str(e.exception) == 'data must be dict'
 
         model_id = run(async_classes.AsyncSqlModel.insert({})).data['id']
@@ -1360,7 +1498,9 @@ class TestAsyncClasses(unittest.TestCase):
         assert str(e.exception) == 'record with this id already exists'
 
     def test_AsyncSqlQueryBuilder_insert_inserts_record_into_database(self):
-        sqb = async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel, async_classes.AsyncSqliteContext)
+        sqb = async_classes.AsyncSqlQueryBuilder(
+            async_classes.AsyncSqlModel, async_classes.AsyncSqliteContext
+        )
         model_id = '32123'
         run(sqb.insert({'id': model_id, 'name': 'test'}))
 
@@ -1368,40 +1508,56 @@ class TestAsyncClasses(unittest.TestCase):
 
     def test_AsyncSqlQueryBuilder_insert_many_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
-            run(async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).insert_many('not a list'))
+            run(async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).insert_many('not a list'))
         assert str(e.exception) == 'items must be list[dict]'
 
         with self.assertRaises(TypeError) as e:
-            run(async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).insert_many(['not a dict']))
-        assert str(e.exception) == 'items must be list[dict]'
+            run(async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).insert_many(['not a dict']))
+        assert str(e.exception) == 'items must be list[dict]', e.exception
 
     def test_AsyncSqlQueryBuilder_take_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
-            run(async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).take('not an int'))
-        assert str(e.exception) == 'limit must be positive int'
+            run(async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).take('not an int'))
+        assert str(e.exception) == 'limit must be positive int', e.exception
 
         with self.assertRaises(ValueError) as e:
-            run(async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).take(0))
+            run(async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).take(0))
         assert str(e.exception) == 'limit must be positive int'
 
     def test_AsyncSqlQueryBuilder_chunk_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
-            sqb = async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel, async_classes.AsyncSqliteContext)
+            sqb = async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel, async_classes.AsyncSqliteContext
+            )
             run(sqb.chunk('not an int'))
-        assert str(e.exception) == 'number must be int > 0'
+        assert str(e.exception) == 'number must be int > 0', e.exception
 
         with self.assertRaises(ValueError) as e:
-            run(async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).chunk(0))
-        assert str(e.exception) == 'number must be int > 0'
+            run(async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).chunk(0))
+        assert str(e.exception) == 'number must be int > 0', e.exception
 
     def test_AsyncSqlQueryBuilder_update_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
-            run(async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).update('not a dict'))
-        assert str(e.exception) == 'updates must be dict'
+            run(async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).update('not a dict'))
+        assert str(e.exception) == 'updates must be dict', e.exception
 
         with self.assertRaises(TypeError) as e:
-            run(async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).update({}, 'not a dict'))
-        assert str(e.exception) == 'conditions must be dict'
+            run(async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).update({}, 'not a dict'))
+        assert str(e.exception) == 'conditions must be dict', e.exception
 
     def test_AsyncSqlQueryBuilder_to_sql_returns_correct_sql_str(self):
         sqb = async_classes.AsyncSqlQueryBuilder(model=async_classes.AsyncSqlModel)
@@ -1412,28 +1568,36 @@ class TestAsyncClasses(unittest.TestCase):
         assert sqb.to_sql() == ' where "name" = \'foo\'', sqb.to_sql()
 
         sqb.order_by('id')
-        assert sqb.to_sql() == ' where "name" = \'foo\' order by "id" desc', sqb.to_sql()
+        assert sqb.to_sql() == (
+            ' where "name" = \'foo\' order by "id" desc'
+        ), sqb.to_sql()
 
         sqb.skip(3)
-        assert sqb.to_sql() == ' where "name" = \'foo\' order by "id" desc', sqb.to_sql()
+        assert sqb.to_sql() == (
+            ' where "name" = \'foo\' order by "id" desc'
+        ), sqb.to_sql()
 
         sqb.offset = None
         sqb.limit = 5
-        assert sqb.to_sql() == ' where "name" = \'foo\' order by "id" desc limit 5', sqb.to_sql()
+        assert sqb.to_sql() == (
+            ' where "name" = \'foo\' order by "id" desc limit 5'
+        ), sqb.to_sql()
 
         sqb.skip(3)
-        assert sqb.to_sql() == ' where "name" = \'foo\' order by "id" desc limit 5 offset 3', sqb.to_sql()
+        assert sqb.to_sql() == (
+            ' where "name" = \'foo\' order by "id" desc limit 5 offset 3'
+        ), sqb.to_sql()
 
     def test_AsyncSqlQueryBuilder_to_sql_without_interpolate_params_returns_str_and_list(self):
         sqb = async_classes.AsyncSqlQueryBuilder(model=async_classes.AsyncSqlModel)
-        assert type(sqb.to_sql(interpolate_params=False)) is tuple, \
-            'to_sql(interpolate_params=False) must return tuple(str, list)'
-        assert len(sqb.to_sql(interpolate_params=False)) == 2, \
-            'to_sql(interpolate_params=False) must return tuple(str, list)'
-        assert type(sqb.to_sql(interpolate_params=False)[0]) is str, \
-            'to_sql(interpolate_params=False) must return tuple(str, list)'
-        assert type(sqb.to_sql(interpolate_params=False)[1]) is list, \
-            'to_sql(interpolate_params=False) must return tuple(str, list)'
+        assert type(sqb.to_sql(interpolate_params=False)) is tuple, (
+            'to_sql(interpolate_params=False) must return tuple(str, list)')
+        assert len(sqb.to_sql(interpolate_params=False)) == 2, (
+            'to_sql(interpolate_params=False) must return tuple(str, list)')
+        assert type(sqb.to_sql(interpolate_params=False)[0]) is str, (
+            'to_sql(interpolate_params=False) must return tuple(str, list)')
+        assert type(sqb.to_sql(interpolate_params=False)[1]) is list, (
+            'to_sql(interpolate_params=False) must return tuple(str, list)')
         assert sqb.to_sql(interpolate_params=False)[0] == ' where '
 
         sqb.equal('name', 'foo')
@@ -1441,21 +1605,28 @@ class TestAsyncClasses(unittest.TestCase):
         assert sqb.to_sql(interpolate_params=False)[1] == ['foo']
 
         sqb.order_by('id')
-        assert sqb.to_sql(interpolate_params=False)[0] == ' where "name" = ? order by "id" desc', \
-            sqb.to_sql(interpolate_params=False)[0]
+        assert sqb.to_sql(interpolate_params=False)[0] == (
+            ' where "name" = ? order by "id" desc'
+        ), sqb.to_sql(interpolate_params=False)[0]
         assert sqb.to_sql(interpolate_params=False)[1] == ['foo']
 
         sqb.skip(3)
-        assert sqb.to_sql(interpolate_params=False)[0] == ' where "name" = ? order by "id" desc'
+        assert sqb.to_sql(interpolate_params=False)[0] == (
+            ' where "name" = ? order by "id" desc'
+        )
         assert sqb.to_sql(interpolate_params=False)[1] == ['foo']
 
         sqb.offset = None
         sqb.limit = 5
-        assert sqb.to_sql(interpolate_params=False)[0] == ' where "name" = ? order by "id" desc limit 5'
+        assert sqb.to_sql(interpolate_params=False)[0] == (
+            ' where "name" = ? order by "id" desc limit 5'
+        )
         assert sqb.to_sql(interpolate_params=False)[1] == ['foo']
 
         sqb.skip(3)
-        assert sqb.to_sql(interpolate_params=False)[0] == ' where "name" = ? order by "id" desc limit 5 offset 3'
+        assert sqb.to_sql(interpolate_params=False)[0] == (
+            ' where "name" = ? order by "id" desc limit 5 offset 3'
+        )
         assert sqb.to_sql(interpolate_params=False)[1] == ['foo']
 
     def test_AsyncSqlQueryBuilder_reset_returns_fresh_instance(self):
@@ -1467,7 +1638,9 @@ class TestAsyncClasses(unittest.TestCase):
 
     def test_AsyncSqlQueryBuilder_execute_raw_raises_TypeError_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
-            run(async_classes.AsyncSqlQueryBuilder(async_classes.AsyncSqlModel).execute_raw(b'not str'))
+            run(async_classes.AsyncSqlQueryBuilder(
+                async_classes.AsyncSqlModel
+            ).execute_raw(b'not str'))
         assert str(e.exception) == 'sql must be str'
 
     def test_AsyncSqlQueryBuilder_insert_inserts_record_into_datastore(self):
@@ -1475,14 +1648,14 @@ class TestAsyncClasses(unittest.TestCase):
         sqb = async_classes.AsyncSqlQueryBuilder(model=async_classes.AsyncSqlModel)
         assert run(sqb.count()) == 0, 'count() must return 0'
         inserted = run(sqb.insert({'name': 'test1'}))
-        assert isinstance(inserted, sqb.model), \
-            'insert() must return instance of sqb.model'
-        assert inserted.id_column not in inserted.data, \
-            'insert() must not assign id'
+        assert (isinstance(inserted, sqb.model),
+            'insert() must return instance of sqb.model')
+        assert (inserted.id_column not in inserted.data,
+            'insert() must not assign id')
         assert run(sqb.count()) == 1, 'count() must return 1'
         inserted = run(sqb.insert({'name': 'test2', 'id': '321'}))
-        assert run(sqb.find('321')) is not None, \
-            'find() must return a record that was inserted'
+        assert (run(sqb.find('321')) is not None,
+            'find() must return a record that was inserted')
 
     def test_AsyncSqlQueryBuilder_insert_many_inserts_records_into_datastore(self):
         # e2e test
@@ -1498,8 +1671,8 @@ class TestAsyncClasses(unittest.TestCase):
         inserted = run(sqb.insert_many([{'name': 'test3', 'id': 'abc'}]))
         assert inserted == 1
         assert run(sqb.count()) == 3, 'count() must return 3'
-        assert run(sqb.find('321')) is not None, \
-            'find() must return a record that was inserted'
+        assert (run(sqb.find('321')) is not None,
+            'find() must return a record that was inserted')
 
     def test_AsyncSqlQueryBuilder_get_returns_all_matching_records(self):
         # e2e test
@@ -1546,9 +1719,13 @@ class TestAsyncClasses(unittest.TestCase):
         run(sqb.insert({'name': 'other', 'id': 'other'}))
 
         list1 = run(sqb.take(2))
-        assert list1 == run(sqb.take(2)), 'same limit/offset should return same results'
+        assert list1 == run(sqb.take(2)), (
+            'same limit/offset should return same results'
+        )
         list2 = run(sqb.skip(1).take(2))
-        assert list1 != list2, 'different offsets should return different results'
+        assert list1 != list2, (
+            'different offsets should return different results'
+        )
 
     def test_AsyncSqlQueryBuilder_take_limits_results(self):
         # e2e test
@@ -1572,7 +1749,9 @@ class TestAsyncClasses(unittest.TestCase):
         run(sqb.insert_many(dicts))
 
         assert run(sqb.count()) == 25
-        assert isinstance(sqb.chunk(10), AsyncGeneratorType), 'chunk must return generator'
+        assert isinstance(sqb.chunk(10), AsyncGeneratorType), (
+            'chunk must return generator'
+        )
         async def iterate():
             async for results in sqb.chunk(10):
                 assert type(results) is list
@@ -1588,7 +1767,9 @@ class TestAsyncClasses(unittest.TestCase):
         inserted = run(sqb.insert({'name': 'test1', 'id': '123'}))
         run(sqb.insert({'name': 'test2', 'id': '321'}))
         first = run(sqb.first())
-        assert isinstance(first, sqb.model), 'first() must return instance of sqb.model'
+        assert isinstance(first, sqb.model), (
+            'first() must return instance of sqb.model'
+        )
         first = run(sqb.order_by('id', 'asc').first())
         assert first == inserted, 'first() must return correct instance'
 
@@ -1616,11 +1797,15 @@ class TestAsyncClasses(unittest.TestCase):
         # e2e test
         sqb = async_classes.AsyncSqlQueryBuilder(model=async_classes.AsyncSqlModel)
         assert run(sqb.count()) == 0, 'count() must return 0'
-        result = run(sqb.execute_raw("insert into example (id, name) values ('123', '321')"))
+        result = run(sqb.execute_raw(
+            "insert into example (id, name) values ('123', '321')"
+        ))
         assert type(result) is tuple, 'execute_raw must return tuple'
         assert result[0] == 1, 'execute_raw returns wrong rowcount'
         assert type(result[1]) is list
-        result = run(sqb.execute_raw("insert into example (id, name) values ('321', '123'), ('abc', 'cba')"))
+        result = run(sqb.execute_raw(
+            "insert into example (id, name) values ('321', '123'), ('abc', 'cba')"
+        ))
         assert result[0] == 2, 'execute_raw returns wrong rowcount'
         assert run(sqb.count()) == 3, 'count() must return 3'
 
@@ -1650,13 +1835,16 @@ class TestAsyncClasses(unittest.TestCase):
         hm = run(async_classes.AsyncHashedModel.insert({'details': 123}))
         for i in range(10):
             run(async_classes.AsyncAttachment({'details': i}).attach_to(hm).save())
-        sqb = async_classes.AsyncSqlQueryBuilder(async_classes.AsyncHashedModel).join(
-            async_classes.AsyncAttachment, ['id', 'related_id'])
+        sqb = async_classes.AsyncSqlQueryBuilder(
+            async_classes.AsyncHashedModel
+        ).join(async_classes.AsyncAttachment, ['id', 'related_id'])
 
         async def iterate():
             results = []
             async for chunk in sqb.chunk(5):
-                assert all([type(a) is async_classes.AsyncJoinedModel for a in chunk])
+                assert all([
+                    type(a) is async_classes.AsyncJoinedModel for a in chunk
+                ])
                 results.extend(chunk)
             return results
         results = run(iterate())
@@ -1665,7 +1853,10 @@ class TestAsyncClasses(unittest.TestCase):
     def test_AsyncSqlQueryBuilder_select_restrains_columns_selected(self):
         # without a join
         names = ['model1', 'model2']
-        models = [run(async_classes.AsyncSqlModel.insert({"name": name})) for name in names]
+        models = [
+            run(async_classes.AsyncSqlModel.insert({"name": name}))
+            for name in names
+        ]
         results = run(async_classes.AsyncSqlModel.query().select(["id"]).get())
         assert type(results) is list
         assert len(results) == 2
@@ -1674,7 +1865,9 @@ class TestAsyncClasses(unittest.TestCase):
 
         # with a join
         for model in models:
-            attachment = async_classes.AsyncAttachment({"details": f"test for {model.data['name']}"})
+            attachment = async_classes.AsyncAttachment({
+                "details": f"test for {model.data['name']}"
+            })
             run(attachment.attach_to(model).save())
         sqb = async_classes.AsyncSqlModel.query()
         sqb.join(async_classes.AsyncAttachment, ["id", "related_id"])
@@ -1682,50 +1875,82 @@ class TestAsyncClasses(unittest.TestCase):
         results = run(sqb.get())
         assert type(results) is list
         assert len(results) == 2
-        assert all(["example" in r.data and "attachments" in r.data for r in results])
-        assert all([list(dict.keys(r.data["example"])) == ["name"] for r in results])
-        assert all([list(dict.keys(r.data["attachments"])) == ["id"] for r in results])
+        assert all([
+            "example" in r.data and "attachments" in r.data
+            for r in results
+        ])
+        assert all([
+            list(dict.keys(r.data["example"])) == ["name"]
+            for r in results
+        ])
+        assert all([
+            list(dict.keys(r.data["attachments"])) == ["id"]
+            for r in results
+        ])
 
     def test_AsyncSqlQueryBuilder_group_groups_results(self):
         names = ['model1', 'model2']
-        models = [run(async_classes.AsyncSqlModel.insert({"name": name})) for name in names]
+        models = [
+            run(async_classes.AsyncSqlModel.insert({"name": name}))
+            for name in names
+        ]
         for model in models:
             for i in range(5):
-                attachment = async_classes.AsyncAttachment({"details": f"test data {i}"})
+                attachment = async_classes.AsyncAttachment({
+                    "details": f"test data {i}"
+                })
                 run(attachment.attach_to(model).save())
         sqb = async_classes.AsyncAttachment.query().group("related_id")
         sqb.select(["count(*)", "related_id"])
         results = run(sqb.get())
         assert type(results) is list
         assert all([isinstance(r, async_classes.Row) for r in results])
-        assert all([list(dict.keys(r.data)) == ["count(*)", "related_id"] for r in results])
+        assert all([
+            list(dict.keys(r.data)) == ["count(*)", "related_id"]
+            for r in results
+        ])
 
     def test_AsyncSqlQueryBuilder_group_works_with_join(self):
         names = ['model1', 'model2']
-        models = [run(async_classes.AsyncSqlModel.insert({"name": name})) for name in names]
+        models = [
+            run(async_classes.AsyncSqlModel.insert({"name": name}))
+            for name in names
+        ]
         for model in models:
             for i in range(5):
-                attachment = async_classes.AsyncAttachment({"details": f"test data {i}"})
+                attachment = async_classes.AsyncAttachment({
+                    "details": f"test data {i}"
+                })
                 run(attachment.attach_to(model).save())
         sqb = async_classes.AsyncSqlModel.query().join(
             async_classes.AsyncAttachment, ['id', 'related_id']
-        ).group("attachments.related_id").select(["count(*)", "name", "related_id"])
+        ).group("attachments.related_id").select([
+            "count(*)", "name", "related_id"
+        ])
         results = run(sqb.get())
         assert type(results) is list
         assert all([isinstance(r, async_classes.Row) for r in results])
-        assert all([list(dict.keys(r.data)) == ["count(*)", "name", "related_id"] for r in results])
+        assert all([
+            list(dict.keys(r.data)) == ["count(*)", "name", "related_id"]
+            for r in results
+        ])
 
     def test_AsyncSqlQueryBuilder_works_with_table_or_model(self):
-        sqb1 = async_classes.AsyncSqlQueryBuilder(model=async_classes.AsyncHashedModel)
+        sqb1 = async_classes.AsyncSqlQueryBuilder(
+            model=async_classes.AsyncHashedModel
+        )
         assert sqb1.model is async_classes.AsyncHashedModel
         assert sqb1.table is async_classes.AsyncHashedModel.table
         assert run(sqb1.count()) == 0
-        sqb2 = async_classes.AsyncSqlQueryBuilder(table=async_classes.AsyncHashedModel.table,
-                                       columns=async_classes.AsyncHashedModel.columns,
-                                       connection_info=DB_FILEPATH)
+        sqb2 = async_classes.AsyncSqlQueryBuilder(
+            table=async_classes.AsyncHashedModel.table,
+            columns=async_classes.AsyncHashedModel.columns,
+            connection_info=DB_FILEPATH
+        )
         assert run(sqb2.count()) == 0
         assert sqb1.table == sqb2.table
-        assert type(sqb2.model) is type and issubclass(sqb2.model, async_classes.AsyncSqlModel)
+        assert (type(sqb2.model) is type
+            and issubclass(sqb2.model, async_classes.AsyncSqlModel))
 
 
     # connection_info injection/binding tests
@@ -1776,7 +2001,9 @@ class TestAsyncClasses(unittest.TestCase):
 
     # AsyncHashedModel tests
     def test_AsyncHashedModel_issubclass_of_SqlModel(self):
-        assert issubclass(async_classes.AsyncHashedModel, async_classes.AsyncSqlModel)
+        assert issubclass(
+            async_classes.AsyncHashedModel, async_classes.AsyncSqlModel
+        )
 
     def test_AsyncHashedModel_preimage_returns_packified_data(self):
         data = { 'details': token_bytes(8).hex() }
@@ -1787,7 +2014,9 @@ class TestAsyncClasses(unittest.TestCase):
     def test_AsyncHashedModel_generated_id_is_sha256_of_preimage(self):
         data = { 'details': token_bytes(8).hex() }
         observed = async_classes.AsyncHashedModel.generate_id(data)
-        expected = sha256(async_classes.AsyncHashedModel.preimage(data)).digest().hex()
+        expected = sha256(
+            async_classes.AsyncHashedModel.preimage(data)
+        ).digest().hex()
         assert observed == expected, 'wrong hash encountered'
 
     def test_AsyncHashedModel_insert_raises_TypeError_for_nondict_input(self):
@@ -1804,10 +2033,13 @@ class TestAsyncClasses(unittest.TestCase):
         assert async_classes.AsyncHashedModel.id_column in inserted.data
         assert type(inserted.data[async_classes.AsyncHashedModel.id_column]) == str
         assert len(inserted.data[async_classes.AsyncHashedModel.id_column]) == 64
-        assert len(bytes.fromhex(inserted.data[async_classes.AsyncHashedModel.id_column])) == 32
+        assert len(bytes.fromhex(
+            inserted.data[async_classes.AsyncHashedModel.id_column]
+        )) == 32
 
         found = run(async_classes.AsyncHashedModel.find(
-            inserted.data[async_classes.AsyncHashedModel.id_column]))
+            inserted.data[async_classes.AsyncHashedModel.id_column]
+        ))
         assert isinstance(found, async_classes.AsyncHashedModel)
         assert found == inserted
 
@@ -1835,7 +2067,9 @@ class TestAsyncClasses(unittest.TestCase):
             assert async_classes.AsyncHashedModel.id_column in item.data
             assert type(item.data[async_classes.AsyncHashedModel.id_column]) == str
             assert len(item.data[async_classes.AsyncHashedModel.id_column]) == 64
-            assert len(bytes.fromhex(item.data[async_classes.AsyncHashedModel.id_column])) == 32
+            assert len(bytes.fromhex(
+                item.data[async_classes.AsyncHashedModel.id_column]
+            )) == 32
 
     def test_AsyncHashedModel_update_raises_errors_for_invalid_input(self):
         with self.assertRaises(TypeError) as e:
@@ -1890,7 +2124,10 @@ class TestAsyncClasses(unittest.TestCase):
             column1: str
             column2: str
 
-        original = run(HashedSubclass.insert({'column1': 'stuff', 'column2': 'something'}))
+        original = run(HashedSubclass.insert({
+            'column1': 'stuff',
+            'column2': 'something'
+        }))
         expected_id = sha256(
             packify.pack({'column1': 'stuff'})
         ).digest().hex()
@@ -1907,7 +2144,10 @@ class TestAsyncClasses(unittest.TestCase):
             column1: str
             column2: str
 
-        original = run(HashedSubclass.insert({'column1': 'stuff', 'column2': 'something'}))
+        original = run(HashedSubclass.insert({
+            'column1': 'stuff',
+            'column2': 'something'
+        }))
         run(original.update({'column2': 'something else'}))
         same = run(HashedSubclass.find(original.id))
         assert same.column2 == 'something else', same
@@ -1934,7 +2174,9 @@ class TestAsyncClasses(unittest.TestCase):
         assert len(log) == 0, 'invalid test precondition'
         run(async_classes.AsyncHashedModel.insert({'details': next_details()}))
         assert len(log) == 2
-        run(async_classes.AsyncHashedModel.insert({'details': next_details()}, suppress_events=True))
+        run(async_classes.AsyncHashedModel.insert({
+            'details': next_details()
+        }, suppress_events=True))
         assert len(log) == 2
         run(HashedSubclass.insert({'column1': next_details()}))
         assert len(log) == 2, len(log)
@@ -1952,7 +2194,9 @@ class TestAsyncClasses(unittest.TestCase):
         assert len(log) == 0
         run(HashedSubclass.insert({'column1': next_details()}))
         assert len(log) == 2
-        run(HashedSubclass.insert({'column1': next_details()}, suppress_events=True))
+        run(HashedSubclass.insert(
+            {'column1': next_details()}, suppress_events=True
+        ))
         assert len(log) == 2
         HashedSubclass.clear_hooks('before_insert')
         HashedSubclass.clear_hooks('after_insert')
@@ -1964,18 +2208,26 @@ class TestAsyncClasses(unittest.TestCase):
         async_classes.AsyncHashedModel.add_hook('before_insert_many', addlog)
         async_classes.AsyncHashedModel.add_hook('after_insert_many', addlog)
         assert len(log) == 0, 'invalid test precondition'
-        run(async_classes.AsyncHashedModel.insert_many([{'details': next_details()}]))
-        assert len(log) == 2
-        run(async_classes.AsyncHashedModel.insert_many([{'details': next_details()}], suppress_events=True))
+        run(async_classes.AsyncHashedModel.insert_many(
+            [{'details': next_details()}], suppress_events=True
+        ))
+        assert len(log) == 0
+        run(async_classes.AsyncHashedModel.insert_many(
+            [{'details': next_details()}]
+        ))
         assert len(log) == 2
         async_classes.AsyncHashedModel.clear_hooks('before_insert_many')
         async_classes.AsyncHashedModel.clear_hooks('after_insert_many')
-        run(async_classes.AsyncHashedModel.insert_many([{'details': next_details()}]))
+        run(async_classes.AsyncHashedModel.insert_many(
+            [{'details': next_details()}]
+        ))
         assert len(log) == 2
         log.clear()
 
         # update
-        model = run(async_classes.AsyncHashedModel.query().order_by('details').first())
+        model = run(
+            async_classes.AsyncHashedModel.query().order_by('details').first()
+        )
         async_classes.AsyncHashedModel.add_hook('before_update', addlog)
         async_classes.AsyncHashedModel.add_hook('after_update', addlog)
         assert len(log) == 0, 'invalid test precondition'
@@ -1995,7 +2247,11 @@ class TestAsyncClasses(unittest.TestCase):
         assert len(log) == 0, 'invalid test precondition'
         run(run(async_classes.AsyncHashedModel.query().first()).delete())
         assert len(log) == 2, len(log)
-        run(run(async_classes.AsyncHashedModel.query().first()).delete(suppress_events=True))
+        run(
+            run(
+                async_classes.AsyncHashedModel.query().first()
+            ).delete(suppress_events=True)
+        )
         assert len(log) == 2, len(log)
         async_classes.AsyncHashedModel.clear_hooks()
         run(run(async_classes.AsyncHashedModel.query().first()).delete())
@@ -2004,26 +2260,38 @@ class TestAsyncClasses(unittest.TestCase):
 
     # AsyncDeletedModel tests
     def test_AsyncDeletedModel_issubclass_of_SqlModel(self):
-        assert issubclass(async_classes.AsyncDeletedModel, async_classes.AsyncSqlModel)
+        assert issubclass(
+            async_classes.AsyncDeletedModel, async_classes.AsyncSqlModel
+        )
 
     def test_AsyncDeletedModel_created_when_HashedModel_is_deleted(self):
         item = run(async_classes.AsyncHashedModel.insert({'data': '123'}))
         deleted = run(item.delete())
         assert isinstance(deleted, async_classes.AsyncDeletedModel)
         assert type(deleted.data[deleted.id_column]) is str
-        assert run(async_classes.AsyncDeletedModel.find(deleted.data[deleted.id_column])) != None
+        assert run(async_classes.AsyncDeletedModel.find(
+            deleted.data[deleted.id_column]
+        )) != None
 
     def test_AsyncDeletedModel_restore_returns_SqlModel_and_deleted_records_row(self):
         item = run(async_classes.AsyncHashedModel.insert({'data': '123'}))
 
         deleted = run(item.delete())
-        assert run(async_classes.AsyncDeletedModel.find(deleted.data[deleted.id_column])) is not None
-        assert run(async_classes.AsyncHashedModel.find(item.data[item.id_column])) is None
+        assert run(
+            async_classes.AsyncDeletedModel.find(deleted.data[deleted.id_column])
+        ) is not None
+        assert run(
+            async_classes.AsyncHashedModel.find(item.data[item.id_column])
+        ) is None
 
         restored = run(deleted.restore())
         assert isinstance(restored, async_classes.AsyncSqlModel)
-        assert run(async_classes.AsyncDeletedModel.find(deleted.data[deleted.id_column])) is None
-        assert run(async_classes.AsyncHashedModel.find(restored.data[restored.id_column])) is not None
+        assert run(
+            async_classes.AsyncDeletedModel.find(deleted.data[deleted.id_column])
+        ) is None
+        assert run(
+            async_classes.AsyncHashedModel.find(restored.data[restored.id_column])
+        ) is not None
 
     def test_AsyncDeletedModel_restore_raises_errors_for_invalid_target_record(self):
         class NotValidClass:
@@ -2041,7 +2309,7 @@ class TestAsyncClasses(unittest.TestCase):
 
         with self.assertRaises(ValueError) as e:
             run(deleted.restore())
-        assert str(e.exception) == 'model_class must be accessible'
+        assert str(e.exception) == 'model_class must be accessible', e.exception
 
         deleted = run(async_classes.AsyncDeletedModel.query().insert({
             'id': async_classes.AsyncDeletedModel.generate_id(),
@@ -2053,7 +2321,9 @@ class TestAsyncClasses(unittest.TestCase):
 
         with self.assertRaises(TypeError) as e:
             run(deleted.restore())
-        assert str(e.exception) == 'related_model must inherit from AsyncSqlModel'
+        assert str(e.exception) == (
+            'related_model must inherit from AsyncSqlModel'
+        ), e.exception
 
     def test_AsyncDeletedModel_event_hooks(self):
         log = []
@@ -2063,8 +2333,12 @@ class TestAsyncClasses(unittest.TestCase):
             return addlog
 
         # insert
-        async_classes.AsyncDeletedModel.add_hook('before_insert', make_handler('before_insert'))
-        async_classes.AsyncDeletedModel.add_hook('after_insert', make_handler('after_insert'))
+        async_classes.AsyncDeletedModel.add_hook(
+            'before_insert', make_handler('before_insert')
+        )
+        async_classes.AsyncDeletedModel.add_hook(
+            'after_insert', make_handler('after_insert')
+        )
         model = run(async_classes.AsyncHashedModel.insert({'details': 'test'}))
         assert len(log) == 0, 'invalid test precondition'
         deleted = run(model.delete())
@@ -2079,8 +2353,12 @@ class TestAsyncClasses(unittest.TestCase):
         log.clear()
 
         # restore
-        async_classes.AsyncDeletedModel.add_hook('before_restore', make_handler('before_restore'))
-        async_classes.AsyncDeletedModel.add_hook('after_restore', make_handler('after_restore'))
+        async_classes.AsyncDeletedModel.add_hook(
+            'before_restore', make_handler('before_restore')
+        )
+        async_classes.AsyncDeletedModel.add_hook(
+            'after_restore', make_handler('after_restore')
+        )
         assert len(log) == 0, 'invalid test precondition'
         model = run(deleted.restore())
         assert len(log) == 2
@@ -2096,14 +2374,18 @@ class TestAsyncClasses(unittest.TestCase):
 
     # AsyncAttachment tests
     def test_AsyncAttachment_issubclass_of_HashedModel(self):
-        assert issubclass(async_classes.AsyncAttachment, async_classes.AsyncHashedModel)
+        assert issubclass(
+            async_classes.AsyncAttachment, async_classes.AsyncHashedModel
+        )
 
     def test_AsyncAttachment_attach_to_raises_TypeError_for_invalid_input(self):
         class NotValidClass:
             ...
 
         with self.assertRaises(TypeError) as e:
-            async_classes.AsyncAttachment({'details': 'should fail'}).attach_to(NotValidClass())
+            async_classes.AsyncAttachment({
+                'details': 'should fail'
+            }).attach_to(NotValidClass())
         assert str(e.exception) == 'related must inherit from AsyncSqlModel'
 
     def test_AsyncAttachment_attach_to_sets_related_model_and_related_id(self):
@@ -2158,7 +2440,9 @@ class TestAsyncClasses(unittest.TestCase):
         data = { 'data': token_bytes(8).hex() }
         hashedmodel = run(async_classes.AsyncHashedModel.insert(data))
         details = {'123': 'some information'}
-        attachment = async_classes.AsyncAttachment({'details': packify.pack(details)})
+        attachment = async_classes.AsyncAttachment({
+            'details': packify.pack(details)
+        })
         attachment.attach_to(hashedmodel)
         run(attachment.save())
 
@@ -2172,8 +2456,12 @@ class TestAsyncClasses(unittest.TestCase):
                 log.append((name, args, kwargs))
             return addlog
 
-        async_classes.AsyncAttachment.add_hook('before_insert', make_handler('before_insert'))
-        async_classes.AsyncAttachment.add_hook('after_insert', make_handler('before_insert'))
+        async_classes.AsyncAttachment.add_hook(
+            'before_insert', make_handler('before_insert')
+        )
+        async_classes.AsyncAttachment.add_hook(
+            'after_insert', make_handler('before_insert')
+        )
         assert len(log) == 0, 'invalid test precondition'
         run(async_classes.AsyncAttachment.insert({
             'related_model': 'HashedModel',

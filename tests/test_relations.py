@@ -29,12 +29,15 @@ class TestRelations(unittest.TestCase):
             ...
         self.db = sqlite3.connect(self.db_filepath)
         self.cursor = self.db.cursor()
-        self.cursor.execute('create table pivot (id text, first_id text, second_id text)')
+        self.cursor.execute(
+            'create table pivot (id text, first_id text, second_id text)')
         self.cursor.execute('create table owners (id text, details text)')
-        self.cursor.execute('create table owned (id text, owner_id text, details text)')
-        self.cursor.execute('create table dag (id text, details text, parent_ids text)')
-        self.cursor.execute('create table deleted_records (id text not null, ' +
-            'model_class text not null, record_id text not null, ' +
+        self.cursor.execute(
+            'create table owned (id text, owner_id text, details text)')
+        self.cursor.execute(
+            'create table dag (id text, details text, parent_ids text)')
+        self.cursor.execute('create table deleted_records (id text not null, '
+            'model_class text not null, record_id text not null, '
             'record blob not null, timestamp text not null)')
 
         # rebuild test classes because properties will be changed in tests
@@ -385,6 +388,15 @@ class TestRelations(unittest.TestCase):
             hasone.reload()
         assert str(e.exception) == 'cannot reload an empty relation'
 
+    def test_has_one_related_property_has_proper_docstring(self):
+        self.OwnerModel.owned = relations.has_one(
+            self.OwnerModel,
+            self.OwnedModel,
+            'owner_id'
+        )
+        docstring = self.OwnerModel.owned.__doc__
+        assert '`OwnedModel`' in docstring, docstring
+
     def test_has_one_related_property_loads_on_first_read(self):
         self.OwnerModel.owned = relations.has_one(
             self.OwnerModel,
@@ -638,6 +650,15 @@ class TestRelations(unittest.TestCase):
             hasmany.reload()
         assert str(e.exception) == 'cannot reload an empty relation'
 
+    def test_has_many_related_property_has_proper_docstring(self):
+        self.OwnerModel.owned = relations.has_many(
+            self.OwnerModel,
+            self.OwnedModel,
+            'owner_id'
+        )
+        docstring = self.OwnerModel.owned.__doc__
+        assert '`OwnedModel`' in docstring, docstring
+
     def test_has_many_related_property_loads_on_first_read(self):
         self.OwnerModel.owned = relations.has_many(
             self.OwnerModel,
@@ -887,6 +908,15 @@ class TestRelations(unittest.TestCase):
             belongsto.reload()
         assert str(e.exception) == 'cannot reload an empty relation'
 
+    def test_belongs_to_related_property_has_proper_docstring(self):
+        self.OwnedModel.owner = relations.belongs_to(
+            self.OwnedModel,
+            self.OwnerModel,
+            'owner_id'
+        )
+        docstring = self.OwnedModel.owner.__doc__
+        assert '`OwnerModel`' in docstring, docstring
+
     def test_belongs_to_related_property_loads_on_first_read(self):
         self.OwnedModel.owner = relations.belongs_to(
             self.OwnedModel,
@@ -932,7 +962,9 @@ class TestRelations(unittest.TestCase):
                 b'not a str',
                 'second_id'
             )
-        assert str(e.exception) == 'primary_id_column and secondary_id_column must be str'
+        assert str(e.exception) == (
+            'primary_id_column and secondary_id_column must be str'
+        ), e.exception
 
     def test_BelongsToMany_sets_primary_and_secondary_correctly(self):
         belongstomany = relations.BelongsToMany(
@@ -970,7 +1002,9 @@ class TestRelations(unittest.TestCase):
             secondary_class=self.OwnerModel
         )
         cache_key = belongstomany.get_cache_key()
-        assert cache_key == 'OwnedModel_BelongsToMany_OwnerModel_Pivot_first_id_second_id'
+        assert cache_key == (
+            'OwnedModel_BelongsToMany_OwnerModel_Pivot_first_id_second_id'
+        ), cache_key
 
     def test_BelongsToMany_save_raises_error_for_incomplete_relation(self):
         belongstomany = relations.BelongsToMany(
@@ -1183,6 +1217,17 @@ class TestRelations(unittest.TestCase):
         with self.assertRaises(ValueError) as e:
             belongstomany.reload()
         assert str(e.exception) == 'cannot reload an empty relation'
+
+    def test_belongs_to_many_related_property_has_proper_docstring(self):
+        self.OwnedModel.owners = relations.belongs_to_many(
+            self.OwnedModel,
+            self.OwnerModel,
+            Pivot,
+            'first_id',
+            'second_id',
+        )
+        docstring = self.OwnedModel.owners.__doc__
+        assert '`OwnerModel`' in docstring, docstring
 
     def test_belongs_to_many_related_property_loads_on_first_read(self):
         self.OwnedModel.owners = relations.belongs_to_many(
@@ -1447,6 +1492,15 @@ class TestRelations(unittest.TestCase):
             contains.reload()
         assert str(e.exception) == 'cannot reload an empty relation'
 
+    def test_contains_related_property_has_proper_docstring(self):
+        self.DAGItem.parents = relations.contains(
+            self.DAGItem,
+            self.DAGItem,
+            'parent_ids',
+        )
+        docstring = self.DAGItem.parents.__doc__
+        assert '`DAGItem`' in docstring, docstring
+
     def test_contains_related_property_loads_on_first_read(self):
         self.DAGItem.parents = relations.contains(
             self.DAGItem,
@@ -1521,7 +1575,9 @@ class TestRelations(unittest.TestCase):
 
         with self.assertRaises(TypeError) as e:
             within.secondary = [self.OwnedModel()]
-        assert str(e.exception) == 'secondary must be instance of DAGItem', e.exception
+        assert str(e.exception) == (
+            'secondary must be instance of DAGItem'
+        ), e.exception
 
         assert within.secondary is None
         within.secondary = [secondary]
@@ -1728,6 +1784,15 @@ class TestRelations(unittest.TestCase):
         with self.assertRaises(ValueError) as e:
             within.reload()
         assert str(e.exception) == 'cannot reload an empty relation'
+
+    def test_within_related_property_has_proper_docstring(self):
+        self.DAGItem.children = relations.within(
+            self.DAGItem,
+            self.DAGItem,
+            'parent_ids',
+        )
+        docstring = self.DAGItem.children.__doc__
+        assert '`DAGItem`' in docstring, docstring
 
     def test_within_related_property_loads_on_first_read(self):
         self.DAGItem.children = relations.within(
