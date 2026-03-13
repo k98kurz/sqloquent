@@ -153,9 +153,9 @@ Connection information can be bound or injected in several places:
 - Bound to the db context manager
 
 Items higher in the list will override those lower in the list. For example, if
-you set the connection_info attribute on a model class or instance, it will be
+you set the `connection_info` attribute on a model class or instance, it will be
 used for interactions with the db originating from that model class or instance,
-respectively. If you set the connection_info attribute on the query builder
+respectively. If you set the `connection_info` attribute on the query builder
 class, it will be used, but if you pass it as a parameter to initialize a query
 builder, that paramter will be used instead.
 
@@ -340,7 +340,7 @@ from sqloquent import HashedModel
 
 class stuff(HashedModel):
     connection_info: str = ''
-    table: str = 'stuffs'
+    table: str = 'things'
     id_column: str = 'id'
     columns: tuple[str] = ('id', 'name', 'stuff')
     id: str
@@ -449,7 +449,7 @@ made into a property that accesses the underlying data stored in the `data`
 dict (the annotation just helps the code editor/LSP pick up on this). This will
 not work for any column name that collides with an existing class attribute or
 method, and the behavior can be disabled by adding a class attribute called
-"disable_column_property_mapping"; all row data will still be accessible via the
+`disable_column_property_mapping`; all row data will still be accessible via the
 `data` attribute on each instance regardless of name collision or feature
 disabling.
 
@@ -671,7 +671,7 @@ classes for examples of how to implement this.
 
 See the `SqliteContext` and `AsyncSqliteContext` classes for examples of how to
 implement these interfaces. This is a standard context manager that accepts
-connection_info string and returns a cursor to be used within the context block:
+`connection_info` string and returns a cursor to be used within the context block:
 
 ```python
 with SomeDBContextImplementation('some optional connection string') as cursor:
@@ -793,7 +793,7 @@ similar, but the following methods are async and must be awaited:
 
 If a cryptographic audit trail is desirable, use an inheritance pattern to
 couple the supplied classes to the desired `ModelProtocol` implementation, or
-simply change the connection_info attribute to use with sqlite3.
+simply change the `connection_info` attribute to use with sqlite3.
 
 ```python
 from .dbcxm import SomeDBContextImplementation
@@ -946,8 +946,8 @@ alice.avatar().secondary = models2.Avatar.insert({
 })
 alice.avatar().save()
 bob.avatar = models2.Avatar.insert({
-    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/90" +
-    "/Walrus_(Odobenus_rosmarus)_on_Svalbard.jpg/1200px-Walrus_(Odobe" +
+    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/90"
+    "/Walrus_(Odobenus_rosmarus)_on_Svalbard.jpg/1200px-Walrus_(Odobe"
     "nus_rosmarus)_on_Svalbard.jpg",
 })
 bob.avatar().save()
@@ -962,7 +962,7 @@ alice.friends().reload()
 
 The above is included in the second integration test:
 - [models](https://github.com/k98kurz/sqloquent/blob/master/tests/integration_vectors/models2.py)
-- [test](https://github.com/k98kurz/sqloquent/blob/master/tests/test_integration.py#L297)
+- [test](https://github.com/k98kurz/sqloquent/blob/master/tests/test_integration.py#L371)
 
 NB: polymorphic relations are not supported. See the `Attachment` class for an
 example of how to implement polymorphism if necessary.
@@ -1079,40 +1079,40 @@ Classes implement the protocols or extend the classes indicated.
 The package includes some ORM helper functions for setting up relations and some
 other useful functions.
 
-- dynamic_sqlmodel
-- has_one
-- has_many
-- belongs_to
-- belongs_to_many
-- contains
-- within
-- get_index_name
-- async_dynamic_sqlmodel
-- async_has_one
-- async_has_many
-- async_belongs_to
-- async_belongs_to_many
-- async_contains
-- async_within
+- `dynamic_sqlmodel`
+- `has_one`
+- `has_many`
+- `belongs_to`
+- `belongs_to_many`
+- `contains`
+- `within`
+- `get_index_name`
+- `async_dynamic_sqlmodel`
+- `async_has_one`
+- `async_has_many`
+- `async_belongs_to`
+- `async_belongs_to_many`
+- `async_contains`
+- `async_within`
 
 ### Tools
 
 The package includes a set of tools with a CLI invocation script.
 
-- make_migration_create
-- make_migration_alter
-- make_migration_drop
-- make_migration_from_model
-- make_migration_from_model_path
-- publish_migrations
-- make_model
-- migrate
-- rollback
-- refresh
-- examine
-- automigrate
-- autorollback
-- autorefresh
+- `make_migration_create`
+- `make_migration_alter`
+- `make_migration_drop`
+- `make_migration_from_model`
+- `make_migration_from_model_path`
+- `publish_migrations`
+- `make_model`
+- `migrate`
+- `rollback`
+- `refresh`
+- `examine`
+- `automigrate`
+- `autorollback`
+- `autorefresh`
 
 ## More Resources
 
@@ -1157,12 +1157,12 @@ python tests/test_tools.py
 The tests demonstrate the intended (and actual) behavior of the classes, as
 well as some contrived examples of how they are used. Perusing the tests will be
 informative to anyone seeking to use/break this package, especially the
-integration test which demonstrates the full package. There are currently 482
+integration test which demonstrates the full package. There are currently 494
 unit tests + 6 e2e/integration tests.
 
 ## ISC License
 
-Copyright (c) 2025 Jonathan Voss (k98kurz)
+Copyright (c) 2026 Jonathan Voss (k98kurz)
 
 Permission to use, copy, modify, and/or distribute this software
 for any purpose with or without fee is hereby granted, provided

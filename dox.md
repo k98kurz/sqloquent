@@ -19,7 +19,7 @@ General model for mapping a SQL row to an in-memory object.
 - columns: tuple
 - id: str
 - name: str
-- query_builder_class: Type[QueryBuilderProtocol]
+- query_builder_class: type[QueryBuilderProtocol]
 - connection_info: str
 - data: dict
 - data_original: MappingProxyType
@@ -27,7 +27,7 @@ General model for mapping a SQL row to an in-memory object.
 
 #### Methods
 
-##### `__init__(data: dict = {}) -> None:`
+##### `__init__(data: dict | None = None) -> None:`
 
 Initialize the instance. Raises TypeError or ValueError if _post_init_hooks is
 not dict[Any, callable].
@@ -75,11 +75,11 @@ Encode a value for hashing. Uses the pack function from packify.
 
 Generates and returns a hexadecimal UUID4.
 
-##### `@classmethod find(id: Any) -> Optional[SqlModel]:`
+##### `@classmethod find(id: Any) -> SqlModel | None:`
 
 Find a record by its id and return it. Return None if it does not exist.
 
-##### `@classmethod insert(data: dict, /, *, suppress_events: bool = False) -> Optional[SqlModel]:`
+##### `@classmethod insert(data: dict, /, *, suppress_events: bool = False) -> SqlModel | None:`
 
 Insert a new record to the datastore. Return instance. Raises TypeError if data
 is not a dict.
@@ -124,8 +124,8 @@ Default binding is to sqlite3.
 
 #### Annotations
 
-- model: Type[ModelProtocol]
-- context_manager: Type[DBContextProtocol]
+- model: type[ModelProtocol]
+- context_manager: type[DBContextProtocol]
 - connection_info: str
 - clauses: list
 - params: list
@@ -146,18 +146,18 @@ something other than a str.
 
 #### Methods
 
-##### `__init__(model_or_table: Type[SqlModel] | str = None, context_manager: Type[DBContextProtocol] = SqliteContext, connection_info: str = '', model: Type[SqlModel] = None, table: str = '', columns: list[str] = []) -> None:`
+##### `__init__(model_or_table: type[SqlModel] | str = None, context_manager: type[DBContextProtocol] = SqliteContext, connection_info: str = '', model: type[SqlModel] = None, table: str = '', columns: list[str] | None = None) -> None:`
 
 Initialize the instance. Must supply model_or_table or model or table. Must
 supply context_manager.
 
-##### `is_null(column: str | list[str,] | tuple[str,]) -> SqlQueryBuilder:`
+##### `is_null(column: str | list[str] | tuple[str]) -> SqlQueryBuilder:`
 
 Save the 'column is null' clause, then return self. Raises TypeError for invalid
 column. If a list or tuple is supplied, each element is treated as a separate
 clause.
 
-##### `not_null(column: str | list[str,] | tuple[str,]) -> SqlQueryBuilder:`
+##### `not_null(column: str | list[str] | tuple[str]) -> SqlQueryBuilder:`
 
 Save the 'column is not null' clause, then return self. Raises TypeError for
 invalid column. If a list or tuple is supplied, each element is treated as a
@@ -203,15 +203,15 @@ or `greater_or_equal(column1=data1, column2=data2, etc=data3)`.
 
 Save the 'column like {pattern.replace(?, data)}' clause and param, then return
 self. Raises TypeError or ValueError for invalid column, pattern, or data. This
-method can be called with `like(column, pattern, data)` or
-`like(column1=(pattern1,str1), column2=(pattern2,str2), etc=(pattern3,str3))`.
+method can be called with `like(column, pattern, data)` or `like(
+column1=(pattern1,str1), column2=(pattern2,str2), etc=(pattern3,str3) )`.
 
 ##### `not_like(column: str, pattern: str = None, data: str = None, conditions: dict[str, tuple[str, str]] = None) -> SqlQueryBuilder:`
 
 Save the 'column not like {pattern.replace(?, data)}' clause and param, then
 return self. Raises TypeError or ValueError for invalid column, pattern, or
 data. This method can be called with `not_like(column, pattern, data)` or
-`not_like(column1=(pattern1,str1), column2=(pattern2,str2), etc=(pattern3,str3))`.
+`not_like( column1=(pattern1,str1), column2=(pattern2,str2), etc=(pattern3,str3) )`.
 
 ##### `starts_with(column: str, data: str = None, conditions: dict[str, Any] = None) -> SqlQueryBuilder:`
 
@@ -290,7 +290,7 @@ offset.
 
 Returns a fresh instance using the configured model.
 
-##### `insert(data: dict) -> Optional[SqlModel | Row]:`
+##### `insert(data: dict) -> SqlModel | Row | None:`
 
 Insert a record and return a model instance. Raises TypeError for invalid data
 or ValueError if a record with the same id already exists.
@@ -300,11 +300,11 @@ or ValueError if a record with the same id already exists.
 Insert a batch of records and return the number inserted. Raises TypeError for
 invalid items.
 
-##### `find(id: Any) -> Optional[SqlModel | Row]:`
+##### `find(id: Any) -> SqlModel | Row | None:`
 
 Find a record by its id and return it.
 
-##### `join(model_or_table: Type[SqlModel] | str, on: list[str], kind: str = 'inner', joined_table_columns: tuple[str] = ()) -> SqlQueryBuilder:`
+##### `join(model_or_table: type[SqlModel] | str, on: list[str], kind: str = 'inner', joined_table_columns: tuple[str] = ()) -> SqlQueryBuilder:`
 
 Prepares the query for a join over multiple tables/models. Raises TypeError or
 ValueError for invalid model, on, or kind.
@@ -337,11 +337,11 @@ limit.
 Chunk all matching rows the specified number of rows at a time. Raises TypeError
 or ValueError for invalid number.
 
-##### `first() -> Optional[SqlModel | Row]:`
+##### `first() -> SqlModel | Row | None:`
 
 Run the query on the datastore and return the first result.
 
-##### `update(updates: dict, conditions: dict = {}) -> int:`
+##### `update(updates: dict, conditions: dict | None = None) -> int:`
 
 Update the datastore and return number of records updated. Raises TypeError for
 invalid updates or conditions.
@@ -383,7 +383,7 @@ Initialize the instance. Raises TypeError for non-str connection_info.
 
 Enter the context block and return the cursor.
 
-##### `__exit__(exc_type: Optional[Type[BaseException]], exc_value: Optional[BaseException], traceback: Optional[TracebackType]) -> None:`
+##### `__exit__(exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: TracebackType | None) -> None:`
 
 Exit the context block. Commit or rollback as appropriate, then close the
 connection if this is the outermost context.
@@ -399,7 +399,7 @@ Model for preserving and restoring deleted HashedModel records.
 - columns: tuple
 - id: str
 - name: str
-- query_builder_class: Type[QueryBuilderProtocol]
+- query_builder_class: type[QueryBuilderProtocol]
 - connection_info: str
 - data: dict
 - data_original: MappingProxyType
@@ -411,19 +411,19 @@ Model for preserving and restoring deleted HashedModel records.
 
 #### Methods
 
-##### `__init__(data: dict = {}) -> None:`
+##### `__init__(data: dict | None = None) -> None:`
 
 ##### `@classmethod insert(data: dict, /, *, suppress_events: bool = False) -> SqlModel | None:`
 
 Insert a new record to the datastore. Return instance. Raises TypeError if data
 is not a dict. Automatically sets a timestamp if one is not supplied.
 
-##### `restore(inject: dict = {}, /, *, suppress_events: bool = False) -> SqlModel:`
+##### `restore(inject: dict | None = None, /, *, suppress_events: bool = False) -> SqlModel:`
 
-Restore a deleted record, remove from deleted_records, and return the restored
-model. Raises ValueError if model_class cannot be found. Raises TypeError if
-model_class is not a subclass of SqlModel. Uses packify.unpack to unpack the
-record. Raises TypeError if packed record is not a dict.
+Restore a deleted record, remove from `deleted_records`, and return the restored
+model. Raises `ValueError` if `model_class` cannot be found. Raises `TypeError`
+if `model_class` is not a subclass of `SqlModel`. Uses `packify.unpack` to
+unpack the record. Raises `TypeError` if packed record is not a dict.
 
 ### `HashedModel(SqlModel)`
 
@@ -436,7 +436,7 @@ Model for interacting with sql database using sha256 for id.
 - columns: tuple[str]
 - id: str
 - name: str
-- query_builder_class: Type[QueryBuilderProtocol]
+- query_builder_class: type[QueryBuilderProtocol]
 - connection_info: str
 - data: dict
 - data_original: MappingProxyType
@@ -463,7 +463,7 @@ to the default value specified in the column annotation or None if no default is
 specified. Any columns in the columns_excluded_from_hash tuple will be excluded
 from the sha256 hash.
 
-##### `@classmethod insert(data: dict, /, *, suppress_events: bool = False) -> Optional[HashedModel]:`
+##### `@classmethod insert(data: dict, /, *, suppress_events: bool = False) -> HashedModel | None:`
 
 Insert a new record to the datastore. Return instance. Raises TypeError for
 non-dict data or unencodable type (calls cls.generate_id, which calls
@@ -498,7 +498,7 @@ Class for attaching immutable details to a record.
 - columns: tuple
 - id: str
 - name: str
-- query_builder_class: Type[QueryBuilderProtocol]
+- query_builder_class: type[QueryBuilderProtocol]
 - connection_info: str
 - data: dict
 - data_original: MappingProxyType
@@ -524,7 +524,7 @@ Attach to related model then return self.
 
 Decode packed bytes to dict.
 
-##### `set_details(details: packify.SerializableType = {}) -> Attachment:`
+##### `set_details(details: packify.SerializableType | None = None) -> Attachment:`
 
 Set the details column using either supplied data or by packifying
 self._details. Return self in monad pattern. Raises packify.UsageError or
@@ -552,12 +552,12 @@ Class for representing the results of SQL JOIN queries.
 
 #### Annotations
 
-- models: list[Type[SqlModel]]
+- models: list[type[SqlModel]]
 - data: dict
 
 #### Methods
 
-##### `__init__(models: list[Type[SqlModel]], data: dict) -> None:`
+##### `__init__(models: list[type[SqlModel]], data: dict) -> None:`
 
 Initialize the instance. Raises TypeError for invalid models or data.
 
@@ -567,7 +567,7 @@ Pretty str representation.
 
 ##### `__eq__():`
 
-##### `@staticmethod parse_data(models: list[Type[SqlModel]], data: dict) -> dict:`
+##### `@staticmethod parse_data(models: list[type[SqlModel]], data: dict) -> dict:`
 
 Parse data of form {table.column:value} to {table:{column:value}}. Raises
 TypeError for invalid models or data.
@@ -613,17 +613,17 @@ Interface showing how a DB cursor should function.
 
 #### Methods
 
-##### `execute(sql: str, parameters: list[str] = []) -> CursorProtocol:`
+##### `execute(sql: str, parameters: list[str] | None = None) -> CursorProtocol:`
 
 Execute a single query with the given parameters.
 
-##### `executemany(sql: str, seq_of_parameters: Iterable[list[str]] = []) -> CursorProtocol:`
+##### `executemany(sql: str, seq_of_parameters: Iterable[list[str]] | None = None) -> CursorProtocol:`
 
 Execute a query once for each list of parameters.
 
 ##### `executescript(sql: str) -> CursorProtocol:`
 
-Execute a SQL script without parameters. No implicit transaciton handling.
+Execute a SQL script without parameters. No implicit transaction handling.
 
 ##### `fetchone() -> Any:`
 
@@ -652,7 +652,7 @@ overriding with the parameter only if it is not empty.
 Enter the `with` block. Should return a cursor useful for making db calls.
 Should also handle connection pooling.
 
-##### `__exit__(exc_type: Optional[Type[BaseException]], exc_value: Optional[BaseException], traceback: Optional[TracebackType]) -> None:`
+##### `__exit__(exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: TracebackType | None) -> None:`
 
 Exit the `with` block. Should commit or rollback as appropriate, then close the
 connection if this is the outermost context.
@@ -697,11 +697,11 @@ events.
 
 Invoke the hooks for the event, passing cls, *args, and **kwargs.
 
-##### `@classmethod find(id: Any) -> Optional[ModelProtocol]:`
+##### `@classmethod find(id: Any) -> ModelProtocol | None:`
 
 Find a record by its id and return it. Return None if it does not exist.
 
-##### `@classmethod insert(data: dict, /, *, suppress_events: bool = False) -> Optional[ModelProtocol]:`
+##### `@classmethod insert(data: dict, /, *, suppress_events: bool = False) -> ModelProtocol | None:`
 
 Insert a new record to the datastore. Return instance.
 
@@ -740,18 +740,18 @@ Interface showing how a query builder should function.
 
 #### Methods
 
-##### `__init__(model_or_table: Type[ModelProtocol] | str, context_manager: Type[DBContextProtocol], connection_info: str = '', model: Type[ModelProtocol] = None, table: str = None) -> None:`
+##### `__init__(model_or_table: type[ModelProtocol] | str, context_manager: type[DBContextProtocol], connection_info: str = '', model: type[ModelProtocol] = None, table: str = None, columns: list[str] | None = None) -> None:`
 
 Initialize the instance. A class implementing ModelProtocol or the str name of a
 table must be provided.
 
-##### `is_null(column: str | list[str,] | tuple[str,]) -> QueryBuilderProtocol:`
+##### `is_null(column: str | list[str] | tuple[str]) -> QueryBuilderProtocol:`
 
 Save the 'column is null' clause, then return self. Raises TypeError for invalid
 column. If a list or tuple is supplied, each element is treated as a separate
 clause.
 
-##### `not_null(column: str | list[str,] | tuple[str,]) -> QueryBuilderProtocol:`
+##### `not_null(column: str | list[str] | tuple[str]) -> QueryBuilderProtocol:`
 
 Save the 'column is not null' clause, then return self. Raises TypeError for
 invalid column. If a list or tuple is supplied, each element is treated as a
@@ -797,15 +797,15 @@ or `greater_or_equal(column1=data1, column2=data2, etc=data3)`.
 
 Save the 'column like {pattern.replace(?, data)}' clause and param, then return
 self. Raises TypeError or ValueError for invalid column, pattern, or data. This
-method can be called with `like(column, pattern, data)` or
-`like(column1=(pattern1,str1), column2=(pattern2,str2), etc=(pattern3,str3))`.
+method can be called with `like(column, pattern, data)` or `like(
+column1=(pattern1,str1), column2=(pattern2,str2), etc=(pattern3,str3) )`.
 
 ##### `not_like(column: str, pattern: str = None, data: str = None, conditions: dict[str, tuple[str, str]] = None) -> QueryBuilderProtocol:`
 
 Save the 'column not like {pattern.replace(?, data)}' clause and param, then
 return self. Raises TypeError or ValueError for invalid column, pattern, or
 data. This method can be called with `not_like(column, pattern, data)` or
-`not_like(column1=(pattern1,str1), column2=(pattern2,str2), etc=(pattern3,str3))`.
+`not_like( column1=(pattern1,str1), column2=(pattern2,str2), etc=(pattern3,str3) )`.
 
 ##### `starts_with(column: str, data: str = None, conditions: dict[str, Any] = None) -> QueryBuilderProtocol:`
 
@@ -849,13 +849,13 @@ TypeError or ValueError for invalid column or data. This method can be called
 with `does_not_end_with(column, data)` or `does_not_end_with(column1=str1,
 column2=str2, etc=str3)`.
 
-##### `is_in(column: str, data: Union[tuple, list] = None, conditions: dict[str, Any] = None) -> QueryBuilderProtocol:`
+##### `is_in(column: str, data: tuple | list = None, conditions: dict[str, Any] = None) -> QueryBuilderProtocol:`
 
 Save the 'column in data' clause and param, then return self. Raises TypeError
 or ValueError for invalid column or data. This method can be called with
 `is_in(column, data)` or `is_in(column1=list1, column2=list2, etc=list3)`.
 
-##### `not_in(column: str, data: Union[tuple, list] = None, conditions: dict[str, Any] = None) -> QueryBuilderProtocol:`
+##### `not_in(column: str, data: tuple | list = None, conditions: dict[str, Any] = None) -> QueryBuilderProtocol:`
 
 Save the 'column not in data' clause and param, then return self. Raises
 TypeError or ValueError for invalid column or data. This method can be called
@@ -880,7 +880,7 @@ Sets the number of rows to skip.
 
 Returns a fresh instance using the configured model.
 
-##### `insert(data: dict) -> Optional[ModelProtocol | RowProtocol]:`
+##### `insert(data: dict) -> ModelProtocol | RowProtocol | None:`
 
 Insert a record and return a model instance.
 
@@ -888,11 +888,11 @@ Insert a record and return a model instance.
 
 Insert a batch of records and return the number inserted.
 
-##### `find(id: str) -> Optional[ModelProtocol | RowProtocol]:`
+##### `find(id: str) -> ModelProtocol | RowProtocol | None:`
 
 Find a record by its id and return it.
 
-##### `join(model_or_table: Type[ModelProtocol] | str, on: list[str], kind: str = 'inner', joined_table_columns: tuple[str] = ()) -> QueryBuilderProtocol:`
+##### `join(model_or_table: type[ModelProtocol] | str, on: list[str], kind: str = 'inner', joined_table_columns: tuple[str] = ()) -> QueryBuilderProtocol:`
 
 Prepares the query for a join over multiple tables/models. Raises TypeError or
 ValueError for invalid model, on, or kind.
@@ -923,11 +923,11 @@ Takes the specified number of rows.
 
 Chunk all matching rows the specified number of rows at a time.
 
-##### `first() -> Optional[ModelProtocol | RowProtocol]:`
+##### `first() -> ModelProtocol | RowProtocol | None:`
 
 Run the query on the datastore and return the first result.
 
-##### `update(updates: dict, conditions: dict = {}) -> int:`
+##### `update(updates: dict, conditions: dict | None = None) -> int:`
 
 Update the datastore and return number of records updated.
 
@@ -959,11 +959,11 @@ Interface for representations of JOIN query results.
 
 #### Methods
 
-##### `__init__(models: list[Type[ModelProtocol]], data: dict) -> None:`
+##### `__init__(models: list[type[ModelProtocol]], data: dict) -> None:`
 
 Initialize the instance.
 
-##### `@staticmethod parse_data(models: list[Type[ModelProtocol]], data: dict) -> dict:`
+##### `@staticmethod parse_data(models: list[type[ModelProtocol]], data: dict) -> dict:`
 
 Parse data of form {table.column:value} to {table:{column:value}}.
 
@@ -1010,7 +1010,7 @@ Checks that primary is instance of self.primary_class.
 
 Checks that secondary is instance of self.secondary_class.
 
-##### `@staticmethod pivot_preconditions(pivot: Type[ModelProtocol]) -> None:`
+##### `@staticmethod pivot_preconditions(pivot: type[ModelProtocol]) -> None:`
 
 Checks preconditions for a pivot.
 
@@ -1077,16 +1077,16 @@ Base class for setting up relations.
 
 #### Annotations
 
-- primary_class: Type[ModelProtocol]
-- secondary_class: Type[ModelProtocol]
+- primary_class: type[ModelProtocol]
+- secondary_class: type[ModelProtocol]
 - primary_to_add: ModelProtocol
 - primary_to_remove: ModelProtocol
 - secondary_to_add: list[ModelProtocol]
 - secondary_to_remove: list[ModelProtocol]
 - primary: ModelProtocol
 - secondary: ModelProtocol | tuple[ModelProtocol]
-- _primary: Optional[ModelProtocol]
-- _secondary: Optional[ModelProtocol]
+- _primary: ModelProtocol | None
+- _secondary: ModelProtocol | None
 
 #### Properties
 
@@ -1096,7 +1096,7 @@ precondition check fails.
 
 #### Methods
 
-##### `__init__(primary_class: Type[ModelProtocol], secondary_class: Type[ModelProtocol], primary_to_add: ModelProtocol = None, primary_to_remove: ModelProtocol = None, secondary_to_add: list[ModelProtocol] = [], secondary_to_remove: list[ModelProtocol] = [], primary: ModelProtocol = None, secondary: ModelProtocol | tuple[ModelProtocol] = None) -> None:`
+##### `__init__(primary_class: type[ModelProtocol], secondary_class: type[ModelProtocol], primary_to_add: ModelProtocol = None, primary_to_remove: ModelProtocol = None, secondary_to_add: list[ModelProtocol] | None = None, secondary_to_remove: list[ModelProtocol] | None = None, primary: ModelProtocol = None, secondary: ModelProtocol | tuple[ModelProtocol] = None) -> None:`
 
 ##### `@staticmethod single_model_precondition() -> None:`
 
@@ -1116,7 +1116,7 @@ fails.
 Precondition check for a secondary instance. Raises TypeError if the check
 fails.
 
-##### `@staticmethod pivot_preconditions(pivot: Type[ModelProtocol]) -> None:`
+##### `@staticmethod pivot_preconditions(pivot: type[ModelProtocol]) -> None:`
 
 Precondition check for a pivot type. Raises TypeError if the check fails.
 
@@ -1149,16 +1149,16 @@ secondary.data[foreign_id_column]. An owner model.
 
 #### Annotations
 
-- primary_class: Type[ModelProtocol]
-- secondary_class: Type[ModelProtocol]
+- primary_class: type[ModelProtocol]
+- secondary_class: type[ModelProtocol]
 - primary_to_add: ModelProtocol
 - primary_to_remove: ModelProtocol
 - secondary_to_add: list[ModelProtocol]
 - secondary_to_remove: list[ModelProtocol]
 - primary: ModelProtocol
 - secondary: ModelProtocol | tuple[ModelProtocol]
-- _primary: Optional[ModelProtocol]
-- _secondary: Optional[ModelProtocol]
+- _primary: ModelProtocol | None
+- _secondary: ModelProtocol | None
 - foreign_id_column: str
 
 #### Properties
@@ -1206,16 +1206,16 @@ is set on the owner model.
 
 #### Annotations
 
-- primary_class: Type[ModelProtocol]
-- secondary_class: Type[ModelProtocol]
+- primary_class: type[ModelProtocol]
+- secondary_class: type[ModelProtocol]
 - primary_to_add: ModelProtocol
 - primary_to_remove: ModelProtocol
 - secondary_to_add: list[ModelProtocol]
 - secondary_to_remove: list[ModelProtocol]
 - primary: ModelProtocol
 - secondary: ModelProtocol | tuple[ModelProtocol]
-- _primary: Optional[ModelProtocol]
-- _secondary: Optional[ModelProtocol]
+- _primary: ModelProtocol | None
+- _secondary: ModelProtocol | None
 - foreign_id_column: str
 
 #### Properties
@@ -1253,16 +1253,16 @@ and HasMany. An instance of this class is set on the owned model.
 
 #### Annotations
 
-- primary_class: Type[ModelProtocol]
-- secondary_class: Type[ModelProtocol]
+- primary_class: type[ModelProtocol]
+- secondary_class: type[ModelProtocol]
 - primary_to_add: ModelProtocol
 - primary_to_remove: ModelProtocol
 - secondary_to_add: list[ModelProtocol]
 - secondary_to_remove: list[ModelProtocol]
 - primary: ModelProtocol
 - secondary: ModelProtocol | tuple[ModelProtocol]
-- _primary: Optional[ModelProtocol]
-- _secondary: Optional[ModelProtocol]
+- _primary: ModelProtocol | None
+- _secondary: ModelProtocol | None
 - foreign_id_column: str
 
 #### Methods
@@ -1295,17 +1295,17 @@ This requires the use of a pivot.
 
 #### Annotations
 
-- primary_class: Type[ModelProtocol]
-- secondary_class: Type[ModelProtocol]
+- primary_class: type[ModelProtocol]
+- secondary_class: type[ModelProtocol]
 - primary_to_add: ModelProtocol
 - primary_to_remove: ModelProtocol
 - secondary_to_add: list[ModelProtocol]
 - secondary_to_remove: list[ModelProtocol]
 - primary: ModelProtocol
 - secondary: ModelProtocol | tuple[ModelProtocol]
-- _primary: Optional[ModelProtocol]
-- _secondary: Optional[ModelProtocol]
-- pivot: Type[ModelProtocol]
+- _primary: ModelProtocol | None
+- _secondary: ModelProtocol | None
+- pivot: type[ModelProtocol]
 - primary_id_column: str
 - secondary_id_column: str
 
@@ -1317,7 +1317,7 @@ precondition check fails.
 
 #### Methods
 
-##### `__init__(pivot: Type[ModelProtocol], primary_id_column: str, secondary_id_column: str) -> None:`
+##### `__init__(pivot: type[ModelProtocol], primary_id_column: str, secondary_id_column: str) -> None:`
 
 Set the pivot and query_builder_pivot attributes, then let the Relation class
 handle the rest. Raises TypeError if either primary_id_column or
@@ -1357,15 +1357,15 @@ something similar. IDs are sorted for deterministic hashing via HashedModel.
 
 #### Annotations
 
-- primary_class: Type[ModelProtocol]
-- secondary_class: Type[ModelProtocol]
+- primary_class: type[ModelProtocol]
+- secondary_class: type[ModelProtocol]
 - primary_to_add: ModelProtocol
 - primary_to_remove: ModelProtocol
 - secondary_to_add: list[ModelProtocol]
 - secondary_to_remove: list[ModelProtocol]
 - primary: ModelProtocol
 - secondary: tuple[ModelProtocol]
-- _primary: Optional[ModelProtocol]
+- _primary: ModelProtocol | None
 - _secondary: tuple[ModelProtocol]
 - foreign_id_column: str
 
@@ -1401,16 +1401,16 @@ HashedModel.
 
 #### Annotations
 
-- primary_class: Type[ModelProtocol]
-- secondary_class: Type[ModelProtocol]
+- primary_class: type[ModelProtocol]
+- secondary_class: type[ModelProtocol]
 - primary_to_add: ModelProtocol
 - primary_to_remove: ModelProtocol
 - secondary_to_add: list[ModelProtocol]
 - secondary_to_remove: list[ModelProtocol]
 - primary: ModelProtocol
 - secondary: tuple[ModelProtocol]
-- _primary: Optional[ModelProtocol]
-- _secondary: Optional[ModelProtocol]
+- _primary: ModelProtocol | None
+- _secondary: ModelProtocol | None
 - foreign_id_column: str
 
 #### Methods
@@ -1600,13 +1600,13 @@ Migration class for updating a database schema.
 #### Annotations
 
 - connection_info: str
-- context_manager: Type[DBContextProtocol]
+- context_manager: type[DBContextProtocol]
 - up_callbacks: list[Callable[[], list[TableProtocol]]]
 - down_callbacks: list[Callable[[], list[TableProtocol]]]
 
 #### Methods
 
-##### `__init__(connection_info: str = '', context_manager: Type[DBContextProtocol] = SqliteContext, up_callbacks: list[Callable[[], list[TableProtocol]]] = <factory>, down_callbacks: list[Callable[[], list[TableProtocol]]] = <factory>):`
+##### `__init__(connection_info: str = '', context_manager: type[DBContextProtocol] = SqliteContext, up_callbacks: list[Callable[[], list[TableProtocol]]] = <factory>, down_callbacks: list[Callable[[], list[TableProtocol]]] = <factory>):`
 
 ##### `__repr__():`
 
@@ -1642,7 +1642,7 @@ Apply the backward migration.
 
 ## Functions
 
-### `dynamic_sqlmodel(connection_string: str | bytes, table_name: str = '', column_names: tuple[str] = ()) -> Type[SqlModel]:`
+### `dynamic_sqlmodel(connection_string: str | bytes, table_name: str = '', column_names: tuple[str] = ()) -> type[SqlModel]:`
 
 Generates a dynamic sqlite model for instantiating context managers. Raises
 TypeError for invalid connection_string or table_name.
@@ -1651,28 +1651,28 @@ TypeError for invalid connection_string or table_name.
 
 Returns the library version.
 
-### `has_one(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol], foreign_id_column: str = None) -> property:`
+### `has_one(cls: type[ModelProtocol], owned_model: type[ModelProtocol], foreign_id_column: str = None) -> property:`
 
 Creates a HasOne relation and returns the result of create_property. Usage
 syntax is like `User.avatar = has_one( User, Avatar)`. If the foreign id column
 on the Avatar.table table is not user_id (cls.__name__ PascalCase -> snake_case
 + "_id"), then it can be specified.
 
-### `has_many(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol], foreign_id_column: str = None) -> property:`
+### `has_many(cls: type[ModelProtocol], owned_model: type[ModelProtocol], foreign_id_column: str = None) -> property:`
 
 Creates a HasMany relation and returns the result of create_property. Usage
 syntax is like `User.posts = has_many( User, Post)`. If the foreign id column on
 the Post.table table is not user_id (cls.__name__ PascalCase -> snake_case +
 "_id"), then it can be specified.
 
-### `belongs_to(cls: Type[ModelProtocol], owner_model: Type[ModelProtocol], foreign_id_column: str = None) -> property:`
+### `belongs_to(cls: type[ModelProtocol], owner_model: type[ModelProtocol], foreign_id_column: str = None) -> property:`
 
 Creates a BelongsTo relation and returns the result of create_property. Usage
 syntax is like `Post.owner = belongs_to( Post, User)`. If the foreign id column
 on the Post.table table is not user_id (cls.__name__ PascalCase -> snake_case +
 "_id"), then it can be specified.
 
-### `belongs_to_many(cls: Type[ModelProtocol], other_model: Type[ModelProtocol], pivot: Type[ModelProtocol], primary_id_column: str = None, secondary_id_column: str = None) -> property:`
+### `belongs_to_many(cls: type[ModelProtocol], other_model: type[ModelProtocol], pivot: type[ModelProtocol], primary_id_column: str = None, secondary_id_column: str = None) -> property:`
 
 Creates a BelongsToMany relation and returns the result of create_property.
 Usage syntax is like `User.liked_posts = belongs_to_many(User, Post, LikedPost)`.
@@ -1680,14 +1680,14 @@ If the foreign id columns on LikedPost are not user_id and post_id (cls.__name__
 or other_model.__name__ PascalCase -> snake_case + "_id"), then they can be
 specified.
 
-### `contains(cls: Type[ModelProtocol], other_model: Type[ModelProtocol], foreign_ids_column: str = None) -> property:`
+### `contains(cls: type[ModelProtocol], other_model: type[ModelProtocol], foreign_ids_column: str = None) -> property:`
 
 Creates a Contains relation and returns the result of calling create_property.
 Usage syntax is like `Item.parents = contains(Item, Item)`. If the column
 containing the sorted list of ids is not item_ids (i.e. other_model.__name__ ->
 snake_case + '_ids'), it can be specified.
 
-### `within(cls: Type[ModelProtocol], other_model: Type[ModelProtocol], foreign_ids_column: str = None) -> property:`
+### `within(cls: type[ModelProtocol], other_model: type[ModelProtocol], foreign_ids_column: str = None) -> property:`
 
 Creates a Within relation and returns the result of calling create_property.
 Usage syntax is like `Item.children = within(Item, Item)`. If the column

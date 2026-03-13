@@ -28,10 +28,10 @@ Steps to reproduce the behavior:
 
 ## Platform and Version (please complete the following information)
 
-- Platform/device: [e.g. desktop or specific phone model]
-- OS: [e.g. Ubuntu]
-- Python Version: [e.g. 3.10]
-- Sqloquent Version: [e.g. 0.7.2]
+- Platform/device: 
+- OS: 
+- Python Version: 
+- Sqloquent Version: 
 
 ### Additional context
 

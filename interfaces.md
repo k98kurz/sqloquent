@@ -18,17 +18,17 @@ Interface showing how a DB cursor should function.
 
 #### Methods
 
-##### `execute(sql: str, parameters: list[str] = []) -> CursorProtocol:`
+##### `execute(sql: str, parameters: list[str] | None = None) -> CursorProtocol:`
 
 Execute a single query with the given parameters.
 
-##### `executemany(sql: str, seq_of_parameters: Iterable[list[str]] = []) -> CursorProtocol:`
+##### `executemany(sql: str, seq_of_parameters: Iterable[list[str]] | None = None) -> CursorProtocol:`
 
 Execute a query once for each list of parameters.
 
 ##### `executescript(sql: str) -> CursorProtocol:`
 
-Execute a SQL script without parameters. No implicit transaciton handling.
+Execute a SQL script without parameters. No implicit transaction handling.
 
 ##### `fetchone() -> Any:`
 
@@ -57,7 +57,7 @@ overriding with the parameter only if it is not empty.
 Enter the `with` block. Should return a cursor useful for making db calls.
 Should also handle connection pooling.
 
-##### `__exit__(exc_type: Optional[Type[BaseException]], exc_value: Optional[BaseException], traceback: Optional[TracebackType]) -> None:`
+##### `__exit__(exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: TracebackType | None) -> None:`
 
 Exit the `with` block. Should commit or rollback as appropriate, then close the
 connection if this is the outermost context.
@@ -102,11 +102,11 @@ events.
 
 Invoke the hooks for the event, passing cls, *args, and **kwargs.
 
-##### `@classmethod find(id: Any) -> Optional[ModelProtocol]:`
+##### `@classmethod find(id: Any) -> ModelProtocol | None:`
 
 Find a record by its id and return it. Return None if it does not exist.
 
-##### `@classmethod insert(data: dict, /, *, suppress_events: bool = False) -> Optional[ModelProtocol]:`
+##### `@classmethod insert(data: dict, /, *, suppress_events: bool = False) -> ModelProtocol | None:`
 
 Insert a new record to the datastore. Return instance.
 
@@ -145,11 +145,11 @@ Interface for representations of JOIN query results.
 
 #### Methods
 
-##### `__init__(models: list[Type[ModelProtocol]], data: dict) -> None:`
+##### `__init__(models: list[type[ModelProtocol]], data: dict) -> None:`
 
 Initialize the instance.
 
-##### `@staticmethod parse_data(models: list[Type[ModelProtocol]], data: dict) -> dict:`
+##### `@staticmethod parse_data(models: list[type[ModelProtocol]], data: dict) -> dict:`
 
 Parse data of form {table.column:value} to {table:{column:value}}.
 
@@ -176,18 +176,18 @@ Interface showing how a query builder should function.
 
 #### Methods
 
-##### `__init__(model_or_table: Type[ModelProtocol] | str, context_manager: Type[DBContextProtocol], connection_info: str = '', model: Type[ModelProtocol] = None, table: str = None) -> None:`
+##### `__init__(model_or_table: type[ModelProtocol] | str, context_manager: type[DBContextProtocol], connection_info: str = '', model: type[ModelProtocol] = None, table: str = None, columns: list[str] | None = None) -> None:`
 
 Initialize the instance. A class implementing ModelProtocol or the str name of a
 table must be provided.
 
-##### `is_null(column: str | list[str,] | tuple[str,]) -> QueryBuilderProtocol:`
+##### `is_null(column: str | list[str] | tuple[str]) -> QueryBuilderProtocol:`
 
 Save the 'column is null' clause, then return self. Raises TypeError for invalid
 column. If a list or tuple is supplied, each element is treated as a separate
 clause.
 
-##### `not_null(column: str | list[str,] | tuple[str,]) -> QueryBuilderProtocol:`
+##### `not_null(column: str | list[str] | tuple[str]) -> QueryBuilderProtocol:`
 
 Save the 'column is not null' clause, then return self. Raises TypeError for
 invalid column. If a list or tuple is supplied, each element is treated as a
@@ -233,15 +233,15 @@ or `greater_or_equal(column1=data1, column2=data2, etc=data3)`.
 
 Save the 'column like {pattern.replace(?, data)}' clause and param, then return
 self. Raises TypeError or ValueError for invalid column, pattern, or data. This
-method can be called with `like(column, pattern, data)` or
-`like(column1=(pattern1,str1), column2=(pattern2,str2), etc=(pattern3,str3))`.
+method can be called with `like(column, pattern, data)` or `like(
+column1=(pattern1,str1), column2=(pattern2,str2), etc=(pattern3,str3) )`.
 
 ##### `not_like(column: str, pattern: str = None, data: str = None, conditions: dict[str, tuple[str, str]] = None) -> QueryBuilderProtocol:`
 
 Save the 'column not like {pattern.replace(?, data)}' clause and param, then
 return self. Raises TypeError or ValueError for invalid column, pattern, or
 data. This method can be called with `not_like(column, pattern, data)` or
-`not_like(column1=(pattern1,str1), column2=(pattern2,str2), etc=(pattern3,str3))`.
+`not_like( column1=(pattern1,str1), column2=(pattern2,str2), etc=(pattern3,str3) )`.
 
 ##### `starts_with(column: str, data: str = None, conditions: dict[str, Any] = None) -> QueryBuilderProtocol:`
 
@@ -285,13 +285,13 @@ TypeError or ValueError for invalid column or data. This method can be called
 with `does_not_end_with(column, data)` or `does_not_end_with(column1=str1,
 column2=str2, etc=str3)`.
 
-##### `is_in(column: str, data: Union[tuple, list] = None, conditions: dict[str, Any] = None) -> QueryBuilderProtocol:`
+##### `is_in(column: str, data: tuple | list = None, conditions: dict[str, Any] = None) -> QueryBuilderProtocol:`
 
 Save the 'column in data' clause and param, then return self. Raises TypeError
 or ValueError for invalid column or data. This method can be called with
 `is_in(column, data)` or `is_in(column1=list1, column2=list2, etc=list3)`.
 
-##### `not_in(column: str, data: Union[tuple, list] = None, conditions: dict[str, Any] = None) -> QueryBuilderProtocol:`
+##### `not_in(column: str, data: tuple | list = None, conditions: dict[str, Any] = None) -> QueryBuilderProtocol:`
 
 Save the 'column not in data' clause and param, then return self. Raises
 TypeError or ValueError for invalid column or data. This method can be called
@@ -316,7 +316,7 @@ Sets the number of rows to skip.
 
 Returns a fresh instance using the configured model.
 
-##### `insert(data: dict) -> Optional[ModelProtocol | RowProtocol]:`
+##### `insert(data: dict) -> ModelProtocol | RowProtocol | None:`
 
 Insert a record and return a model instance.
 
@@ -324,11 +324,11 @@ Insert a record and return a model instance.
 
 Insert a batch of records and return the number inserted.
 
-##### `find(id: str) -> Optional[ModelProtocol | RowProtocol]:`
+##### `find(id: str) -> ModelProtocol | RowProtocol | None:`
 
 Find a record by its id and return it.
 
-##### `join(model_or_table: Type[ModelProtocol] | str, on: list[str], kind: str = 'inner', joined_table_columns: tuple[str] = ()) -> QueryBuilderProtocol:`
+##### `join(model_or_table: type[ModelProtocol] | str, on: list[str], kind: str = 'inner', joined_table_columns: tuple[str] = ()) -> QueryBuilderProtocol:`
 
 Prepares the query for a join over multiple tables/models. Raises TypeError or
 ValueError for invalid model, on, or kind.
@@ -359,11 +359,11 @@ Takes the specified number of rows.
 
 Chunk all matching rows the specified number of rows at a time.
 
-##### `first() -> Optional[ModelProtocol | RowProtocol]:`
+##### `first() -> ModelProtocol | RowProtocol | None:`
 
 Run the query on the datastore and return the first result.
 
-##### `update(updates: dict, conditions: dict = {}) -> int:`
+##### `update(updates: dict, conditions: dict | None = None) -> int:`
 
 Update the datastore and return number of records updated.
 
@@ -415,7 +415,7 @@ Checks that primary is instance of self.primary_class.
 
 Checks that secondary is instance of self.secondary_class.
 
-##### `@staticmethod pivot_preconditions(pivot: Type[ModelProtocol]) -> None:`
+##### `@staticmethod pivot_preconditions(pivot: type[ModelProtocol]) -> None:`
 
 Checks preconditions for a pivot.
 

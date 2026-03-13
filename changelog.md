@@ -1,4 +1,4 @@
-## 0.7.3 (WIP)
+## 0.7.3
 
 - Bug fix: `contains` relation `reload()` raised `ValueError` if the foreign key
 column was empty
@@ -6,6 +6,8 @@ column was empty
     - Fixed in both sync and async relations
     - Also updated `query()` for consistent handling of secondary ids
 - Added new documentation file: migrations.md
+- Added version information to CLI help text and a `sqloquent version` command
+- Made some code hygiene updates and misc under-the-hood improvements
 
 ## 0.7.2
 

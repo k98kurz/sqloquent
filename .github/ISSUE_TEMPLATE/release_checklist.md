@@ -13,7 +13,7 @@ assignees: k98kurz
 
 Once all other issues are complete, prepare to release the next version.
 
-- [ ] Review and update docstrings
+- Review and update docstrings
   - [ ] `classes.py`
   - [ ] `interfaces.py`
   - [ ] `relations.py`
@@ -22,9 +22,11 @@ Once all other issues are complete, prepare to release the next version.
   - [ ] `asyncql/relations.py`
   - [ ] `migration.py`
   - [ ] `tools.py`
-- [ ] Update dox.md, interfaces.md, asyncql_dox.md, and async_interfaces.md
-- [ ] Update readme.md
-- [ ] Update changelog.md
+- Update documentation:
+  - [ ] `readme.md`
+  - [ ] `changelog.md`
+  - [ ] `migrations.md`
+  - [ ] autodox: `dox.md`, `interfaces.md`, `asyncql_dox.md`, `async_interfaces.md`
 - [ ] Review and finalize documentation
 - [ ] Ensure version strings are set to `'M.m.p'`
   - `version.py`
