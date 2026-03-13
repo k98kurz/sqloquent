@@ -3,7 +3,7 @@ from .classes import SqliteContext, quote_identifier, quote_sql_str_value
 from .errors import tressa, vert, tert
 from .interfaces import DBContextProtocol, TableProtocol
 from dataclasses import dataclass, field
-from typing import Any, Callable, Type
+from typing import Any, Callable
 import string
 
 
@@ -64,8 +64,9 @@ class Column:
         return self
 
 
-def get_index_name(table: TableProtocol, columns: list[Column|str],
-                   is_unique: bool = False) -> str:
+def get_index_name(
+        table: TableProtocol, columns: list[Column|str], is_unique: bool = False
+    ) -> str:
     """Generate the name for an index from the table, columns, and type."""
     name = 'udx_' if is_unique else 'idx_'
     name += table.name + '_'
@@ -91,7 +92,9 @@ class Table:
     uniques_to_drop: list[list[Column|str]] = field(default_factory=list)
     is_create: bool = field(default=False)
     is_drop: bool = field(default=False)
-    callback: Callable[[list[str]], list[str]] = field(default_factory=lambda: (lambda l: l))
+    callback: Callable[[list[str]], list[str]] = field(
+        default_factory=lambda: (lambda l: l)
+    )
 
     @classmethod
     def create(cls, name: str) -> Table:
@@ -191,7 +194,8 @@ class Table:
             list[str]. This is a way to add custom SQL while still using
             the migration system. Return self in monad pattern.
         """
-        tert(callable(callback), 'callback must be Callable[[list[str]], list[str]]')
+        tert(callable(callback),
+            'callback must be Callable[[list[str]], list[str]]')
         self.callback = callback
         return self
 
@@ -213,7 +217,9 @@ class Table:
             tressa(len(self.indices_to_drop) == 0, errmsg)
             tressa(len(self.uniques_to_add) == 0, errmsg)
             tressa(len(self.uniques_to_drop) == 0, errmsg)
-            return self.callback([f"drop table if exists {quote_identifier(self.name)}"])
+            return self.callback([
+                f"drop table if exists {quote_identifier(self.name)}"
+            ])
 
         if self.new_name:
             errmsg = "cannot combine rename table with other operations"
@@ -225,7 +231,10 @@ class Table:
             tressa(len(self.indices_to_drop) == 0, errmsg)
             tressa(len(self.uniques_to_add) == 0, errmsg)
             tressa(len(self.uniques_to_drop) == 0, errmsg)
-            return self.callback([f"alter table {quote_identifier(self.name)} rename to {quote_identifier(self.new_name)}"])
+            return self.callback([
+                f"alter table {quote_identifier(self.name)} rename to "
+                f"{quote_identifier(self.new_name)}"
+            ])
 
         for idx in self.uniques_to_drop:
             clauses.append(f"drop index if exists {get_index_name(self, idx, True)}")
@@ -253,17 +262,24 @@ class Table:
                 if not col.is_nullable:
                     clause += " not null"
                 create.append(clause)
-            clauses.append(f"create table if not exists {quote_identifier(self.name)} ({', '.join(create)})")
+            clauses.append(
+                f"create table if not exists {quote_identifier(self.name)} "
+                f"({', '.join(create)})"
+            )
         else:
             for col in self.columns_to_drop:
                 if isinstance(col, Column):
                     col.validate()
                 colname = col if type(col) is str else col.name
-                clauses.append(f"alter table {quote_identifier(self.name)} drop column {quote_identifier(colname)}")
+                clauses.append(
+                    f"alter table {quote_identifier(self.name)} drop column "
+                    f"{quote_identifier(colname)}"
+                )
 
             for col in self.columns_to_add:
                 col.validate()
-                clause = f"alter table {quote_identifier(self.name)} add column {quote_identifier(col.name)} {col.datatype}"
+                clause = (f"alter table {quote_identifier(self.name)} add column "
+                    f"{quote_identifier(col.name)} {col.datatype}")
                 if col.default_value is not None:
                     clause += " default "
                     if type(col.default_value) is str:
@@ -280,21 +296,25 @@ class Table:
                 clause = f"alter table {quote_identifier(self.name)} rename column "
                 if type(col) is Column:
                     col.validate()
-                    clause += f"{quote_identifier(col.name)} to {quote_identifier(col.new_name)}"
+                    clause += (f"{quote_identifier(col.name)} to "
+                        f"{quote_identifier(col.new_name)}")
                 else:
-                    clause += f"{quote_identifier(col[0])} to {quote_identifier(col[1])}"
+                    clause += (f"{quote_identifier(col[0])} to "
+                        f"{quote_identifier(col[1])}")
                 clauses.append(clause)
 
         for idx in self.uniques_to_add:
             colnames = [f'"{c}"' if type(c) is str else f'"{c.name}"' for c in idx]
-            clause =f"create unique index if not exists {get_index_name(self, idx, True)} "
-            clause += f"on {quote_identifier(self.name)} (" + ", ".join(colnames) + ")"
+            clause = ("create unique index if not exists "
+                f"{get_index_name(self, idx, True)} "
+                f"on {quote_identifier(self.name)} (" + ", ".join(colnames) + ")")
             clauses.append(clause)
 
         for idx in self.indices_to_add:
             colnames = [f'"{c}"' if type(c) is str else f'"{c.name}"' for c in idx]
-            clause =f"create index if not exists {get_index_name(self, idx)} "
-            clause += f"on {quote_identifier(self.name)} (" + ", ".join(colnames) + ")"
+            clause = f"create index if not exists {get_index_name(self, idx)} "
+            clause += f"on {quote_identifier(self.name)} "
+            clause += "(" + ", ".join(colnames) + ")"
             clauses.append(clause)
 
         return self.callback(clauses)
@@ -304,9 +324,13 @@ class Table:
 class Migration:
     """Migration class for updating a database schema."""
     connection_info: str = field(default="")
-    context_manager: Type[DBContextProtocol] = field(default=SqliteContext)
-    up_callbacks: list[Callable[[], list[TableProtocol]]] = field(default_factory=list)
-    down_callbacks: list[Callable[[], list[TableProtocol]]] = field(default_factory=list)
+    context_manager: type[DBContextProtocol] = field(default=SqliteContext)
+    up_callbacks: list[Callable[[], list[TableProtocol]]] = field(
+        default_factory=list
+    )
+    down_callbacks: list[Callable[[], list[TableProtocol]]] = field(
+        default_factory=list
+    )
 
     def up(self, callback: Callable[[], list[TableProtocol]]) -> None:
         """Specify the forward migration. May be called multiple times

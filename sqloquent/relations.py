@@ -10,7 +10,6 @@ from .tools import _pascalcase_to_snake_case
 from abc import abstractmethod
 from copy import deepcopy
 from types import MappingProxyType
-from typing import Optional, Type
 
 
 """
@@ -26,26 +25,26 @@ from typing import Optional, Type
 
 class Relation:
     """Base class for setting up relations."""
-    primary_class: Type[ModelProtocol]
-    secondary_class: Type[ModelProtocol]
+    primary_class: type[ModelProtocol]
+    secondary_class: type[ModelProtocol]
     primary_to_add: ModelProtocol
     primary_to_remove: ModelProtocol
     secondary_to_add: list[ModelProtocol]
     secondary_to_remove: list[ModelProtocol]
     primary: ModelProtocol
-    secondary: ModelProtocol|tuple[ModelProtocol]
-    _primary: Optional[ModelProtocol]
-    _secondary: Optional[ModelProtocol]
+    secondary: ModelProtocol | tuple[ModelProtocol]
+    _primary: ModelProtocol | None
+    _secondary: ModelProtocol | None
 
     def __init__(self,
-        primary_class: Type[ModelProtocol],
-        secondary_class: Type[ModelProtocol],
+        primary_class: type[ModelProtocol],
+        secondary_class: type[ModelProtocol],
         primary_to_add: ModelProtocol = None,
         primary_to_remove: ModelProtocol = None,
         secondary_to_add: list[ModelProtocol] = [],
         secondary_to_remove: list[ModelProtocol] = [],
         primary: ModelProtocol = None,
-        secondary: ModelProtocol|tuple[ModelProtocol] = None,
+        secondary: ModelProtocol | tuple[ModelProtocol] = None,
     ) -> None:
         self._primary = None
         self._secondary = None
@@ -82,7 +81,7 @@ class Relation:
         return self._primary
 
     @primary.setter
-    def primary(self, primary: Optional[ModelProtocol]) -> None:
+    def primary(self, primary: ModelProtocol | None) -> None:
         """Sets the primary model instance. Raises TypeError if a
             precondition check fails.
         """
@@ -97,12 +96,26 @@ class Relation:
 
         self.single_model_precondition(primary)
         self.primary_model_precondition(primary)
-        new_primary_id = primary.data[primary.id_column] if primary.id_column in primary.data else ''
+        new_primary_id = (
+            primary.data[primary.id_column]
+            if primary.id_column in primary.data
+            else ''
+        )
         has_primary = hasattr(self, '_primary') and self._primary
-        old_primary_is_valid = self._primary and self.primary_class.id_column in self._primary.data
-        old_primary_id = self._primary.data[self._primary.id_column] if old_primary_is_valid else None
+        old_primary_is_valid = (self._primary
+            and self.primary_class.id_column in self._primary.data)
+        old_primary_id = (
+            self._primary.data[self._primary.id_column]
+            if old_primary_is_valid
+            else None
+        )
 
-        if has_primary and (not old_primary_is_valid or new_primary_id != old_primary_id):
+        if  (   has_primary
+                and (
+                    not old_primary_is_valid
+                    or new_primary_id != old_primary_id
+                )
+            ):
             self.primary_to_add = primary
             if self.primary_to_remove is None:
                 self.primary_to_remove = self._primary
@@ -110,13 +123,13 @@ class Relation:
         self._primary = primary
 
     @property
-    def secondary(self) -> Optional[ModelProtocol|tuple[ModelProtocol]]:
+    def secondary(self) -> ModelProtocol | tuple[ModelProtocol] | None:
         """The secondary model instance(s)."""
         return self._secondary
 
     @secondary.setter
     @abstractmethod
-    def secondary(self, secondary: ModelProtocol|tuple[ModelProtocol]) -> None:
+    def secondary(self, secondary: ModelProtocol | tuple[ModelProtocol]) -> None:
         """Sets the secondary model instance(s)."""
         pass
 
@@ -136,7 +149,7 @@ class Relation:
             f'secondary must be instance of {self.secondary_class.__name__}')
 
     @staticmethod
-    def pivot_preconditions(pivot: Type[ModelProtocol]) -> None:
+    def pivot_preconditions(pivot: type[ModelProtocol]) -> None:
         """Precondition check for a pivot type. Raises TypeError if the
             check fails.
         """
@@ -157,14 +170,14 @@ class Relation:
         pass
 
     @abstractmethod
-    def query(self) -> QueryBuilderProtocol|None:
+    def query(self) -> QueryBuilderProtocol | None:
         """Creates the base query for the underlying relation."""
         pass
 
     def get_cache_key(self) -> str:
         """Returns the cache key for the Relation."""
         return (f'{self.primary_class.__name__}_{self.__class__.__name__}'
-                     f'_{self.secondary_class.__name__}')
+            f'_{self.secondary_class.__name__}')
 
     @abstractmethod
     def create_property(self) -> property:
@@ -189,14 +202,14 @@ class HasOne(Relation):
         super().__init__(*args, **kwargs)
 
     @property
-    def secondary(self) -> Optional[ModelProtocol]:
+    def secondary(self) -> ModelProtocol | None:
         """The secondary model instance. Setting raises TypeError if the
             precondition check fails.
         """
         return self._secondary
 
     @secondary.setter
-    def secondary(self, secondary: ModelProtocol|None) -> None:
+    def secondary(self, secondary: ModelProtocol | None) -> None:
         """Sets the secondary model instance. Includes convoluted change-
             tracking measures to reduce the frequency of database calls.
         """
@@ -205,7 +218,9 @@ class HasOne(Relation):
 
         if secondary is None:
             if self._secondary:
-                current_secondary_id = self._secondary.data[self._secondary.id_column]
+                current_secondary_id = self._secondary.data[
+                    self._secondary.id_column
+                ]
                 secondary_to_add_ids = [
                     item.data[item.id_column]
                     for item in self.secondary_to_add
@@ -255,7 +270,9 @@ class HasOne(Relation):
 
         if self.primary_to_remove and self.secondary_to_remove:
             owner_id = self.primary_to_remove.data[self.primary_class.id_column]
-            owned_id = self.secondary_to_remove[0].data[self.secondary_class.id_column]
+            owned_id = self.secondary_to_remove[0].data[
+                self.secondary_class.id_column
+            ]
             self.secondary_to_remove[0].data[self.foreign_id_column] = None
             remove = True
         elif self.primary_to_remove and self.secondary:
@@ -265,7 +282,9 @@ class HasOne(Relation):
             remove = True
         elif self.secondary_to_remove and self.primary:
             owner_id = self._primary.data[self.primary_class.id_column]
-            owned_id = self.secondary_to_remove[0].data[self.secondary_class.id_column]
+            owned_id = self.secondary_to_remove[0].data[
+                self.secondary_class.id_column
+            ]
             self.secondary_to_remove[0].data[self.foreign_id_column] = None
             remove = True
 
@@ -317,7 +336,7 @@ class HasOne(Relation):
 
         raise ValueError('cannot reload an empty relation')
 
-    def query(self) -> QueryBuilderProtocol|None:
+    def query(self) -> QueryBuilderProtocol | None:
         """Creates the base query for the underlying relation."""
         if self.primary and self.primary_class.id_column in self.primary.data:
             primary_id = self.primary.data[self.primary.id_column]
@@ -376,7 +395,8 @@ class HasOne(Relation):
             if cache_key not in self.relations or \
                 self.relations[cache_key] is None:
 
-                if cache_key not in self.relations or self.relations[cache_key] is None:
+                if cache_key not in self.relations \
+                    or self.relations[cache_key] is None:
                     self.relations[cache_key] = deepcopy(relation)
                     self.relations[cache_key].primary = self
 
@@ -435,14 +455,14 @@ class HasMany(HasOne):
         instance of this class is set on the owner model.
     """
     @property
-    def secondary(self) -> Optional[tuple[ModelProtocol]]:
+    def secondary(self) -> tuple[ModelProtocol] | None:
         """The secondary model instance. Setting raises TypeError if the
             precondition check fails.
         """
         return self._secondary
 
     @secondary.setter
-    def secondary(self, secondary: Optional[list[ModelProtocol]]) -> None:
+    def secondary(self, secondary: list[ModelProtocol] | None) -> None:
         """Sets the secondary model instance."""
         if self.primary_to_remove and self._secondary:
             self.save()
@@ -480,7 +500,8 @@ class HasMany(HasOne):
         if secondary_is_set:
             self.secondary_to_add = [
                 item for item in secondary
-                if item not in self.secondary_to_remove and item not in self._secondary
+                if item not in self.secondary_to_remove
+                    and item not in self._secondary
             ]
             self.secondary_to_remove += [
                 item for item in self._secondary
@@ -556,7 +577,7 @@ class HasMany(HasOne):
 
         raise ValueError('cannot reload an empty relation')
 
-    def query(self) -> QueryBuilderProtocol|None:
+    def query(self) -> QueryBuilderProtocol | None:
         """Creates the base query for the underlying relation."""
         if self.primary and self.primary_class.id_column in self.primary.data:
             primary_id = self.primary.data[self.primary.id_column]
@@ -599,9 +620,13 @@ class HasMany(HasOne):
             if self.id_column in self.data and self.data[self.id_column] is not None:
                 id_cache_key = cache_key + ':' + self.data[self.id_column]
                 if id_cache_key in self.__class__.id_relations:
-                    self.relations[cache_key] = self.__class__.id_relations[id_cache_key]
+                    self.relations[cache_key] = self.__class__.id_relations[
+                        id_cache_key
+                    ]
                 else:
-                    self.__class__.id_relations[id_cache_key] = self.relations[cache_key]
+                    self.__class__.id_relations[id_cache_key] = self.relations[
+                        cache_key
+                    ]
 
         if not hasattr(self.primary_class, '_post_init_hooks'):
             self.primary_class._post_init_hooks = {}
@@ -616,7 +641,8 @@ class HasMany(HasOne):
             if cache_key not in self.relations or \
                 self.relations[cache_key] is None:
 
-                if cache_key not in self.relations or self.relations[cache_key] is None:
+                if cache_key not in self.relations \
+                    or self.relations[cache_key] is None:
                     self.relations[cache_key] = deepcopy(relation)
                     self.relations[cache_key].primary = self
 
@@ -636,7 +662,9 @@ class HasMany(HasOne):
             return models
 
         @secondary.setter
-        def secondary(self: ModelProtocol, models: Optional[list[ModelProtocol]]) -> None:
+        def secondary(
+                self: ModelProtocol, models: list[ModelProtocol] | None
+            ) -> None:
             """Sets the secondary model instances. Raises TypeError if a
                 precondition check fails.
             """
@@ -702,7 +730,7 @@ class BelongsTo(HasOne):
 
         raise ValueError('cannot reload an empty relation')
 
-    def query(self) -> QueryBuilderProtocol|None:
+    def query(self) -> QueryBuilderProtocol | None:
         """Creates the base query for the underlying relation."""
         if self.primary and self.foreign_id_column in self.primary.data:
             secondary_id = self.primary.data[self.foreign_id_column]
@@ -757,7 +785,8 @@ class BelongsTo(HasOne):
             if cache_key not in self.relations or \
                 self.relations[cache_key] is None:
 
-                if cache_key not in self.relations or self.relations[cache_key] is None:
+                if cache_key not in self.relations \
+                    or self.relations[cache_key] is None:
                     self.relations[cache_key] = deepcopy(relation)
                     self.relations[cache_key].primary = self
 
@@ -807,14 +836,15 @@ class BelongsToMany(Relation):
         and each secondary can have many primary; e.g. users and roles,
         or roles and permissions. This requires the use of a pivot.
     """
-    pivot: Type[ModelProtocol]
+    pivot: type[ModelProtocol]
     primary_id_column: str
     secondary_id_column: str
 
-    def __init__(self, pivot: Type[ModelProtocol],
-                primary_id_column: str,
-                secondary_id_column: str,
-                *args, **kwargs) -> None:
+    def __init__(
+            self, pivot: type[ModelProtocol],
+            primary_id_column: str, secondary_id_column: str,
+            *args, **kwargs
+        ) -> None:
         """Set the pivot and query_builder_pivot attributes, then let the
             Relation class handle the rest. Raises TypeError if
             either primary_id_column or secondary_id_column is not a str.
@@ -827,14 +857,14 @@ class BelongsToMany(Relation):
         super().__init__(*args, **kwargs)
 
     @property
-    def secondary(self) -> Optional[list[ModelProtocol]]:
+    def secondary(self) -> list[ModelProtocol] | None:
         """The secondary model instances. Setting raises TypeError if a
             precondition check fails.
         """
         return self._secondary
 
     @secondary.setter
-    def secondary(self, secondary: Optional[list[ModelProtocol]]) -> None:
+    def secondary(self, secondary: list[ModelProtocol] | None) -> None:
         """Sets the secondary model instance."""
         if self.primary_to_remove and self._secondary:
             self.save()
@@ -877,7 +907,8 @@ class BelongsToMany(Relation):
                 for model in self.secondary_to_remove
             )
 
-            if item_id not in secondary_ids and item_id not in secondary_to_remove_ids:
+            if item_id not in secondary_ids \
+                and item_id not in secondary_to_remove_ids:
                 self.secondary_to_add.append(item)
             if item_id in secondary_to_remove_ids:
                 self.secondary_to_remove = [
@@ -888,11 +919,11 @@ class BelongsToMany(Relation):
         self._secondary = tuple(secondary)
 
     @property
-    def pivot(self) -> Type[ModelProtocol]:
+    def pivot(self) -> type[ModelProtocol]:
         return self._pivot
 
     @pivot.setter
-    def pivot(self, pivot: Type[ModelProtocol]) -> None:
+    def pivot(self, pivot: type[ModelProtocol]) -> None:
         self.pivot_preconditions(pivot)
         self._pivot = pivot
 
@@ -918,10 +949,11 @@ class BelongsToMany(Relation):
         ]
 
         query_builder = self.pivot.query()
-        must_remove_secondary = len(secondary_ids_to_remove) > 0 and len(primary_ids_for_delete) > 0
+        must_remove_secondary = len(secondary_ids_to_remove) > 0 \
+            and len(primary_ids_for_delete) > 0
         must_remove_primary = self.primary_to_remove is not None
-        must_add_secondary = len(secondary_ids_to_add) > 0 and \
-            (self.primary or self.primary_to_add) is not None
+        must_add_secondary = (len(secondary_ids_to_add) > 0 
+            and (self.primary or self.primary_to_add) is not None)
         must_add_primary = self.primary_to_add is not None
 
         if must_remove_secondary:
@@ -934,14 +966,17 @@ class BelongsToMany(Relation):
             ).delete()
 
         if must_remove_primary:
-            primary_to_remove_id = self.primary_to_remove.data[self.primary_class.id_column]
+            primary_to_remove_id = self.primary_to_remove.data[
+                self.primary_class.id_column
+            ]
             query_builder.reset().equal(
                 self.primary_id_column,
                 primary_to_remove_id
             ).is_in(
                 self.secondary_id_column,
                 secondary_ids_to_remove + [
-                    secondary.data[secondary.id_column] for secondary in self.secondary
+                    secondary.data[secondary.id_column]
+                    for secondary in self.secondary
                 ]
             ).delete()
 
@@ -1013,7 +1048,7 @@ class BelongsToMany(Relation):
 
         raise ValueError('cannot reload an empty relation')
 
-    def query(self) -> QueryBuilderProtocol|None:
+    def query(self) -> QueryBuilderProtocol | None:
         """Creates the base query for the underlying relation. This will
             return the query for a join between the pivot and the
             related model.
@@ -1029,8 +1064,8 @@ class BelongsToMany(Relation):
 
     def get_cache_key(self) -> str:
         """Returns the cache key for this relation."""
-        return f'{super().get_cache_key()}_{self.pivot.__name__}_' \
-            f'{self.primary_id_column}_{self.secondary_id_column}'
+        return (f'{super().get_cache_key()}_{self.pivot.__name__}_'
+            f'{self.primary_id_column}_{self.secondary_id_column}')
 
     def create_property(self) -> property:
         """Creates a property that can be used to set relation properties
@@ -1048,7 +1083,9 @@ class BelongsToMany(Relation):
             def __call__(self) -> BelongsToMany:
                 return self.relation
 
-        BelongsToManyTuple.__name__ = f'(BelongsToMany){self.secondary_class.__name__}'
+        BelongsToManyTuple.__name__ = (
+            f'(BelongsToMany){self.secondary_class.__name__}'
+        )
 
         def setup_relation(self: ModelProtocol):
             """Sets up the BelongsToMany relation during instance initialization."""
@@ -1067,10 +1104,12 @@ class BelongsToMany(Relation):
             """The secondary model instances. Setting raises TypeError
                 if a precondition check fails.
             """
-            if cache_key not in self.relations or \
-                self.relations[cache_key] is None:
-
-                if cache_key not in self.relations or self.relations[cache_key] is None:
+            if (    cache_key not in self.relations
+                    or self.relations[cache_key] is None
+                ):
+                if (    cache_key not in self.relations
+                        or self.relations[cache_key] is None
+                    ):
                     self.relations[cache_key] = deepcopy(relation)
                     self.relations[cache_key].primary = self
 
@@ -1090,7 +1129,9 @@ class BelongsToMany(Relation):
             return models
 
         @secondary.setter
-        def secondary(self: ModelProtocol, models: Optional[list[ModelProtocol]]) -> None:
+        def secondary(
+                self: ModelProtocol, models: list[ModelProtocol] | None
+            ) -> None:
             """Sets the secondary model instances. Raises TypeError if
                 the precondition check fails.
             """
@@ -1173,7 +1214,7 @@ class Contains(HasMany):
 
         raise ValueError('cannot reload an empty relation')
 
-    def query(self) -> QueryBuilderProtocol|None:
+    def query(self) -> QueryBuilderProtocol | None:
         """Creates the base query for the underlying relation."""
         if self.primary and self.foreign_id_column in self.primary.data:
             secondary_ids = self.primary.data[self.foreign_id_column]
@@ -1232,7 +1273,9 @@ class Contains(HasMany):
             if cache_key not in self.relations or \
                 self.relations[cache_key] is None:
 
-                if cache_key not in self.relations or self.relations[cache_key] is None:
+                if  (   cache_key not in self.relations
+                        or self.relations[cache_key] is None
+                    ):
                     self.relations[cache_key] = deepcopy(relation)
                     self.relations[cache_key].primary = self
 
@@ -1252,7 +1295,9 @@ class Contains(HasMany):
             return models
 
         @secondary.setter
-        def secondary(self: ModelProtocol, models: Optional[list[ModelProtocol]]) -> None:
+        def secondary(
+                self: ModelProtocol, models: list[ModelProtocol] | None
+            ) -> None:
             """Sets the secondary model instances."""
             self.relations[cache_key].secondary = models
 
@@ -1315,13 +1360,15 @@ class Within(HasMany):
         ).get())
         return self
 
-    def query(self) -> QueryBuilderProtocol|None:
+    def query(self) -> QueryBuilderProtocol | None:
         """Creates the base query for the underlying relation (i.e. to
             query the secondary class).
         """
         if self.primary and self.primary_class.id_column in self.primary.data:
             return self.secondary_class.query().contains(
-                self.foreign_id_column, self.primary.data[self.primary_class.id_column])
+                self.foreign_id_column,
+                self.primary.data[self.primary_class.id_column]
+            )
 
     def create_property(self) -> property:
         """Creates a property that can be used to set relation properties
@@ -1361,7 +1408,9 @@ class Within(HasMany):
             if cache_key not in self.relations or \
                 self.relations[cache_key] is None:
 
-                if cache_key not in self.relations or self.relations[cache_key] is None:
+                if  (   cache_key not in self.relations
+                        or self.relations[cache_key] is None
+                    ):
                     self.relations[cache_key] = deepcopy(relation)
                     self.relations[cache_key].primary = self
 
@@ -1383,7 +1432,9 @@ class Within(HasMany):
             return models
 
         @secondary.setter
-        def secondary(self: ModelProtocol, models: Optional[list[ModelProtocol]]) -> None:
+        def secondary(
+                self: ModelProtocol, models: list[ModelProtocol] | None
+            ) -> None:
             """Sets the secondary model instances. Raises TypeError if
                 the precondition check fails.
             """
@@ -1392,11 +1443,13 @@ class Within(HasMany):
         return secondary
 
 
-def _get_id_column(cls: Type[ModelProtocol]) -> str:
+def _get_id_column(cls: type[ModelProtocol]) -> str:
     return _pascalcase_to_snake_case(cls.__name__) + f'_{cls.id_column}'
 
-def has_one(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol],
-            foreign_id_column: str = None) -> property:
+def has_one(
+        cls: type[ModelProtocol], owned_model: type[ModelProtocol],
+        foreign_id_column: str = None
+    ) -> property:
     """Creates a HasOne relation and returns the result of
         create_property. Usage syntax is like `User.avatar = has_one(
         User, Avatar)`. If the foreign id column on the Avatar.table
@@ -1406,14 +1459,18 @@ def has_one(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol],
     if foreign_id_column is None:
         foreign_id_column = _get_id_column(cls)
 
-    relation = HasOne(foreign_id_column, primary_class=cls, secondary_class=owned_model)
+    relation = HasOne(
+        foreign_id_column, primary_class=cls, secondary_class=owned_model
+    )
     prop = relation.create_property()
-    prop.__doc__ = f'The related `{owned_model.__name__}`. Attempting to set to a ' +\
-        f'non-`{owned_model.__name__}` raises a `TypeError`.'
+    prop.__doc__ = (f'The related `{owned_model.__name__}`. Attempting to set '
+        f'to a non-`{owned_model.__name__}` raises a `TypeError`.')
     return prop
 
-def has_many(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol],
-             foreign_id_column: str = None) -> property:
+def has_many(
+        cls: type[ModelProtocol], owned_model: type[ModelProtocol],
+        foreign_id_column: str = None
+    ) -> property:
     """Creates a HasMany relation and returns the result of
         create_property. Usage syntax is like `User.posts = has_many(
         User, Post)`. If the foreign id column on the Post.table
@@ -1423,14 +1480,18 @@ def has_many(cls: Type[ModelProtocol], owned_model: Type[ModelProtocol],
     if foreign_id_column is None:
         foreign_id_column = _get_id_column(cls)
 
-    relation = HasMany(foreign_id_column, primary_class=cls, secondary_class=owned_model)
+    relation = HasMany(
+        foreign_id_column, primary_class=cls, secondary_class=owned_model
+    )
     prop = relation.create_property()
-    prop.__doc__ = f'The related `{owned_model.__name__}`s. Attempting to set to a ' +\
-        f'non-`{owned_model.__name__}` raises a `TypeError`.'
+    prop.__doc__ = (f'The related `{owned_model.__name__}`s. Attempting to set '
+        f'to a non-`{owned_model.__name__}` raises a `TypeError`.')
     return prop
 
-def belongs_to(cls: Type[ModelProtocol], owner_model: Type[ModelProtocol],
-               foreign_id_column: str = None) -> property:
+def belongs_to(
+        cls: type[ModelProtocol], owner_model: type[ModelProtocol],
+        foreign_id_column: str = None
+    ) -> property:
     """Creates a BelongsTo relation and returns the result of
         create_property. Usage syntax is like `Post.owner = belongs_to(
         Post, User)`.  If the foreign id column on the Post.table
@@ -1440,15 +1501,19 @@ def belongs_to(cls: Type[ModelProtocol], owner_model: Type[ModelProtocol],
     if foreign_id_column is None:
         foreign_id_column = _get_id_column(owner_model)
 
-    relation = BelongsTo(foreign_id_column, primary_class=cls, secondary_class=owner_model)
+    relation = BelongsTo(
+        foreign_id_column, primary_class=cls, secondary_class=owner_model
+    )
     prop = relation.create_property()
-    prop.__doc__ = f'The related `{owner_model.__name__}`. Attempting to set to a ' +\
-        f'non-`{owner_model.__name__}` raises a `TypeError`.'
+    prop.__doc__ = (f'The related `{owner_model.__name__}`. Attempting to set '
+        f'to a non-`{owner_model.__name__}` raises a `TypeError`.')
     return prop
 
-def belongs_to_many(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
-                pivot: Type[ModelProtocol],
-                primary_id_column: str = None, secondary_id_column: str = None) -> property:
+def belongs_to_many(
+        cls: type[ModelProtocol], other_model: type[ModelProtocol],
+        pivot: type[ModelProtocol],
+        primary_id_column: str = None, secondary_id_column: str = None
+    ) -> property:
     """Creates a BelongsToMany relation and returns the result of
         create_property. Usage syntax is like `User.liked_posts =
         belongs_to_many(User, Post, LikedPost)`. If the foreign id
@@ -1461,15 +1526,19 @@ def belongs_to_many(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
     if secondary_id_column is None:
         secondary_id_column = _get_id_column(other_model)
 
-    relation = BelongsToMany(pivot, primary_id_column, secondary_id_column,
-                             primary_class=cls, secondary_class=other_model)
+    relation = BelongsToMany(
+        pivot, primary_id_column, secondary_id_column,
+        primary_class=cls, secondary_class=other_model
+    )
     prop = relation.create_property()
-    prop.__doc__ = f'The related `{other_model.__name__}`s. Attempting to set to a ' +\
-        f'non-`{other_model.__name__}` raises a `TypeError`.'
+    prop.__doc__ = (f'The related `{other_model.__name__}`s. Attempting to set '
+        f'to a non-`{other_model.__name__}` raises a `TypeError`.')
     return prop
 
-def contains(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
-             foreign_ids_column: str = None) -> property:
+def contains(
+        cls: type[ModelProtocol], other_model: type[ModelProtocol],
+        foreign_ids_column: str = None
+    ) -> property:
     """Creates a Contains relation and returns the result of calling
         create_property. Usage syntax is like `Item.parents =
         contains(Item, Item)`. If the column containing the sorted list
@@ -1478,15 +1547,18 @@ def contains(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
     """
     if foreign_ids_column is None:
         foreign_ids_column = _get_id_column(other_model) + 's'
-    relation = Contains(foreign_ids_column, primary_class=cls,
-                        secondary_class=other_model)
+    relation = Contains(
+        foreign_ids_column, primary_class=cls, secondary_class=other_model
+    )
     prop = relation.create_property()
-    prop.__doc__ = f'The related `{other_model.__name__}`s. Attempting to set to a ' +\
-        f'non-`{other_model.__name__}` raises a `TypeError`.'
+    prop.__doc__ = (f'The related `{other_model.__name__}`s. Attempting to set '
+        f'to a non-`{other_model.__name__}` raises a `TypeError`.')
     return prop
 
-def within(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
-             foreign_ids_column: str = None) -> property:
+def within(
+        cls: type[ModelProtocol], other_model: type[ModelProtocol],
+        foreign_ids_column: str = None
+    ) -> property:
     """Creates a Within relation and returns the result of calling
         create_property. Usage syntax is like `Item.children =
         within(Item, Item)`. If the column containing the sorted list of
@@ -1498,6 +1570,6 @@ def within(cls: Type[ModelProtocol], other_model: Type[ModelProtocol],
     relation = Within(foreign_ids_column, primary_class=cls,
                         secondary_class=other_model)
     prop = relation.create_property()
-    prop.__doc__ = f'The related `{other_model.__name__}`s. Attempting to set to a ' +\
-        f'non-`{other_model.__name__}` raises a `TypeError`.'
+    prop.__doc__ = (f'The related `{other_model.__name__}`s. Attempting to set '
+        f'to a non-`{other_model.__name__}` raises a `TypeError`.')
     return prop

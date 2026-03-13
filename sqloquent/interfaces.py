@@ -19,10 +19,7 @@ from typing import (
     Callable,
     Generator,
     Iterable,
-    Optional,
     Protocol,
-    Type,
-    Union,
     runtime_checkable,
 )
 
@@ -34,8 +31,9 @@ class CursorProtocol(Protocol):
         """Execute a single query with the given parameters."""
         ...
 
-    def executemany(self, sql: str,
-                    seq_of_parameters: Iterable[list[str]] = []) -> CursorProtocol:
+    def executemany(
+            self, sql: str, seq_of_parameters: Iterable[list[str]] = []
+        ) -> CursorProtocol:
         """Execute a query once for each list of parameters."""
         ...
 
@@ -74,9 +72,11 @@ class DBContextProtocol(Protocol):
         """
         ...
 
-    def __exit__(self, exc_type: Optional[Type[BaseException]],
-                exc_value: Optional[BaseException],
-                traceback: Optional[TracebackType]) -> None:
+    def __exit__(
+            self, exc_type: type[BaseException] | None,
+            exc_value: BaseException | None,
+            traceback: TracebackType | None
+        ) -> None:
         """Exit the `with` block. Should commit or rollback as
             appropriate, then close the connection if this is the
             outermost context.
@@ -147,24 +147,30 @@ class ModelProtocol(Protocol):
         ...
 
     @classmethod
-    def find(cls, id: Any) -> Optional[ModelProtocol]:
+    def find(cls, id: Any) -> ModelProtocol | None:
         """Find a record by its id and return it. Return None if it does
             not exist.
         """
         ...
 
     @classmethod
-    def insert(cls, data: dict, /, *, suppress_events: bool = False) -> Optional[ModelProtocol]:
+    def insert(
+            cls, data: dict, /, *, suppress_events: bool = False
+        ) -> ModelProtocol | None:
         """Insert a new record to the datastore. Return instance."""
         ...
 
     @classmethod
-    def insert_many(cls, items: list[dict], /, *, suppress_events: bool = False) -> int:
+    def insert_many(
+            cls, items: list[dict], /, *, suppress_events: bool = False
+        ) -> int:
         """Insert a batch of records and return the number of items inserted."""
         ...
 
-    def update(self, updates: dict, conditions: dict = None, /, *,
-               suppress_events: bool = False) -> ModelProtocol:
+    def update(
+            self, updates: dict, conditions: dict = None, /, *,
+            suppress_events: bool = False
+        ) -> ModelProtocol:
         """Persist the specified changes to the datastore. Return self
             in monad pattern.
         """
@@ -191,7 +197,7 @@ class ModelProtocol(Protocol):
 @runtime_checkable
 class JoinedModelProtocol(Protocol):
     """Interface for representations of JOIN query results."""
-    def __init__(self, models: list[Type[ModelProtocol]], data: dict) -> None:
+    def __init__(self, models: list[type[ModelProtocol]], data: dict) -> None:
         """Initialize the instance."""
         ...
 
@@ -201,12 +207,12 @@ class JoinedModelProtocol(Protocol):
         ...
 
     @property
-    def models(self) -> list[Type[ModelProtocol]]:
+    def models(self) -> list[type[ModelProtocol]]:
         """List of the underlying model classes."""
         ...
 
     @staticmethod
-    def parse_data(models: list[Type[ModelProtocol]], data: dict) -> dict:
+    def parse_data(models: list[type[ModelProtocol]], data: dict) -> dict:
         """Parse data of form {table.column:value} to {table:{column:value}}."""
         ...
 
@@ -227,10 +233,11 @@ class RowProtocol(Protocol):
 @runtime_checkable
 class QueryBuilderProtocol(Protocol):
     """Interface showing how a query builder should function."""
-    def __init__(self, model_or_table: Type[ModelProtocol]|str,
-                 context_manager: Type[DBContextProtocol],
-                 connection_info: str = '', model: Type[ModelProtocol] = None,
-                 table: str = None) -> None:
+    def __init__(
+            self, model_or_table: type[ModelProtocol] | str,
+            context_manager: type[DBContextProtocol], connection_info: str = '',
+            model: type[ModelProtocol] = None, table: str = None
+        ) -> None:
         """Initialize the instance. A class implementing ModelProtocol
             or the str name of a table must be provided.
         """
@@ -242,26 +249,32 @@ class QueryBuilderProtocol(Protocol):
         ...
 
     @property
-    def model(self) -> Type[ModelProtocol]:
+    def model(self) -> type[ModelProtocol]:
         """The class of the relevant model."""
         ...
 
-    def is_null(self, column: str|list[str,]|tuple[str,]) -> QueryBuilderProtocol:
+    def is_null(
+            self, column: str | list[str,] | tuple[str,]
+        ) -> QueryBuilderProtocol:
         """Save the 'column is null' clause, then return self. Raises
             TypeError for invalid column. If a list or tuple is supplied,
             each element is treated as a separate clause.
         """
         ...
 
-    def not_null(self, column: str|list[str,]|tuple[str,]) -> QueryBuilderProtocol:
+    def not_null(
+            self, column: str | list[str,] | tuple[str,]
+        ) -> QueryBuilderProtocol:
         """Save the 'column is not null' clause, then return self.
             Raises TypeError for invalid column. If a list or tuple is
             supplied, each element is treated as a separate clause.
         """
         ...
 
-    def equal(self, column: str = None, data: str = None,
-              **conditions: dict[str, Any]) -> QueryBuilderProtocol:
+    def equal(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, Any]
+        ) -> QueryBuilderProtocol:
         """Save the 'column = data' clause and param, then return self.
             Raises TypeError for invalid column. This method can be
             called with `equal(column, data)` or
@@ -269,8 +282,10 @@ class QueryBuilderProtocol(Protocol):
         """
         ...
 
-    def not_equal(self, column: str = None, data: Any = None,
-                  **conditions: dict[str, Any]) -> QueryBuilderProtocol:
+    def not_equal(
+            self, column: str = None, data: Any = None,
+            **conditions: dict[str, Any]
+        ) -> QueryBuilderProtocol:
         """Save the 'column != data' clause and param, then return self.
             Raises TypeError for invalid column. This method can be
             called with `not_equal(column, data)` or
@@ -278,8 +293,10 @@ class QueryBuilderProtocol(Protocol):
         """
         ...
 
-    def less(self, column: str = None, data: str = None,
-             **conditions: dict[str, Any]) -> QueryBuilderProtocol:
+    def less(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, Any]
+        ) -> QueryBuilderProtocol:
         """Save the 'column < data' clause and param, then return self.
             Raises TypeError for invalid column. This method can be
             called with `less(column, data)` or
@@ -287,8 +304,10 @@ class QueryBuilderProtocol(Protocol):
         """
         ...
 
-    def less_or_equal(self, column: str = None, data: str = None,
-             **conditions: dict[str, Any]) -> QueryBuilderProtocol:
+    def less_or_equal(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, Any]
+        ) -> QueryBuilderProtocol:
         """Save the 'column <= data' clause and param, then return self.
             Raises TypeError for invalid column. This method can be
             called with `less_or_equal(column, data)` or
@@ -296,8 +315,10 @@ class QueryBuilderProtocol(Protocol):
         """
         ...
 
-    def greater(self, column: str = None, data: str = None,
-                **conditions: dict[str, Any]) -> QueryBuilderProtocol:
+    def greater(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, Any]
+        ) -> QueryBuilderProtocol:
         """Save the 'column > data' clause and param, then return self.
             Raises TypeError for invalid column. This method can be
             called with `greater(column, data)` or
@@ -305,8 +326,10 @@ class QueryBuilderProtocol(Protocol):
         """
         ...
 
-    def greater_or_equal(self, column: str = None, data: str = None,
-                **conditions: dict[str, Any]) -> QueryBuilderProtocol:
+    def greater_or_equal(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, Any]
+        ) -> QueryBuilderProtocol:
         """Save the 'column >= data' clause and param, then return self.
             Raises TypeError for invalid column. This method can be
             called with `greater_or_equal(column, data)` or
@@ -314,28 +337,42 @@ class QueryBuilderProtocol(Protocol):
         """
         ...
 
-    def like(self, column: str = None, pattern: str = None, data: str = None,
-             **conditions: dict[str, tuple[str, str]]) -> QueryBuilderProtocol:
+    def like(
+            self, column: str = None, pattern: str = None, data: str = None,
+            **conditions: dict[str, tuple[str, str]]
+        ) -> QueryBuilderProtocol:
         """Save the 'column like {pattern.replace(?, data)}' clause and
             param, then return self. Raises TypeError or ValueError for
             invalid column, pattern, or data. This method can be
             called with `like(column, pattern, data)` or
-            `like(column1=(pattern1,str1), column2=(pattern2,str2), etc=(pattern3,str3))`.
+            `like(
+                column1=(pattern1,str1),
+                column2=(pattern2,str2),
+                etc=(pattern3,str3)
+            )`.
         """
         ...
 
-    def not_like(self, column: str = None, pattern: str = None, data: str = None,
-                 **conditions: dict[str, tuple[str, str]]) -> QueryBuilderProtocol:
+    def not_like(
+            self, column: str = None, pattern: str = None, data: str = None,
+            **conditions: dict[str, tuple[str, str]]
+        ) -> QueryBuilderProtocol:
         """Save the 'column not like {pattern.replace(?, data)}' clause
             and param, then return self. Raises TypeError or ValueError
             for invalid column, pattern, or data. This method can be
             called with `not_like(column, pattern, data)` or
-            `not_like(column1=(pattern1,str1), column2=(pattern2,str2), etc=(pattern3,str3))`.
+            `not_like(
+                column1=(pattern1,str1),
+                column2=(pattern2,str2),
+                etc=(pattern3,str3)
+            )`.
         """
         ...
 
-    def starts_with(self, column: str = None, data: str = None,
-                    **conditions: dict[str, Any]) -> QueryBuilderProtocol:
+    def starts_with(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, Any]
+        ) -> QueryBuilderProtocol:
         """Save the 'column like data%' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data. This method can be called with `starts_with(column, data)`
@@ -343,8 +380,10 @@ class QueryBuilderProtocol(Protocol):
         """
         ...
 
-    def does_not_start_with(self, column: str = None, data: str = None,
-                             **conditions: dict[str, Any]) -> QueryBuilderProtocol:
+    def does_not_start_with(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, Any]
+        ) -> QueryBuilderProtocol:
         """Save the 'column not like data%' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data. This method can be called with
@@ -353,8 +392,10 @@ class QueryBuilderProtocol(Protocol):
         """
         ...
 
-    def contains(self, column: str = None, data: str = None,
-                 **conditions: dict[str, Any]) -> QueryBuilderProtocol:
+    def contains(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, Any]
+        ) -> QueryBuilderProtocol:
         """Save the 'column like %data%' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data. This method can be called with `contains(column, data)`
@@ -362,8 +403,10 @@ class QueryBuilderProtocol(Protocol):
         """
         ...
 
-    def excludes(self, column: str = None, data: str = None,
-                 **conditions: dict[str, Any]) -> QueryBuilderProtocol:
+    def excludes(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, Any]
+        ) -> QueryBuilderProtocol:
         """Save the 'column not like %data%' clause and param, then
             return self. Raises TypeError or ValueError for invalid
             column or data. This method can be called with
@@ -372,8 +415,10 @@ class QueryBuilderProtocol(Protocol):
         """
         ...
 
-    def ends_with(self, column: str = None, data: str = None,
-                  **conditions: dict[str, Any]) -> QueryBuilderProtocol:
+    def ends_with(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, Any]
+        ) -> QueryBuilderProtocol:
         """Save the 'column like %data' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data. This method can be called with `ends_with(column, data)`
@@ -381,8 +426,10 @@ class QueryBuilderProtocol(Protocol):
         """
         ...
 
-    def does_not_end_with(self, column: str = None, data: str = None,
-                           **conditions: dict[str, Any]) -> QueryBuilderProtocol:
+    def does_not_end_with(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, Any]
+        ) -> QueryBuilderProtocol:
         """Save the 'column like %data' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data. This method can be called with
@@ -391,8 +438,10 @@ class QueryBuilderProtocol(Protocol):
         """
         ...
 
-    def is_in(self, column: str = None, data: Union[tuple, list] = None,
-              **conditions: dict[str, Any]) -> QueryBuilderProtocol:
+    def is_in(
+            self, column: str = None, data: tuple | list = None,
+            **conditions: dict[str, Any]
+        ) -> QueryBuilderProtocol:
         """Save the 'column in data' clause and param, then return self.
             Raises TypeError or ValueError for invalid column or data.
             This method can be called with `is_in(column, data)` or
@@ -400,8 +449,10 @@ class QueryBuilderProtocol(Protocol):
         """
         ...
 
-    def not_in(self, column: str = None, data: Union[tuple, list] = None,
-                **conditions: dict[str, Any]) -> QueryBuilderProtocol:
+    def not_in(
+            self, column: str = None, data: tuple | list = None,
+            **conditions: dict[str, Any]
+        ) -> QueryBuilderProtocol:
         """Save the 'column not in data' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data. This method can be called with `not_in(column, data)`
@@ -409,7 +460,9 @@ class QueryBuilderProtocol(Protocol):
         """
         ...
 
-    def where(self, **conditions: dict[str, dict[str, Any]|list[str]]) -> QueryBuilderProtocol:
+    def where(
+            self, **conditions: dict[str, dict[str, Any] | list[str]]
+        ) -> QueryBuilderProtocol:
         """Parse the conditions as if they are sequential calls to the
             equivalent SqlQueryBuilder methods. Syntax is as follows:
             `where(is_null=[column1,...], not_null=[column2,...],
@@ -434,8 +487,10 @@ class QueryBuilderProtocol(Protocol):
         """
         ...
 
-    def order_by(self, column: str = None, direction: str = 'desc',
-                  **conditions: dict[str, Any]) -> QueryBuilderProtocol:
+    def order_by(
+            self, column: str = None, direction: str = 'desc',
+            **conditions: dict[str, Any]
+        ) -> QueryBuilderProtocol:
         """Sets query order."""
         ...
 
@@ -447,7 +502,7 @@ class QueryBuilderProtocol(Protocol):
         """Returns a fresh instance using the configured model."""
         ...
 
-    def insert(self, data: dict) -> Optional[ModelProtocol|RowProtocol]:
+    def insert(self, data: dict) -> ModelProtocol | RowProtocol | None:
         """Insert a record and return a model instance."""
         ...
 
@@ -455,13 +510,14 @@ class QueryBuilderProtocol(Protocol):
         """Insert a batch of records and return the number inserted."""
         ...
 
-    def find(self, id: str) -> Optional[ModelProtocol|RowProtocol]:
+    def find(self, id: str) -> ModelProtocol | RowProtocol | None:
         """Find a record by its id and return it."""
         ...
 
-    def join(self, model_or_table: Type[ModelProtocol]|str, on: list[str],
-             kind: str = "inner", joined_table_columns: tuple[str] = (),
-             ) -> QueryBuilderProtocol:
+    def join(
+            self, model_or_table: type[ModelProtocol] | str, on: list[str],
+            kind: str = "inner", joined_table_columns: tuple[str] = (),
+        ) -> QueryBuilderProtocol:
         """Prepares the query for a join over multiple tables/models.
             Raises TypeError or ValueError for invalid model, on, or
             kind.
@@ -476,7 +532,9 @@ class QueryBuilderProtocol(Protocol):
         """Adds a group by constraint."""
         ...
 
-    def get(self) -> list[ModelProtocol]|list[JoinedModelProtocol]|list[RowProtocol]:
+    def get(self) -> (
+            list[ModelProtocol] | list[JoinedModelProtocol] | list[RowProtocol]
+        ):
         """Run the query on the datastore and return a list of results.
             Return SqlModels when running a simple query. Return
             JoinedModels when running a JOIN query. Return Rows when
@@ -488,15 +546,20 @@ class QueryBuilderProtocol(Protocol):
         """Returns the number of records matching the query."""
         ...
 
-    def take(self, number: int) -> list[ModelProtocol]|list[JoinedModelProtocol]|list[RowProtocol]:
+    def take(
+            self, number: int
+        ) -> list[ModelProtocol] | list[JoinedModelProtocol] | list[RowProtocol]:
         """Takes the specified number of rows."""
         ...
 
-    def chunk(self, number: int) -> Generator[list[ModelProtocol]|list[JoinedModelProtocol]|list[RowProtocol], None, None]:
+    def chunk(self, number: int) -> Generator[
+            list[ModelProtocol] | list[JoinedModelProtocol] | list[RowProtocol],
+            None, None
+        ]:
         """Chunk all matching rows the specified number of rows at a time."""
         ...
 
-    def first(self) -> Optional[ModelProtocol|RowProtocol]:
+    def first(self) -> ModelProtocol | RowProtocol | None:
         """Run the query on the datastore and return the first result."""
         ...
 
@@ -510,7 +573,7 @@ class QueryBuilderProtocol(Protocol):
         """
         ...
 
-    def to_sql(self, interpolate_params: bool = True) -> str|tuple[str, list]:
+    def to_sql(self, interpolate_params: bool = True) -> str | tuple[str, list]:
         """Return the sql where clause from the clauses and params. If
             interpolate_params is True, the parameters will be
             interpolated into the SQL str and a single str result will
@@ -541,7 +604,7 @@ class RelationProtocol(Protocol):
         ...
 
     @property
-    def secondary(self) -> ModelProtocol|tuple[ModelProtocol]:
+    def secondary(self) -> ModelProtocol | tuple[ModelProtocol]:
         """Property that accesses the secondary instance(s)."""
         ...
 
@@ -564,7 +627,7 @@ class RelationProtocol(Protocol):
         ...
 
     @staticmethod
-    def pivot_preconditions(pivot: Type[ModelProtocol]) -> None:
+    def pivot_preconditions(pivot: type[ModelProtocol]) -> None:
         """Checks preconditions for a pivot."""
         ...
 
@@ -576,7 +639,7 @@ class RelationProtocol(Protocol):
         """Reload the secondary models from the database."""
         ...
 
-    def query(self) -> QueryBuilderProtocol|None:
+    def query(self) -> QueryBuilderProtocol | None:
         """Creates the base query for the underlying relation."""
         ...
 
@@ -699,27 +762,27 @@ class TableProtocol(Protocol):
         """Rename the table."""
         ...
 
-    def index(self, columns: list[ColumnProtocol|str]) -> TableProtocol:
+    def index(self, columns: list[ColumnProtocol | str]) -> TableProtocol:
         """Create a simple index or a composite index."""
         ...
 
-    def drop_index(self, columns: list[ColumnProtocol|str]) -> TableProtocol:
+    def drop_index(self, columns: list[ColumnProtocol | str]) -> TableProtocol:
         """Drop a simple index or a composite index."""
         ...
 
-    def unique(self, columns: list[ColumnProtocol|str]) -> TableProtocol:
+    def unique(self, columns: list[ColumnProtocol | str]) -> TableProtocol:
         """Create a simple unique index or a composite unique index."""
         ...
 
-    def drop_unique(self, columns: list[ColumnProtocol|str]) -> TableProtocol:
+    def drop_unique(self, columns: list[ColumnProtocol | str]) -> TableProtocol:
         """Drop a simple unique index or a composite unique index."""
         ...
 
-    def drop_column(self, column: ColumnProtocol|str) -> TableProtocol:
+    def drop_column(self, column: ColumnProtocol | str) -> TableProtocol:
         """Drop the specified column."""
         ...
 
-    def rename_column(self, column: ColumnProtocol|list[str]) -> TableProtocol:
+    def rename_column(self, column: ColumnProtocol | list[str]) -> TableProtocol:
         """Rename the specified column."""
         ...
 

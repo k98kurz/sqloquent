@@ -8,7 +8,7 @@ from genericpath import isdir, isfile
 from os import listdir, environ
 from sys import argv
 from types import ModuleType, NoneType, UnionType
-from typing import Any, Type, get_args
+from typing import Any, get_args
 import importlib.util
 import re
 
@@ -37,8 +37,9 @@ def _make_migration_src_start(ctx: tuple = None) -> str:
             src += f"from {ctx[1]} import {ctx[0]}\n"
     return f"{src}\n\n"
 
-def make_migration_create(name: str, connection_string: str = '',
-                          ctx: tuple = None) -> str:
+def make_migration_create(
+        name: str, connection_string: str = '', ctx: tuple = None
+    ) -> str:
     """Generate a migration scaffold from a table name to create a table."""
     src = _make_migration_src_start(ctx)
     table_name = _pascalcase_to_snake_case(name)
@@ -49,7 +50,8 @@ def make_migration_create(name: str, connection_string: str = '',
     src += f"    return [t]\n\n"
     src += f"def drop_table_{table_name}() -> list[Table]:\n"
     src += f"    return [Table.drop('{table_name}')]\n\n"
-    src += f"def migration(connection_string: str = '{connection_string}') -> Migration:\n"
+    src += (f"def migration(connection_string: str = '{connection_string}') -> "
+        "Migration:\n")
     if ctx:
         src += f"    migration = Migration(connection_string, {ctx[0]})\n"
     else:
@@ -59,8 +61,9 @@ def make_migration_create(name: str, connection_string: str = '',
     src += f"    return migration"
     return src
 
-def make_migration_alter(name: str, connection_string: str = '',
-                         ctx: tuple = None) -> str:
+def make_migration_alter(
+        name: str, connection_string: str = '', ctx: tuple = None
+    ) -> str:
     """Generate a migration scaffold from a table name to alter a table."""
     src = _make_migration_src_start(ctx)
     table_name = _pascalcase_to_snake_case(name)
@@ -72,7 +75,8 @@ def make_migration_alter(name: str, connection_string: str = '',
     src += f"    t = Table.alter('{table_name}')\n"
     src += f"    ...\n"
     src += f"    return [t]\n\n"
-    src += f"def migration(connection_string: str = '{connection_string}') -> Migration:\n"
+    src += (f"def migration(connection_string: str = '{connection_string}') -> "
+        "Migration:\n")
     if ctx:
         src += f"    migration = Migration(connection_string, {ctx[0]})\n"
     else:
@@ -82,8 +86,9 @@ def make_migration_alter(name: str, connection_string: str = '',
     src += f"    return migration"
     return src
 
-def make_migration_drop(name: str, connection_string: str = '',
-                        ctx: tuple = None) -> str:
+def make_migration_drop(
+        name: str, connection_string: str = '', ctx: tuple = None
+    ) -> str:
     """Generate a migration scaffold from a table name to drop a table."""
     src = _make_migration_src_start(ctx)
     table_name = _pascalcase_to_snake_case(name)
@@ -94,7 +99,8 @@ def make_migration_drop(name: str, connection_string: str = '',
     src += f"    t.text('id').unique()\n"
     src += f"    ...\n"
     src += f"    return [t]\n\n"
-    src += f"def migration(connection_string: str = '{connection_string}') -> Migration:\n"
+    src += (f"def migration(connection_string: str = '{connection_string}') -> "
+        "Migration:\n")
     if ctx:
         src += f"    migration = Migration(connection_string, {ctx[0]})\n"
     else:
@@ -104,9 +110,10 @@ def make_migration_drop(name: str, connection_string: str = '',
     src += f"    return migration"
     return src
 
-def make_migration_from_model_path(model_name: str, model_path: str,
-                              connection_string: str = '',
-                              ctx: tuple = None) -> str:
+def make_migration_from_model_path(
+        model_name: str, model_path: str, connection_string: str = '',
+        ctx: tuple = None
+    ) -> str:
     """Generate a migration from a model name and path."""
     module = _import(model_path)
     tressa(hasattr(module, model_name),
@@ -116,7 +123,9 @@ def make_migration_from_model_path(model_name: str, model_path: str,
             "specified model is invalid; must implement ModelProtocol")
     return make_migration_from_model(model, model_name, connection_string, ctx)
 
-def _get_column_type_from_annotation(annotation: Any) -> tuple[str, bool]|tuple[str, bool, Any]:
+def _get_column_type_from_annotation(
+        annotation: Any
+    ) -> tuple[str, bool]|tuple[str, bool, Any]:
     nullable = False
     has_default = False
     default = None
@@ -135,9 +144,11 @@ def _get_column_type_from_annotation(annotation: Any) -> tuple[str, bool]|tuple[
         if bytes in annotation:
             return ('blob', nullable, default) if has_default else ('blob', nullable)
         if int in annotation:
-            return ('integer', nullable, default) if has_default else ('integer', nullable)
+            return ('integer', nullable, default) if has_default \
+                else ('integer', nullable)
         if bool in annotation:
-            return ('boolean', nullable, default) if has_default else ('boolean', nullable)
+            return ('boolean', nullable, default) if has_default \
+                else ('boolean', nullable)
         if float in annotation:
             return ('real', nullable, default) if has_default else ('real', nullable)
         return ('text', nullable, default) if has_default else ('text', nullable)
@@ -147,9 +158,11 @@ def _get_column_type_from_annotation(annotation: Any) -> tuple[str, bool]|tuple[
         if annotation is bytes:
             return ('blob', nullable, default) if has_default else ('blob', nullable)
         if annotation is int:
-            return ('integer', nullable, default) if has_default else ('integer', nullable)
+            return ('integer', nullable, default) if has_default \
+                else ('integer', nullable)
         if annotation is bool:
-            return ('boolean', nullable, default) if has_default else ('boolean', nullable)
+            return ('boolean', nullable, default) if has_default \
+                else ('boolean', nullable)
         if annotation is float:
             return ('real', nullable, default) if has_default else ('real', nullable)
         return ('text', nullable, default) if has_default else ('text', nullable)
@@ -164,24 +177,32 @@ def _get_column_type_from_annotation(annotation: Any) -> tuple[str, bool]|tuple[
                 default = True
             elif default.lower() == 'false' and 'bool' in annotation:
                 default = False
-            elif default.isnumeric() and ('int' in annotation or 'float' in annotation):
+            elif (  default.isnumeric()
+                    and ('int' in annotation or 'float' in annotation)
+                ):
                 default = int(default)
             has_default = True
         if 'bytes' in annotation:
             return ('blob', nullable, default) if has_default else ('blob', nullable)
         if 'int' in annotation:
-            return ('integer', nullable, default) if has_default else ('integer', nullable)
+            return ('integer', nullable, default) if has_default \
+                else ('integer', nullable)
         if 'bool' in annotation:
-            return ('boolean', nullable, default) if has_default else ('boolean', nullable)
+            return ('boolean', nullable, default) if has_default \
+                else ('boolean', nullable)
         if 'float' in annotation:
             return ('real', nullable, default) if has_default else ('real', nullable)
         return ('text', nullable, default) if has_default else ('text', nullable)
 
-def make_migration_from_model(model: ModelProtocol, model_name: str = None,
-                               connection_string: str = '', ctx: tuple = None) -> str:
+def make_migration_from_model(
+        model: ModelProtocol, model_name: str = None,
+        connection_string: str = '', ctx: tuple = None
+    ) -> str:
     """Generate a migration from a model."""
-    table_name = model.table or _pascalcase_to_snake_case(model_name or model.__name__)
-    types: dict[str, tuple[Type, bool]|tuple[str, bool, Any]] = {}
+    table_name = model.table or _pascalcase_to_snake_case(
+        model_name or model.__name__
+    )
+    types: dict[str, tuple[type, bool]|tuple[str, bool, Any]] = {}
     if model.__annotations__:
         for column in model.columns:
             if column in model.__annotations__:
@@ -205,7 +226,8 @@ def make_migration_from_model(model: ModelProtocol, model_name: str = None,
     src += "    return [t]\n\n"
     src += f"def drop_table_{table_name}() -> list[Table]:\n"
     src += f"    return [Table.drop('{table_name}')]\n\n"
-    src += f"def migration(connection_string: str = '{connection_string}') -> Migration:\n"
+    src += (f"def migration(connection_string: str = '{connection_string}') -> "
+        "Migration:\n")
     if ctx:
         src += f"    migration = Migration(connection_string, {ctx[0]})\n"
     else:
@@ -222,17 +244,25 @@ def publish_migrations(path: str, connection_string: str = '', ctx: tuple = None
 
     deleted_model_src = make_migration_from_model(
         DeletedModel, 'DeletedModel', connection_string, ctx)
-    deleted_model_src = deleted_model_src.replace("t.text('record').index()", "t.blob('record')")
+    deleted_model_src = deleted_model_src.replace(
+        "t.text('record').index()", "t.blob('record')"
+    )
     deleted_model_src = deleted_model_src.replace('    ...\n', '')
 
     attachment_src = make_migration_from_model(
-        Attachment, 'Attachment', connection_string, ctx)
-    attachment_src = attachment_src.replace("t.text('details').index()", "t.blob('details')")
+        Attachment, 'Attachment', connection_string, ctx
+    )
+    attachment_src = attachment_src.replace(
+        "t.text('details').index()", "t.blob('details')"
+    )
     attachment_src = attachment_src.replace('    ...\n', '')
 
     hashed_model_src = make_migration_from_model(
-        HashedModel, 'HashedModel', connection_string, ctx)
-    hashed_model_src = hashed_model_src.replace("t.text('details').index()", "t.blob('details')")
+        HashedModel, 'HashedModel', connection_string, ctx
+    )
+    hashed_model_src = hashed_model_src.replace(
+        "t.text('details').index()", "t.blob('details')"
+    )
     hashed_model_src = hashed_model_src.replace('    ...\n', '')
 
     with open(f"{path}/deleted_model_migration.py", 'w') as f:
@@ -243,9 +273,11 @@ def publish_migrations(path: str, connection_string: str = '', ctx: tuple = None
         f.write(hashed_model_src)
 
 
-def make_model(name: str, base: str = 'SqlModel', columns: dict[str, str] = None,
-               connection_string: str = '', sqb: tuple[str,str] = None,
-               table: str = None) -> str:
+def make_model(
+        name: str, base: str = 'SqlModel', columns: dict[str, str] = None,
+        connection_string: str = '', sqb: tuple[str,str] = None,
+        table: str = None
+    ) -> str:
     """Generate a model scaffold with the given name, columns, and
         connection_string. The columns parameter must be a dict mapping
         names to type annotation strings, which should each be one of
@@ -259,10 +291,15 @@ def make_model(name: str, base: str = 'SqlModel', columns: dict[str, str] = None
          "base must be one of (SqlModel, HashedModel, AsyncSqlModel, " +
          f"AsyncHashedModel); {base} encountered")
     tert(columns is None or type(columns) is dict,'columns must be dict[str, str]')
-    vert(columns is None or all([type(k) is type(v) is str for k,v in columns.items()]),
-         'columns must be dict[str, str]')
-    tert(sqb is None or type(sqb) in (tuple, list), "sqb must be (str,) or (str, str)")
-    tert(sqb is None or all([type(s) is str for s in sqb]), "sqb must be (str,) or (str, str)")
+    vert(columns is None or all([
+            type(k) is type(v) is str for k,v in columns.items()
+        ]),
+         'columns must be dict[str, str]'
+    )
+    tert(sqb is None or type(sqb) in (tuple, list),
+        "sqb must be (str,) or (str, str)")
+    tert(sqb is None or all([type(s) is str for s in sqb]),
+        "sqb must be (str,) or (str, str)")
     vert(sqb is None or 1 <= len(sqb) <= 2, "sqb must be (str,) or (str, str)")
     valid_types = (
         'str', 'int', 'bool', 'float', 'bytes',
@@ -281,7 +318,7 @@ def make_model(name: str, base: str = 'SqlModel', columns: dict[str, str] = None
     src += f"class {name}({base}):\n"
     src += f"    connection_info: str = '{connection_string}'\n"
     if sqb:
-        src += f"    query_builder_class: Type[QueryBuilderProtocol] = {sqb[0]}\n"
+        src += f"    query_builder_class: type[QueryBuilderProtocol] = {sqb[0]}\n"
     src += f"    table: str = '{table_name}'\n"
     src += f"    id_column: str = 'id'\n"
     at_least_one_default = False
@@ -294,13 +331,15 @@ def make_model(name: str, base: str = 'SqlModel', columns: dict[str, str] = None
                 datatype = datatype[:datatype.index('Default')-1]
                 at_least_one_default = True
             vert(datatype in valid_types,
-                 f'{datatype} is not a valid type annotation; must be one of {valid_types}')
+                 f'{datatype} is not a valid type annotation; must be one of '
+                 f'{valid_types}')
             if default:
                 src += f"    {name}: {datatype}|{default}\n"
             else:
                 src += f"    {name}: {datatype}\n"
     else:
         src += f"    columns: tuple[str] = ('id',)\n"
+
     if "Async" in base:
         src_start = f"from sqloquent.asyncql import {base}"
         if at_least_one_default:
@@ -317,10 +356,11 @@ def make_model(name: str, base: str = 'SqlModel', columns: dict[str, str] = None
 def _import_migration(path: str, connection_string: str = '') -> Migration:
     module = _import(path)
     tressa(hasattr(module, 'migration') and callable(module.migration),
-           f"{path} is missing the `migration` function")
+        f"{path} is missing the `migration` function")
     migration = module.migration(connection_string)
     tert(isinstance(migration, MigrationProtocol),
-         f"{path} invalid; migration() must return instance implementing MigrationProtocol")
+        f"{path} invalid; migration() must return instance implementing "
+        "MigrationProtocol")
     return migration
 
 def migrate(path: str, connection_string: str = '') -> None:
@@ -345,7 +385,7 @@ def examine(path: str) -> list[str]:
     migration = _import_migration(path)
     return [migration.get_apply_sql(), migration.get_undo_sql()]
 
-def _get_migration_model(connection_string: str = '') -> Type[SqlModel]:
+def _get_migration_model(connection_string: str = '') -> type[SqlModel]:
     """Generate a MigrationModel with the given connection_string."""
     class MigrationModel(SqlModel):
         connection_info: str = connection_string
@@ -452,12 +492,15 @@ def help_cli(name: str) -> str:
     """Return the help string for the CLI tool."""
     name = name.split("/")[-1]
     """Produce and return the help text."""
-    return f"""sqloquent version {version()} -- usage:
+    return (f"""sqloquent version {version()} -- usage:
     {name} make migration --create name [--ctx name [--from package_name]]
     {name} make migration --alter name [--ctx name [--from package_name]]
     {name} make migration --drop name [--ctx name [--from package_name]]
-    {name} make migration --model name path/to/model/file [--ctx name [--from package_name]]
-    {name} make model name [--hashed] [--columns name1=type|None|Default[value],name2,etc] [--async] [--sqb name [--from package_name]] [--table table_name]
+    {name} make migration --model name path/to/model/file [--ctx name [--from """
+    "package_name]]" f"""
+    {name} make model name [--hashed] [--columns name1=type|None|Default[value],"""
+    "name2,etc] [--async] [--sqb name [--from package_name]] "
+    "[--table table_name]" f"""
     {name} migrate path/to/migration/file
     {name} rollback path/to/migration/file
     {name} refresh path/to/migration/file
@@ -465,25 +508,29 @@ def help_cli(name: str) -> str:
     {name} automigrate path/to/migrations/folder
     {name} autorollback path/to/migrations/folder
     {name} autorefresh path/to/migrations/folder
-    {name} publish path/to/migrations/folder [--ctx name [--from package_name]]\n\n""" + \
-    "The `make` commands print the string source to std out for piping as\n" + \
-    "desired. The `automigrate` command reads the files in the specified\n" + \
-    "directory, then runs the managed migration tool which tracks migrations\n" + \
-    "using a migrations table.\n\n" + \
-    "The data types for the --columns param are (str, int, float, bytes).\n\n" + \
-    "The `publish` command publishes migrations for the included DeletedModel,\n" +\
-    "HashedModel, and Attachment classes. Use of these is optional.\n\n" + \
-    "Include CONNECTION_STRING in a .env file or as an environment variable\n" + \
-    "to set the connection string used by migration commands. Include\n" + \
-    "MAKE_WITH_CONNSTRING in a .env file or as an environment variable to\n" + \
-    "use the connection string with make commands."
+    {name} publish path/to/migrations/folder [--ctx name [--from package_name]]"""
+    "\n\n"
+    "The `make` commands print the string source to std out for piping as\n"
+    "desired. The `automigrate` command reads the files in the specified\n"
+    "directory, then runs the managed migration tool which tracks migrations\n"
+    "using a migrations table.\n\n"
+    "The data types for the --columns param are (str, int, float, bytes).\n\n"
+    "The `publish` command publishes migrations for the included DeletedModel,\n"
+    "HashedModel, and Attachment classes. Use of these is optional.\n\n"
+    "Include CONNECTION_STRING in a .env file or as an environment variable\n"
+    "to set the connection string used by migration commands. Include\n"
+    "MAKE_WITH_CONNSTRING in a .env file or as an environment variable to\n"
+    "use the connection string with make commands.")
 
 
 def run_cli() -> None:
     """Run the CLI tool."""
-    if len(argv) < 3:
+    if len(argv) < 2 or (len(argv) < 3 and argv[1] != "version"):
         print(help_cli(argv[0]))
         return
+    if argv[1] == "version":
+        print(version())
+        exit()
 
     connection_string = environ.get('CONNECTION_STRING')
     use_connstring_for_make = environ.get('MAKE_WITH_CONNSTRING') is not None
@@ -530,10 +577,13 @@ def run_cli() -> None:
                 return print(make_migration_drop(name, connstring_for_make, ctx))
             elif param == "--model":
                 if len(argv) < 6:
-                    print(f"error: `make migration --model {name}` missing path parameter")
+                    print(f"error: `make migration --model {name}` missing path "
+                        "parameter")
                     print(help_cli(argv[0]))
                     exit(1)
-                return print(make_migration_from_model_path(name, argv[5], connstring_for_make, ctx))
+                return print(make_migration_from_model_path(
+                    name, argv[5], connstring_for_make, ctx
+                ))
         elif kind == "model":
             if len(argv) < 4:
                 print("make model missing parameter: name")
@@ -577,8 +627,10 @@ def run_cli() -> None:
                     exit(1)
                 table = argv[argi + 1]
 
-            return print(make_model(name, base, connection_string=connstring_for_make,
-                                    columns=columns, sqb=sqb, table=table))
+            return print(make_model(
+                name, base, connection_string=connstring_for_make,
+                columns=columns, sqb=sqb, table=table
+            ))
         else:
             print(f"unrecognized make kind: {kind}")
             exit(1)

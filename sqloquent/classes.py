@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from hashlib import sha256
 from time import time
 from types import MappingProxyType, TracebackType, UnionType
-from typing import Any, Generator, Optional, Type, Callable
+from typing import Any, Generator, Callable
 from uuid import uuid4
 import packify
 import sqlite3
@@ -54,22 +54,28 @@ class SqliteContext:
         SqliteContext._thread_local.depths[self.connection_info] += 1
 
         if self.connection_info not in SqliteContext._thread_local.connections:
-            SqliteContext._thread_local.connections[self.connection_info] = sqlite3.connect(
+            SqliteContext._thread_local.connections[
                 self.connection_info
-            )
+            ] = sqlite3.connect(self.connection_info)
 
-        self.connection = SqliteContext._thread_local.connections[self.connection_info]
+        self.connection = SqliteContext._thread_local.connections[
+            self.connection_info
+        ]
 
         if self.connection_info not in SqliteContext._thread_local.cursors:
-            SqliteContext._thread_local.cursors[self.connection_info] = self.connection.cursor()
+            SqliteContext._thread_local.cursors[
+                self.connection_info
+            ] = self.connection.cursor()
 
         self.cursor = SqliteContext._thread_local.cursors[self.connection_info]
 
         return self.cursor
 
-    def __exit__(self, exc_type: Optional[Type[BaseException]],
-                exc_value: Optional[BaseException],
-                traceback: Optional[TracebackType]) -> None:
+    def __exit__(
+            self, exc_type: type[BaseException] | None,
+            exc_value: BaseException | None,
+            traceback: TracebackType | None
+        ) -> None:
         """Exit the context block. Commit or rollback as appropriate,
             then close the connection if this is the outermost context.
         """
@@ -91,10 +97,10 @@ class SqliteContext:
 @dataclass
 class JoinedModel:
     """Class for representing the results of SQL JOIN queries."""
-    models: list[Type[SqlModel]]
+    models: list[type[SqlModel]]
     data: dict
 
-    def __init__(self, models: list[Type[SqlModel]], data: dict) -> None:
+    def __init__(self, models: list[type[SqlModel]], data: dict) -> None:
         """Initialize the instance. Raises TypeError for invalid models
             or data.
         """
@@ -103,18 +109,18 @@ class JoinedModel:
 
     def __repr__(self) -> str:
         """Pretty str representation."""
-        return f"{self.__class__.__name__}" + \
-            f"(models={[m.__name__ for m in self.models]}, data={self.data})"
+        return (f"{self.__class__.__name__}" 
+            f"(models={[m.__name__ for m in self.models]}, data={self.data})")
 
     @staticmethod
-    def parse_data(models: list[Type[SqlModel]], data: dict) -> dict:
+    def parse_data(models: list[type[SqlModel]], data: dict) -> dict:
         """Parse data of form {table.column:value} to
             {table:{column:value}}. Raises TypeError for invalid models
             or data.
         """
-        tert(type(models) is list, 'models must be list[Type[SqlModel]]')
+        tert(type(models) is list, 'models must be list[type[SqlModel]]')
         tert(all([issubclass(m, SqlModel) for m in models]),
-             'models must be list[Type[SqlModel]]')
+             'models must be list[type[SqlModel]]')
         tert(type(data) is dict, 'data must be dict')
         result = {}
         for model in models:
@@ -166,13 +172,13 @@ class JoinSpec:
     """Class for representing joins to be executed by a query builder."""
     kind: str = field()
     table_1: str = field()
-    table_1_model: str|None = field()
+    table_1_model: str | None = field()
     table_1_columns: list[str] = field()
     table_1_column_types: dict[str, type] = field()
     column_1: str = field()
     comparison: str = field()
     table_2: str = field()
-    table_2_model: str|None = field()
+    table_2_model: str | None = field()
     table_2_columns: list[str] = field()
     table_2_column_types: dict[str, type] = field()
     column_2: str = field()
@@ -184,13 +190,16 @@ class Row:
     data: dict = field()
 
 
-def dynamic_sqlmodel(connection_string: str|bytes, table_name: str = '',
-                     column_names: tuple[str] = ()) -> Type[SqlModel]:
+def dynamic_sqlmodel(
+        connection_string: str | bytes, table_name: str = '',
+        column_names: tuple[str] = ()
+    ) -> type[SqlModel]:
     """Generates a dynamic sqlite model for instantiating context
         managers. Raises TypeError for invalid connection_string or
         table_name.
     """
-    tert(type(connection_string) in (str, bytes), 'connection_string must be str|bytes')
+    tert(type(connection_string) in (str, bytes),
+        'connection_string must be str | bytes')
     tert(type(table_name) is str, 'table_name must be str')
     class DynamicModel(SqlModel):
         connection_info: str = connection_string
@@ -235,8 +244,8 @@ class SqlQueryBuilder:
         specific database by supplying the context_manager param to a
         call to `super().__init__()`. Default binding is to sqlite3.
     """
-    model: Type[ModelProtocol]
-    context_manager: Type[DBContextProtocol]
+    model: type[ModelProtocol]
+    context_manager: type[DBContextProtocol]
     connection_info: str
     clauses: list
     params: list
@@ -248,11 +257,12 @@ class SqlQueryBuilder:
     columns: list[str]
     grouping: str
 
-    def __init__(self, model_or_table: Type[SqlModel]|str = None,
-                 context_manager: Type[DBContextProtocol] = SqliteContext,
-                 connection_info: str = '', model: Type[SqlModel] = None,
-                 table: str = '', columns: list[str] = []
-                 ) -> None:
+    def __init__(
+            self, model_or_table: type[SqlModel] | str = None,
+            context_manager: type[DBContextProtocol] = SqliteContext,
+            connection_info: str = '', model: type[SqlModel] = None,
+            table: str = '', columns: list[str] = []
+        ) -> None:
         """Initialize the instance. Must supply model_or_table or model
             or table. Must supply context_manager.
         """
@@ -267,9 +277,10 @@ class SqlQueryBuilder:
             model_or_table = table
         tert(type(model_or_table) is str or
              (type(model_or_table) is type and issubclass(model_or_table, SqlModel)),
-             'model_or_table must be Type[SqlModel]|str')
-        tert(type(context_manager) is type and issubclass(context_manager, DBContextProtocol),
-             'context_manager must be class implementing DBContextProtocol')
+             'model_or_table must be type[SqlModel] | str')
+        tert(type(context_manager) is type
+            and issubclass(context_manager, DBContextProtocol),
+            'context_manager must be class implementing DBContextProtocol')
         tressa(type(model_or_table) is type or len(columns),
                'must provide class implementing ModelProtocol or columns')
         if not connection_info and hasattr(self.__class__, 'connection_info'):
@@ -292,7 +303,7 @@ class SqlQueryBuilder:
         self.grouping = None
 
     @property
-    def model(self) -> Type[SqlModel]:
+    def model(self) -> type[SqlModel]:
         """The model type that non-joined query results will be. Setting
             raises TypeError if supplied something other than a subclass
             of SqlModel.
@@ -300,7 +311,7 @@ class SqlQueryBuilder:
         return self._model
 
     @model.setter
-    def model(self, model: Type[SqlModel]) -> None:
+    def model(self, model: type[SqlModel]) -> None:
         tert(type(model) is type, 'model must be SqlModel subclass')
         tert(issubclass(model, SqlModel), 'model must be SqlModel subclass')
         self._model = model
@@ -317,7 +328,7 @@ class SqlQueryBuilder:
         tert(type(name) is str, 'name must be str')
         self._table = name
 
-    def is_null(self, column: str|list[str,]|tuple[str,]) -> SqlQueryBuilder:
+    def is_null(self, column: str | list[str,] | tuple[str,]) -> SqlQueryBuilder:
         """Save the 'column is null' clause, then return self. Raises
             TypeError for invalid column. If a list or tuple is supplied,
             each element is treated as a separate clause.
@@ -333,7 +344,7 @@ class SqlQueryBuilder:
             self.clauses.append(f'{quote_identifier(column)} is null')
         return self
 
-    def not_null(self, column: str|list[str,]|tuple[str,]) -> SqlQueryBuilder:
+    def not_null(self, column: str | list[str,] | tuple[str,]) -> SqlQueryBuilder:
         """Save the 'column is not null' clause, then return self.
             Raises TypeError for invalid column. If a list or tuple is
             supplied, each element is treated as a separate clause.
@@ -349,8 +360,10 @@ class SqlQueryBuilder:
             self.clauses.append(f'{quote_identifier(column)} is not null')
         return self
 
-    def equal(self, column: str = None, data: Any = None,
-              **conditions: dict[str, Any]) -> SqlQueryBuilder:
+    def equal(
+            self, column: str = None, data: Any = None,
+            **conditions: dict[str, Any]
+        ) -> SqlQueryBuilder:
         """Save the 'column = data' clause and param, then return self.
             Raises TypeError for invalid column. This method can be
             called with `equal(column, data)` or
@@ -367,8 +380,10 @@ class SqlQueryBuilder:
             self.params.append(data)
         return self
 
-    def not_equal(self, column: str = None, data: Any = None,
-                  **conditions: dict[str, Any]) -> SqlQueryBuilder:
+    def not_equal(
+            self, column: str = None, data: Any = None,
+            **conditions: dict[str, Any]
+        ) -> SqlQueryBuilder:
         """Save the 'column != data' clause and param, then return self.
             Raises TypeError for invalid column. This method can be
             called with `not_equal(column, data)` or
@@ -385,8 +400,10 @@ class SqlQueryBuilder:
             self.params.append(data)
         return self
 
-    def less(self, column: str = None, data: Any = None,
-             **conditions: dict[str, Any]) -> SqlQueryBuilder:
+    def less(
+            self, column: str = None, data: Any = None,
+            **conditions: dict[str, Any]
+        ) -> SqlQueryBuilder:
         """Save the 'column < data' clause and param, then return self.
             Raises TypeError for invalid column. This method can be
             called with `less(column, data)` or
@@ -403,8 +420,10 @@ class SqlQueryBuilder:
             self.params.append(data)
         return self
 
-    def less_or_equal(self, column: str = None, data: Any = None,
-             **conditions: dict[str, Any]) -> SqlQueryBuilder:
+    def less_or_equal(
+            self, column: str = None, data: Any = None,
+            **conditions: dict[str, Any]
+        ) -> SqlQueryBuilder:
         """Save the 'column <= data' clause and param, then return self.
             Raises TypeError for invalid column. This method can be
             called with `less_or_equal(column, data)` or
@@ -421,8 +440,10 @@ class SqlQueryBuilder:
             self.params.append(data)
         return self
 
-    def greater(self, column: str = None, data: Any = None,
-                **conditions: dict[str, Any]) -> SqlQueryBuilder:
+    def greater(
+            self, column: str = None, data: Any = None,
+            **conditions: dict[str, Any]
+        ) -> SqlQueryBuilder:
         """Save the 'column > data' clause and param, then return self.
             Raises TypeError for invalid column. This method can be
             called with `greater(column, data)` or
@@ -439,8 +460,10 @@ class SqlQueryBuilder:
             self.params.append(data)
         return self
 
-    def greater_or_equal(self, column: str = None, data: Any = None,
-                **conditions: dict[str, Any]) -> SqlQueryBuilder:
+    def greater_or_equal(
+            self, column: str = None, data: Any = None,
+            **conditions: dict[str, Any]
+        ) -> SqlQueryBuilder:
         """Save the 'column >= data' clause and param, then return self.
             Raises TypeError for invalid column. This method can be
             called with `greater_or_equal(column, data)` or
@@ -457,13 +480,19 @@ class SqlQueryBuilder:
             self.params.append(data)
         return self
 
-    def like(self, column: str = None, pattern: str = None, data: str = None,
-             **conditions: dict[str, tuple[str, str]]) -> SqlQueryBuilder:
+    def like(
+            self, column: str = None, pattern: str = None, data: str = None,
+            **conditions: dict[str, tuple[str, str]]
+        ) -> SqlQueryBuilder:
         """Save the 'column like {pattern.replace(?, data)}' clause and
             param, then return self. Raises TypeError or ValueError for
             invalid column, pattern, or data. This method can be
             called with `like(column, pattern, data)` or
-            `like(column1=(pattern1,str1), column2=(pattern2,str2), etc=(pattern3,str3))`.
+            `like(
+                column1=(pattern1,str1),
+                column2=(pattern2,str2),
+                etc=(pattern3,str3)
+            )`.
         """
         if column is not None:
             tert(type(column) is str, 'column must be str')
@@ -484,13 +513,19 @@ class SqlQueryBuilder:
             self.like(column, pattern, data)
         return self
 
-    def not_like(self, column: str = None, pattern: str = None, data: str = None,
-                 **conditions: dict[str, tuple[str, str]]) -> SqlQueryBuilder:
+    def not_like(
+            self, column: str = None, pattern: str = None, data: str = None,
+            **conditions: dict[str, tuple[str, str]]
+        ) -> SqlQueryBuilder:
         """Save the 'column not like {pattern.replace(?, data)}' clause
             and param, then return self. Raises TypeError or ValueError
             for invalid column, pattern, or data. This method can be
             called with `not_like(column, pattern, data)` or
-            `not_like(column1=(pattern1,str1), column2=(pattern2,str2), etc=(pattern3,str3))`.
+            `not_like(
+                column1=(pattern1,str1),
+                column2=(pattern2,str2),
+                etc=(pattern3,str3)
+            )`.
         """
         if column is not None:
             tert(type(column) is str, 'column must be str')
@@ -517,8 +552,10 @@ class SqlQueryBuilder:
             self.not_like(column, pattern, data)
         return self
 
-    def starts_with(self, column: str = None, data: str = None,
-                    **conditions: dict[str, Any]) -> SqlQueryBuilder:
+    def starts_with(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, Any]
+        ) -> SqlQueryBuilder:
         """Save the 'column like data%' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data. This method can be called with `starts_with(column, data)`
@@ -531,8 +568,10 @@ class SqlQueryBuilder:
             self.like(column, '?%', data)
         return self
 
-    def does_not_start_with(self, column: str = None, data: str = None,
-                             **conditions: dict[str, Any]) -> SqlQueryBuilder:
+    def does_not_start_with(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, Any]
+        ) -> SqlQueryBuilder:
         """Save the 'column not like data%' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data. This method can be called with
@@ -546,8 +585,10 @@ class SqlQueryBuilder:
             self.not_like(column, '?%', data)
         return self
 
-    def contains(self, column: str = None, data: str = None,
-                 **conditions: dict[str, str]) -> SqlQueryBuilder:
+    def contains(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, str]
+        ) -> SqlQueryBuilder:
         """Save the 'column like %data%' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data. This method can be called with `contains(column, data)`
@@ -560,8 +601,10 @@ class SqlQueryBuilder:
             self.like(column, '%?%', data)
         return self
 
-    def excludes(self, column: str = None, data: str = None,
-                 **conditions: dict[str, str]) -> SqlQueryBuilder:
+    def excludes(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, str]
+        ) -> SqlQueryBuilder:
         """Save the 'column not like %data%' clause and param, then
             return self. Raises TypeError or ValueError for invalid
             column or data. This method can be called with
@@ -575,8 +618,10 @@ class SqlQueryBuilder:
             self.not_like(column, '%?%', data)
         return self
 
-    def ends_with(self, column: str = None, data: str = None,
-                 **conditions: dict[str, str]) -> SqlQueryBuilder:
+    def ends_with(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, str]
+        ) -> SqlQueryBuilder:
         """Save the 'column like %data' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data. This method can be called with `ends_with(column, data)`
@@ -589,8 +634,10 @@ class SqlQueryBuilder:
             self.like(column, '%?', data)
         return self
 
-    def does_not_end_with(self, column: str = None, data: str = None,
-                          **conditions: dict[str, str]) -> SqlQueryBuilder:
+    def does_not_end_with(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, str]
+        ) -> SqlQueryBuilder:
         """Save the 'column like %data' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data. This method can be called with
@@ -604,8 +651,10 @@ class SqlQueryBuilder:
             self.not_like(column, '%?', data)
         return self
 
-    def is_in(self, column: str = None, data: tuple|list = None,
-              **conditions: dict[str, tuple|list]) -> SqlQueryBuilder:
+    def is_in(
+            self, column: str = None, data: tuple | list = None,
+            **conditions: dict[str, tuple | list]
+        ) -> SqlQueryBuilder:
         """Save the 'column in data' clause and param, then return self.
             Raises TypeError or ValueError for invalid column or data.
             This method can be called with `is_in(column, data)` or
@@ -616,15 +665,19 @@ class SqlQueryBuilder:
             tert(type(data) in (tuple, list), 'data must be tuple or list')
             vert(len(column), 'column cannot be empty')
             vert(len(data), 'data cannot be empty')
-            self.clauses.append(f'{quote_identifier(column)} in ({",".join(["?" for _ in data])})')
+            self.clauses.append(
+                f'{quote_identifier(column)} in ({",".join(["?" for _ in data])})'
+            )
             self.params.extend(data)
 
         for column, data in conditions.items():
             self.is_in(column, data)
         return self
 
-    def not_in(self, column: str = None, data: tuple|list = None,
-                **conditions: dict[str, tuple|list]) -> SqlQueryBuilder:
+    def not_in(
+            self, column: str = None, data: tuple | list = None,
+            **conditions: dict[str, tuple | list]
+        ) -> SqlQueryBuilder:
         """Save the 'column not in data' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data. This method can be called with `not_in(column, data)`
@@ -635,14 +688,19 @@ class SqlQueryBuilder:
             tert(type(data) in (tuple, list), 'data must be tuple or list')
             vert(len(column), 'column cannot be empty')
             vert(len(data), 'data cannot be empty')
-            self.clauses.append(f'{quote_identifier(column)} not in ({",".join(["?" for _ in data])})')
+            self.clauses.append(
+                f'{quote_identifier(column)} not in '
+                f'({",".join(["?" for _ in data])})'
+            )
             self.params.extend(data)
 
         for column, data in conditions.items():
             self.not_in(column, data)
         return self
 
-    def where(self, **conditions: dict[str, dict[str, Any]|list[str]]) -> SqlQueryBuilder:
+    def where(
+            self, **conditions: dict[str, dict[str, Any] | list[str]]
+        ) -> SqlQueryBuilder:
         """Parse the conditions as if they are sequential calls to the
             equivalent SqlQueryBuilder methods. Syntax is as follows:
             `where(is_null=[column1,...], not_null=[column2,...],
@@ -681,31 +739,38 @@ class SqlQueryBuilder:
                 tert(type(condition_data) is dict, 'equal must be dict[str, Any]')
                 self.equal(**condition_data)
             elif condition_type == 'not_equal':
-                tert(type(condition_data) is dict, 'not_equal must be dict[str, Any]')
+                tert(type(condition_data) is dict,
+                    'not_equal must be dict[str, Any]')
                 self.not_equal(**condition_data)
             elif condition_type == 'less':
                 tert(type(condition_data) is dict, 'less must be dict[str, Any]')
                 self.less(**condition_data)
             elif condition_type == 'less_or_equal':
-                tert(type(condition_data) is dict, 'less_or_equal must be dict[str, Any]')
+                tert(type(condition_data) is dict,
+                    'less_or_equal must be dict[str, Any]')
                 self.less_or_equal(**condition_data)
             elif condition_type == 'greater':
                 tert(type(condition_data) is dict, 'greater must be dict[str, Any]')
                 self.greater(**condition_data)
             elif condition_type == 'greater_or_equal':
-                tert(type(condition_data) is dict, 'greater_or_equal must be dict[str, Any]')
+                tert(type(condition_data) is dict,
+                    'greater_or_equal must be dict[str, Any]')
                 self.greater_or_equal(**condition_data)
             elif condition_type == 'like':
-                tert(type(condition_data) is dict, 'like must be dict[str, tuple[str, str]]')
+                tert(type(condition_data) is dict,
+                    'like must be dict[str, tuple[str, str]]')
                 self.like(**condition_data)
             elif condition_type == 'not_like':
-                tert(type(condition_data) is dict, 'not_like must be dict[str, tuple[str, str]]')
+                tert(type(condition_data) is dict,
+                    'not_like must be dict[str, tuple[str, str]]')
                 self.not_like(**condition_data)
             elif condition_type == 'starts_with':
-                tert(type(condition_data) is dict, 'starts_with must be dict[str, str]')
+                tert(type(condition_data) is dict,
+                    'starts_with must be dict[str, str]')
                 self.starts_with(**condition_data)
             elif condition_type == 'does_not_start_with':
-                tert(type(condition_data) is dict, 'does_not_start_with must be dict[str, str]')
+                tert(type(condition_data) is dict,
+                    'does_not_start_with must be dict[str, str]')
                 self.does_not_start_with(**condition_data)
             elif condition_type == 'contains':
                 tert(type(condition_data) is dict, 'contains must be dict[str, str]')
@@ -727,8 +792,10 @@ class SqlQueryBuilder:
                 self.not_in(**condition_data)
         return self
 
-    def order_by(self, column: str = None, direction: str = 'desc',
-                 **conditions: dict[str, str]) -> SqlQueryBuilder:
+    def order_by(
+            self, column: str = None, direction: str = 'desc',
+            **conditions: dict[str, str]
+        ) -> SqlQueryBuilder:
         """Sets query order. Raises TypeError or ValueError for invalid
             column or direction. This method can be called with
             `order_by(column, direction)` or `order_by(column=direction)`.
@@ -737,14 +804,17 @@ class SqlQueryBuilder:
         if column is not None:
             tert(type(column) is str, 'column must be str')
             tert(type(direction) is str, 'direction must be str')
-            vert(column in self.model.columns or column in [j.table_2_columns for j in self.joins],
-                 f'unrecognized column {column}')
+            vert(column in self.model.columns
+                or column in [j.table_2_columns for j in self.joins],
+                f'unrecognized column {column}')
             vert(direction in ('asc', 'desc'), 'direction must be asc or desc')
-            vert(len(conditions.keys()) == 0, 'only one column can be ordered by per query')
+            vert(len(conditions.keys()) == 0,
+                'only one column can be ordered by per query')
             self.order_column = quote_identifier(column)
             self.order_dir = direction
 
-        vert(len(conditions.keys()) <= 1, 'only one column can be ordered by per query')
+        vert(len(conditions.keys()) <= 1,
+            'only one column can be ordered by per query')
         for column, direction in conditions.items():
             self.order_by(column, direction)
 
@@ -766,7 +836,7 @@ class SqlQueryBuilder:
             connection_info=self.connection_info
         )
 
-    def insert(self, data: dict) -> Optional[SqlModel|Row]:
+    def insert(self, data: dict) -> SqlModel | Row | None:
         """Insert a record and return a model instance. Raises TypeError
             for invalid data or ValueError if a record with the same id
             already exists.
@@ -788,8 +858,8 @@ class SqlQueryBuilder:
             vert(self.find(data[self.model.id_column]) is None,
                  'record with this id already exists')
 
-        sql = f'insert into {self.model.table} ({",".join(columns)})' + \
-            f' values ({",".join(["?" for p in params])})'
+        sql = (f'insert into {self.model.table} ({",".join(columns)}) values '
+            f'({",".join(["?" for p in params])})')
 
         with self.context_manager(self.connection_info) as cursor:
             cursor.execute(sql, params)
@@ -808,18 +878,18 @@ class SqlQueryBuilder:
                     item[key] = None
             rows.append(tuple([item[key] for key in self.model.columns]))
 
-        sql = f"insert into {self.model.table} values "\
-            f"({','.join(['?' for f in self.model.columns])})"
+        sql = (f'insert into {self.model.table} values '
+            f'({",".join(["?" for f in self.model.columns])})')
 
         with self.context_manager(self.connection_info) as cursor:
             return cursor.executemany(sql, rows).rowcount
 
-    def find(self, id: Any) -> Optional[SqlModel|Row]:
+    def find(self, id: Any) -> SqlModel | Row | None:
         """Find a record by its id and return it."""
         with self.context_manager(self.connection_info) as cursor:
             cursor.execute(
-                f'select {",".join(self.model.columns)} from {self.model.table}' +
-                f' where {self.model.id_column} = ?',
+                f'select {",".join(self.model.columns)} from {self.model.table} '
+                f'where {self.model.id_column} = ?',
                 [id]
             )
             result = cursor.fetchone()
@@ -842,7 +912,7 @@ class SqlQueryBuilder:
 
         return self.model(data=data) if self.model else Row(data=data)
 
-    def join(self, model_or_table: Type[SqlModel]|str, on: list[str],
+    def join(self, model_or_table: type[SqlModel] | str, on: list[str],
              kind: str = "inner", joined_table_columns: tuple[str] = (),
              ) -> SqlQueryBuilder:
         """Prepares the query for a join over multiple tables/models.
@@ -850,13 +920,18 @@ class SqlQueryBuilder:
             kind.
         """
         tert(type(model_or_table) in (type, str),
-             "model_or_table must be Type[SqlModel] or str")
+             "model_or_table must be type[SqlModel] or str")
         if type(model_or_table) is str:
-            tressa(type(joined_table_columns) in (tuple, list) and len(joined_table_columns),
-                   'cannot join on table without columns')
+            tressa(
+                type(joined_table_columns) in (tuple, list)
+                and len(joined_table_columns),
+                'cannot join on table without columns'
+            )
         model = model_or_table
         if type(model) is not type:
-            model = dynamic_sqlmodel(self.connection_info, model, joined_table_columns)
+            model = dynamic_sqlmodel(
+                self.connection_info, model, joined_table_columns
+            )
         tert(type(on) is list, "on must be list[str]")
         tert(all([type(o) is str for o in on]), "on must be list[str]")
         tert(type(kind) is str, "kind must be str")
@@ -866,7 +941,7 @@ class SqlQueryBuilder:
 
         join = [kind]
 
-        def get_join(model: Type[SqlModel], column: str) -> str:
+        def get_join(model: type[SqlModel], column: str) -> str:
             # make column types dict from annotations
             column_types = {}
             for c in model.columns:
@@ -888,7 +963,10 @@ class SqlQueryBuilder:
             else:
                 tert(column in model.columns,
                      f"column name must be valid for {model.table}")
-                return [model.table, model, model.columns, column_types, f"{model.table}.{column}"]
+                return [
+                    model.table, model, model.columns, column_types,
+                    f"{model.table}.{column}"
+                ]
 
         if len(on) == 2:
             join.extend(get_join(self.model, on[0]))
@@ -910,7 +988,8 @@ class SqlQueryBuilder:
             columns.
         """
         tert(type(columns) in (list, tuple), "select columns must be list[str]")
-        tert(all([type(c) is str for c in columns]), "select columns must be list[str]")
+        tert(all([type(c) is str for c in columns]),
+            "select columns must be list[str]")
         self.columns = [*columns]
         return self
 
@@ -920,7 +999,7 @@ class SqlQueryBuilder:
         self.grouping = by
         return self
 
-    def get(self) -> list[SqlModel]|list[JoinedModel]|list[Row]:
+    def get(self) -> list[SqlModel] | list[JoinedModel] | list[Row]:
         """Run the query on the datastore and return a list of results.
             Return SqlModels when running a simple query. Return
             JoinedModels when running a JOIN query. Return Rows when
@@ -943,13 +1022,15 @@ class SqlQueryBuilder:
                     classes.append(join.table_1_model)
                 else:
                     classes.append(dynamic_sqlmodel(
-                        self.connection_info, join.table_1, join.table_1_columns))
+                        self.connection_info, join.table_1, join.table_1_columns
+                    ))
             if join.table_2 not in [c.table for c in classes]:
                 if join.table_2_model:
                     classes.append(join.table_2_model)
                 else:
                     classes.append(dynamic_sqlmodel(
-                        self.connection_info, join.table_2, join.table_2_columns))
+                        self.connection_info, join.table_2, join.table_2_columns
+                    ))
 
         if self.columns:
             columns = self.columns
@@ -963,8 +1044,9 @@ class SqlQueryBuilder:
         sql = f'select {",".join(columns)} from {quote_identifier(self.table)}'
 
         sql += ' ' + ''.join([
-            f'{j.kind} join {quote_identifier(j.table_2)} on ' +
-            f'{quote_identifier(j.column_1)} {j.comparison} {quote_identifier(j.column_2)}'
+            f'{j.kind} join {quote_identifier(j.table_2)} on '
+            f'{quote_identifier(j.column_1)} {j.comparison} '
+            f'{quote_identifier(j.column_2)}'
             for j in self.joins
         ])
 
@@ -1004,14 +1086,15 @@ class SqlQueryBuilder:
                 ]
             return models
 
-    def _get_normal(self) -> list[SqlModel|Row]:
+    def _get_normal(self) -> list[SqlModel | Row]:
         """Run the query on the datastore and return a list of results
             without joins. Used by the `get` method when appropriate. Do
             not call this method manually.
         """
         columns: list[str] = self.columns or self.model.columns
         quoted_columns = [quote_identifier(c) for c in columns]
-        sql = f'select {",".join(quoted_columns)} from {quote_identifier(self.model.table)}'
+        sql = (f'select {",".join(quoted_columns)} from '
+            f'{quote_identifier(self.model.table)}')
 
         if len(self.clauses) > 0:
             sql += ' where ' + ' and '.join(self.clauses)
@@ -1069,7 +1152,7 @@ class SqlQueryBuilder:
             cursor.execute(sql, self.params)
             return cursor.fetchone()[0]
 
-    def take(self, limit: int) -> list[SqlModel]|list[JoinedModel]|list[Row]:
+    def take(self, limit: int) -> list[SqlModel] | list[JoinedModel] | list[Row]:
         """Takes the specified number of rows. Raises TypeError or
             ValueError for invalid limit.
         """
@@ -1078,7 +1161,9 @@ class SqlQueryBuilder:
         self.limit = limit
         return self.get()
 
-    def chunk(self, number: int) -> Generator[list[SqlModel]|list[JoinedModel]|list[Row], None, None]:
+    def chunk(self, number: int) -> Generator[
+            list[SqlModel] | list[JoinedModel] | list[Row], None, None
+        ]:
         """Chunk all matching rows the specified number of rows at a
             time. Raises TypeError or ValueError for invalid number.
         """
@@ -1086,7 +1171,9 @@ class SqlQueryBuilder:
         vert(number > 0, 'number must be int > 0')
         return self._chunk(number)
 
-    def _chunk(self, number: int) -> Generator[list[SqlModel]|list[JoinedModel]|list[Row], None, None]:
+    def _chunk(self, number: int) -> Generator[
+            list[SqlModel] | list[JoinedModel] | list[Row], None, None
+        ]:
         """Create the generator for chunking."""
         original_offset = self.offset
         self.offset = self.offset or 0
@@ -1101,7 +1188,7 @@ class SqlQueryBuilder:
 
             self.offset = original_offset
 
-    def first(self) -> Optional[SqlModel|Row]:
+    def first(self) -> SqlModel | Row | None:
         """Run the query on the datastore and return the first result."""
         sql = f'select {",".join(self.model.columns)} from {self.table}'
 
@@ -1182,7 +1269,7 @@ class SqlQueryBuilder:
         with self.context_manager(self.connection_info) as cursor:
             return cursor.execute(sql, self.params).rowcount
 
-    def to_sql(self, interpolate_params: bool = True) -> str|tuple[str, list]:
+    def to_sql(self, interpolate_params: bool = True) -> str | tuple[str, list]:
         """Return the sql where clause from the clauses and params. If
             interpolate_params is True, the parameters will be
             interpolated into the SQL str and a single str result will
@@ -1197,9 +1284,14 @@ class SqlQueryBuilder:
             bindings = []
             for clause, param in zip(self.clauses, self.params):
                 if type(param) in (tuple, list):
-                    bindings.append(clause.replace('?', f'[{",".join(quote_sql_str_value(str(p)) for p in param)}]'))
+                    bindings.append(clause.replace(
+                        '?',
+                        f'[{",".join(quote_sql_str_value(str(p)) for p in param)}]'
+                    ))
                 else:
-                    bindings.append(clause.replace('?', quote_sql_str_value(str(param))))
+                    bindings.append(clause.replace(
+                        '?', quote_sql_str_value(str(param))
+                    ))
 
             sql = f' where {" and ".join(bindings)}'
 
@@ -1231,7 +1323,7 @@ class SqlModel:
     columns: tuple = ('id', 'name')
     id: str
     name: str
-    query_builder_class: Type[QueryBuilderProtocol] = SqlQueryBuilder
+    query_builder_class: type[QueryBuilderProtocol] = SqlQueryBuilder
     connection_info: str = ''
     data: dict
     data_original: MappingProxyType
@@ -1267,7 +1359,8 @@ class SqlModel:
     def add_hook(cls, event: str, hook: Callable):
         """Add the hook for the event."""
         if cls._event_hooks.get('class', None) != cls.__name__:
-            cls._event_hooks = {'class': cls.__name__} # give each class its own event hooks dict
+            # give each class its own event hooks dict
+            cls._event_hooks = {'class': cls.__name__} 
         if event not in cls._event_hooks:
             cls._event_hooks[event] = []
         if hook not in cls._event_hooks[event]:
@@ -1277,7 +1370,8 @@ class SqlModel:
     def remove_hook(cls, event: str, hook: Callable):
         """Remove the hook for the event."""
         if cls._event_hooks.get('class', None) != cls.__name__:
-            cls._event_hooks = {'class': cls.__name__} # give each class its own event hooks dict
+            # give each class its own event hooks dict
+            cls._event_hooks = {'class': cls.__name__} 
         if event not in cls._event_hooks:
             return
         if hook in cls._event_hooks[event]:
@@ -1289,7 +1383,8 @@ class SqlModel:
             clear all hooks for all events.
         """
         if cls._event_hooks.get('class', None) != cls.__name__:
-            cls._event_hooks = {'class': cls.__name__} # give each class its own event hooks dict
+            # give each class its own event hooks dict
+            cls._event_hooks = {'class': cls.__name__}
         if event is None:
             return cls._event_hooks.clear()
         if event not in cls._event_hooks:
@@ -1302,7 +1397,8 @@ class SqlModel:
             **kwargs.
         """
         if cls._event_hooks.get('class', None) != cls.__name__:
-            cls._event_hooks = {'class': cls.__name__} # give each class its own event hooks dict
+            # give each class its own event hooks dict
+            cls._event_hooks = {'class': cls.__name__}
         for hook in cls._event_hooks.get(event, []):
             hook(cls, *args, event=event, **kwargs)
 
@@ -1343,10 +1439,10 @@ class SqlModel:
 
     def __repr__(self) -> str:
         """Pretty str representation."""
-        return f"{self.__class__.__name__}(table='{self.table}', " + \
-            f"id_column='{self.id_column}', " + \
-            f"columns={self.columns}, data={self.data}, " + \
-            f"connection_info='{self.connection_info}')"
+        return (f"{self.__class__.__name__}(table='{self.table}', " 
+            f"id_column='{self.id_column}', "
+            f"columns={self.columns}, data={self.data}, "
+            f"connection_info='{self.connection_info}')")
 
     @classmethod
     def generate_id(cls) -> str:
@@ -1354,14 +1450,16 @@ class SqlModel:
         return uuid4().bytes.hex()
 
     @classmethod
-    def find(cls, id: Any) -> Optional[SqlModel]:
+    def find(cls, id: Any) -> SqlModel | None:
         """Find a record by its id and return it. Return None if it does
             not exist.
         """
         return cls().query().find(id)
 
     @classmethod
-    def insert(cls, data: dict, /, *, suppress_events: bool = False) -> Optional[SqlModel]:
+    def insert(
+            cls, data: dict, /, *, suppress_events: bool = False
+        ) -> SqlModel | None:
         """Insert a new record to the datastore. Return instance. Raises
             TypeError if data is not a dict.
         """
@@ -1377,7 +1475,9 @@ class SqlModel:
         return val
 
     @classmethod
-    def insert_many(cls, items: list[dict], /, *, suppress_events: bool = False) -> int:
+    def insert_many(
+            cls, items: list[dict], /, *, suppress_events: bool = False
+        ) -> int:
         """Insert a batch of records and return the number of items
             inserted. Raises TypeError if items is not list[dict].
         """
@@ -1394,8 +1494,10 @@ class SqlModel:
             cls.invoke_hooks('after_insert_many', items=items, vals=vals)
         return vals
 
-    def update(self, updates: dict, conditions: dict = None, /, *,
-               suppress_events: bool = False) -> SqlModel:
+    def update(
+            self, updates: dict, conditions: dict = None, /, *,
+            suppress_events: bool = False
+        ) -> SqlModel:
         """Persist the specified changes to the datastore. Return self
             in monad pattern. Raises TypeError or ValueError for invalid
             updates or conditions (self.data must include the id to
@@ -1419,7 +1521,9 @@ class SqlModel:
 
         # merge data into updates
         for key in self.data:
-            if key in self.columns and self.data[key] != self.data_original.get(key, None):
+            if  (   key in self.columns 
+                    and self.data[key] != self.data_original.get(key, None)
+                ):
                 updates[key] = self.data[key]
 
         # parse conditions
@@ -1493,7 +1597,9 @@ class SqlModel:
         return self
 
     @classmethod
-    def query(cls, conditions: dict = None, connection_info: str = None) -> QueryBuilderProtocol:
+    def query(
+            cls, conditions: dict = None, connection_info: str = None
+        ) -> QueryBuilderProtocol:
         """Returns a query builder with any conditions provided.
             Conditions are parsed as key=value and cannot handle other
             comparison types. If connection_info is not injected and was
@@ -1527,7 +1633,9 @@ class DeletedModel(SqlModel):
         super().__init__(data)
 
     @classmethod
-    def insert(cls, data: dict, /, *, suppress_events: bool = False) -> SqlModel | None:
+    def insert(
+            cls, data: dict, /, *, suppress_events: bool = False
+        ) -> SqlModel | None:
         """Insert a new record to the datastore. Return instance. Raises
             TypeError if data is not a dict. Automatically sets a
             timestamp if one is not supplied.
@@ -1541,7 +1649,9 @@ class DeletedModel(SqlModel):
             cls.invoke_hooks('after_insert', data=data, val=val)
         return val
 
-    def restore(self, inject: dict = {}, /, *, suppress_events: bool = False) -> SqlModel:
+    def restore(
+            self, inject: dict = {}, /, *, suppress_events: bool = False
+        ) -> SqlModel:
         """Restore a deleted record, remove from deleted_records, and
             return the restored model. Raises ValueError if model_class
             cannot be found. Raises TypeError if model_class is not a
@@ -1621,7 +1731,9 @@ class HashedModel(SqlModel):
                     data[name] = None
         data = {
             k: data[k] for k in data
-            if k in cls.columns and k != cls.id_column and k not in cls.columns_excluded_from_hash
+            if k in cls.columns
+                and k != cls.id_column 
+                and k not in cls.columns_excluded_from_hash
         }
         return packify.pack(data)
 
@@ -1638,7 +1750,9 @@ class HashedModel(SqlModel):
         return sha256(cls.preimage(data)).digest().hex()
 
     @classmethod
-    def insert(cls, data: dict, /, *, suppress_events: bool = False) -> Optional[HashedModel]:
+    def insert(
+            cls, data: dict, /, *, suppress_events: bool = False
+        ) -> HashedModel | None:
         """Insert a new record to the datastore. Return instance. Raises
             TypeError for non-dict data or unencodable type (calls
             cls.generate_id, which calls packify.pack).
@@ -1654,7 +1768,9 @@ class HashedModel(SqlModel):
         return val
 
     @classmethod
-    def insert_many(cls, items: list[dict], /, *, suppress_events: bool = False) -> int:
+    def insert_many(
+            cls, items: list[dict], /, *, suppress_events: bool = False
+        ) -> int:
         """Insert a batch of records and return the number of items
             inserted. Raises TypeError for invalid items or unencodable
             value (calls cls.generate_id, which calls packify.pack).
@@ -1671,7 +1787,9 @@ class HashedModel(SqlModel):
             cls.invoke_hooks('before_insert_many', items=items, vals=vals)
         return vals
 
-    def update(self, updates: dict, /, *, suppress_events: bool = False) -> HashedModel:
+    def update(
+            self, updates: dict, /, *, suppress_events: bool = False
+        ) -> HashedModel:
         """Persist the specified changes to the datastore, creating a
             new record in the process unless the changes were to the
             hash-excluded columns. Update and return self in monad
@@ -1745,14 +1863,15 @@ class Attachment(HashedModel):
     id: str
     related_model: str
     related_id: str
-    details: bytes|None
+    details: bytes | None
     _related: SqlModel = None
     _details: packify.SerializableType = None
 
     def related(self, reload: bool = False) -> SqlModel:
         """Return the related record."""
         if self._related is None or reload:
-            vert(self.data['related_model'] in globals(), 'model_class must be accessible')
+            vert(self.data['related_model'] in globals(),
+                'model_class must be accessible')
             model_class: type[SqlModel] = globals()[self.data['related_model']]
             tert(issubclass(model_class, SqlModel),
                 'related_model must inherit from SqlModel')

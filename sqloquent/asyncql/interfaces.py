@@ -17,10 +17,7 @@ from typing import (
     AsyncGenerator,
     Callable,
     Iterable,
-    Optional,
     Protocol,
-    Type,
-    Union,
     runtime_checkable,
 )
 
@@ -28,12 +25,15 @@ from typing import (
 @runtime_checkable
 class AsyncCursorProtocol(Protocol):
     """Interface showing how a DB cursor should function."""
-    async def execute(self, sql: str, parameters: list[str] = []) -> AsyncCursorProtocol:
+    async def execute(
+            self, sql: str, parameters: list[str] = []
+        ) -> AsyncCursorProtocol:
         """Execute a single query with the given parameters."""
         ...
 
-    async def executemany(self, sql: str,
-                    seq_of_parameters: Iterable[list[str]] = []) -> AsyncCursorProtocol:
+    async def executemany(
+            self, sql: str, seq_of_parameters: Iterable[list[str]] = []
+        ) -> AsyncCursorProtocol:
         """Execute a query once for each list of parameters."""
         ...
 
@@ -72,9 +72,11 @@ class AsyncDBContextProtocol(Protocol):
         """
         ...
 
-    async def __aexit__(self, exc_type: Optional[Type[BaseException]],
-                exc_value: Optional[BaseException],
-                traceback: Optional[TracebackType]) -> None:
+    async def __aexit__(
+            self, exc_type: type[BaseException] | None,
+            exc_value: BaseException | None,
+            traceback: TracebackType | None
+        ) -> None:
         """Exit the `async with` block. Should commit or rollback as
             appropriate, then close the connection if this is the
             outermost context.
@@ -148,45 +150,62 @@ class AsyncModelProtocol(Protocol):
         ...
 
     @classmethod
-    async def find(cls, id: Any) -> Optional[AsyncModelProtocol]:
+    async def find(cls, id: Any) -> AsyncModelProtocol | None:
         """Find a record by its id and return it. Return None if it does
             not exist.
         """
         ...
 
     @classmethod
-    async def insert(cls, data: dict, /, *,
-                     suppress_events: bool = False) -> Optional[AsyncModelProtocol]:
+    async def insert(
+            cls, data: dict, /, *,
+            suppress_events: bool = False, parallel_events: bool = False
+        ) -> AsyncModelProtocol | None:
         """Insert a new record to the datastore. Return instance."""
         ...
 
     @classmethod
-    async def insert_many(cls, items: list[dict], /, *,
-                          suppress_events: bool = False) -> int:
+    async def insert_many(
+            cls, items: list[dict], /, *,
+            suppress_events: bool = False, parallel_events: bool = False
+        ) -> int:
         """Insert a batch of records and return the number of items inserted."""
         ...
 
-    async def update(self, updates: dict, conditions: dict = None, /, *,
-                     suppress_events: bool = False) -> AsyncModelProtocol:
+    async def update(
+            self, updates: dict, conditions: dict = None, /, *,
+            suppress_events: bool = False, parallel_events: bool = False
+        ) -> AsyncModelProtocol:
         """Persist the specified changes to the datastore. Return self
             in monad pattern.
         """
         ...
 
-    async def save(self, /, *, suppress_events: bool = False) -> AsyncModelProtocol:
+    async def save(
+            self, /, *,
+            suppress_events: bool = False, parallel_events: bool = False
+        ) -> AsyncModelProtocol:
         """Persist to the datastore. Return self in monad pattern."""
         ...
 
-    async def delete(self, /, *, suppress_events: bool = False) -> None:
+    async def delete(
+            self, /, *,
+            suppress_events: bool = False, parallel_events: bool = False
+        ) -> None:
         """Delete the record."""
         ...
 
-    async def reload(self, /, *, suppress_events: bool = False) -> AsyncModelProtocol:
+    async def reload(
+            self, /, *,
+            suppress_events: bool = False, parallel_events: bool = False
+        ) -> AsyncModelProtocol:
         """Reload values from datastore. Return self in monad pattern."""
         ...
 
     @classmethod
-    def query(cls, conditions: dict = None) -> AsyncQueryBuilderProtocol:
+    def query(
+            cls, conditions: dict = None, connection_info: str = None
+        ) -> AsyncQueryBuilderProtocol:
         """Return a AsyncQueryBuilderProtocol for the model."""
         ...
 
@@ -194,7 +213,7 @@ class AsyncModelProtocol(Protocol):
 @runtime_checkable
 class AsyncJoinedModelProtocol(Protocol):
     """Interface for representations of JOIN query results."""
-    def __init__(self, models: list[Type[AsyncModelProtocol]], data: dict) -> None:
+    def __init__(self, models: list[type[AsyncModelProtocol]], data: dict) -> None:
         """Initialize the instance."""
         ...
 
@@ -204,12 +223,12 @@ class AsyncJoinedModelProtocol(Protocol):
         ...
 
     @property
-    def models(self) -> list[Type[AsyncModelProtocol]]:
+    def models(self) -> list[type[AsyncModelProtocol]]:
         """List of the underlying model classes."""
         ...
 
     @staticmethod
-    def parse_data(models: list[Type[AsyncModelProtocol]], data: dict) -> dict:
+    def parse_data(models: list[type[AsyncModelProtocol]], data: dict) -> dict:
         """Parse data of form {table.column:value} to {table:{column:value}}."""
         ...
 
@@ -221,10 +240,12 @@ class AsyncJoinedModelProtocol(Protocol):
 @runtime_checkable
 class AsyncQueryBuilderProtocol(Protocol):
     """Interface showing how a query builder should function."""
-    def __init__(self, model_or_table: Type[AsyncModelProtocol]|str,
-                 context_manager: Type[AsyncDBContextProtocol],
-                 connection_info: str = '', model: Type[AsyncModelProtocol] = None,
-                 table: str = None) -> None:
+    def __init__(
+            self, model_or_table: type[AsyncModelProtocol] | str,
+            context_manager: type[AsyncDBContextProtocol],
+            connection_info: str = '', model: type[AsyncModelProtocol] = None,
+            table: str = '', columns: list[str] = []
+        ) -> None:
         """Initialize the instance. A class implementing AsyncModelProtocol
             or the str name of a table must be provided.
         """
@@ -236,26 +257,32 @@ class AsyncQueryBuilderProtocol(Protocol):
         ...
 
     @property
-    def model(self) -> Type[AsyncModelProtocol]:
+    def model(self) -> type[AsyncModelProtocol]:
         """The class of the relevant model."""
         ...
 
-    def is_null(self, column: str|list[str,]|tuple[str,]) -> AsyncQueryBuilderProtocol:
+    def is_null(
+            self, column: str | list[str,] | tuple[str,]
+        ) -> AsyncQueryBuilderProtocol:
         """Save the 'column is null' clause, then return self. Raises
             TypeError for invalid column. If a list or tuple is supplied,
             each element is treated as a separate clause.
         """
         ...
 
-    def not_null(self, column: str|list[str,]|tuple[str,]) -> AsyncQueryBuilderProtocol:
+    def not_null(
+            self, column: str | list[str,] | tuple[str,]
+        ) -> AsyncQueryBuilderProtocol:
         """Save the 'column is not null' clause, then return self.
             Raises TypeError for invalid column. If a list or tuple is
             supplied, each element is treated as a separate clause.
         """
         ...
 
-    def equal(self, column: str = None, data: str = None,
-              **conditions: dict[str, Any]) -> AsyncQueryBuilderProtocol:
+    def equal(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, Any]
+        ) -> AsyncQueryBuilderProtocol:
         """Save the 'column = data' clause and param, then return self.
             Raises TypeError for invalid column. This method can be
             called with `equal(column, data)` or
@@ -263,8 +290,10 @@ class AsyncQueryBuilderProtocol(Protocol):
         """
         ...
 
-    def not_equal(self, column: str = None, data: Any = None,
-                  **conditions: dict[str, Any]) -> AsyncQueryBuilderProtocol:
+    def not_equal(
+            self, column: str = None, data: Any = None,
+            **conditions: dict[str, Any]
+        ) -> AsyncQueryBuilderProtocol:
         """Save the 'column != data' clause and param, then return self.
             Raises TypeError for invalid column. This method can be
             called with `not_equal(column, data)` or
@@ -272,8 +301,10 @@ class AsyncQueryBuilderProtocol(Protocol):
         """
         ...
 
-    def less(self, column: str = None, data: str = None,
-             **conditions: dict[str, Any]) -> AsyncQueryBuilderProtocol:
+    def less(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, Any]
+        ) -> AsyncQueryBuilderProtocol:
         """Save the 'column < data' clause and param, then return self.
             Raises TypeError for invalid column. This method can be
             called with `less(column, data)` or
@@ -281,8 +312,10 @@ class AsyncQueryBuilderProtocol(Protocol):
         """
         ...
 
-    def less_or_equal(self, column: str = None, data: str = None,
-             **conditions: dict[str, Any]) -> AsyncQueryBuilderProtocol:
+    def less_or_equal(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, Any]
+        ) -> AsyncQueryBuilderProtocol:
         """Save the 'column <= data' clause and param, then return self.
             Raises TypeError for invalid column. This method can be
             called with `less_or_equal(column, data)` or
@@ -290,8 +323,10 @@ class AsyncQueryBuilderProtocol(Protocol):
         """
         ...
 
-    def greater(self, column: str = None, data: str = None,
-                **conditions: dict[str, Any]) -> AsyncQueryBuilderProtocol:
+    def greater(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, Any]
+        ) -> AsyncQueryBuilderProtocol:
         """Save the 'column > data' clause and param, then return self.
             Raises TypeError for invalid column. This method can be
             called with `greater(column, data)` or
@@ -299,8 +334,10 @@ class AsyncQueryBuilderProtocol(Protocol):
         """
         ...
 
-    def greater_or_equal(self, column: str = None, data: str = None,
-                **conditions: dict[str, Any]) -> AsyncQueryBuilderProtocol:
+    def greater_or_equal(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, Any]
+        ) -> AsyncQueryBuilderProtocol:
         """Save the 'column >= data' clause and param, then return self.
             Raises TypeError for invalid column. This method can be
             called with `greater_or_equal(column, data)` or
@@ -308,28 +345,42 @@ class AsyncQueryBuilderProtocol(Protocol):
         """
         ...
 
-    def like(self, column: str = None, pattern: str = None, data: str = None,
-             **conditions: dict[str, Any]) -> AsyncQueryBuilderProtocol:
+    def like(
+            self, column: str = None, pattern: str = None, data: str = None,
+            **conditions: dict[str, Any]
+        ) -> AsyncQueryBuilderProtocol:
         """Save the 'column like {pattern.replace(?, data)}' clause and
             param, then return self. Raises TypeError or ValueError for
             invalid column, pattern, or data. This method can be
             called with `like(column, pattern, data)` or
-            `like(column1=(pattern1,str1), column2=(pattern2,str2), etc=(pattern3,str3))`.
+            `like(
+                column1=(pattern1,str1),
+                column2=(pattern2,str2),
+                etc=(pattern3,str3)
+            )`.
         """
         ...
 
-    def not_like(self, column: str = None, pattern: str = None, data: str = None,
-                 **conditions: dict[str, Any]) -> AsyncQueryBuilderProtocol:
+    def not_like(
+            self, column: str = None, pattern: str = None, data: str = None,
+            **conditions: dict[str, Any]
+        ) -> AsyncQueryBuilderProtocol:
         """Save the 'column not like {pattern.replace(?, data)}' clause
             and param, then return self. Raises TypeError or ValueError
             for invalid column, pattern, or data. This method can be
             called with `not_like(column, pattern, data)` or
-            `not_like(column1=(pattern1,str1), column2=(pattern2,str2), etc=(pattern3,str3))`.
+            `not_like(
+                column1=(pattern1,str1),
+                column2=(pattern2,str2),
+                etc=(pattern3,str3)
+            )`.
         """
         ...
 
-    def starts_with(self, column: str = None, data: str = None,
-                    **conditions: dict[str, Any]) -> AsyncQueryBuilderProtocol:
+    def starts_with(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, Any]
+        ) -> AsyncQueryBuilderProtocol:
         """Save the 'column like data%' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data. This method can be called with `starts_with(column, data)`
@@ -337,8 +388,10 @@ class AsyncQueryBuilderProtocol(Protocol):
         """
         ...
 
-    def does_not_start_with(self, column: str = None, data: str = None,
-                             **conditions: dict[str, Any]) -> AsyncQueryBuilderProtocol:
+    def does_not_start_with(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, Any]
+        ) -> AsyncQueryBuilderProtocol:
         """Save the 'column not like data%' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data. This method can be called with
@@ -347,8 +400,10 @@ class AsyncQueryBuilderProtocol(Protocol):
         """
         ...
 
-    def contains(self, column: str = None, data: str = None,
-                 **conditions: dict[str, Any]) -> AsyncQueryBuilderProtocol:
+    def contains(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, Any]
+        ) -> AsyncQueryBuilderProtocol:
         """Save the 'column like %data%' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data. This method can be called with `contains(column, data)`
@@ -356,8 +411,10 @@ class AsyncQueryBuilderProtocol(Protocol):
         """
         ...
 
-    def excludes(self, column: str = None, data: str = None,
-                 **conditions: dict[str, Any]) -> AsyncQueryBuilderProtocol:
+    def excludes(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, Any]
+        ) -> AsyncQueryBuilderProtocol:
         """Save the 'column not like %data%' clause and param, then
             return self. Raises TypeError or ValueError for invalid
             column or data. This method can be called with
@@ -366,8 +423,10 @@ class AsyncQueryBuilderProtocol(Protocol):
         """
         ...
 
-    def ends_with(self, column: str = None, data: str = None,
-                  **conditions: dict[str, Any]) -> AsyncQueryBuilderProtocol:
+    def ends_with(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, Any]
+        ) -> AsyncQueryBuilderProtocol:
         """Save the 'column like %data' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data. This method can be called with `ends_with(column, data)`
@@ -375,8 +434,10 @@ class AsyncQueryBuilderProtocol(Protocol):
         """
         ...
 
-    def does_not_end_with(self, column: str = None, data: str = None,
-                           **conditions: dict[str, Any]) -> AsyncQueryBuilderProtocol:
+    def does_not_end_with(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, Any]
+        ) -> AsyncQueryBuilderProtocol:
         """Save the 'column like %data' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data. This method can be called with
@@ -385,8 +446,10 @@ class AsyncQueryBuilderProtocol(Protocol):
         """
         ...
 
-    def is_in(self, column: str = None, data: Union[tuple, list] = None,
-              **conditions: dict[str, Any]) -> AsyncQueryBuilderProtocol:
+    def is_in(
+            self, column: str = None, data: tuple | list = None,
+            **conditions: dict[str, Any]
+        ) -> AsyncQueryBuilderProtocol:
         """Save the 'column in data' clause and param, then return self.
             Raises TypeError or ValueError for invalid column or data.
             This method can be called with `is_in(column, data)` or
@@ -394,8 +457,10 @@ class AsyncQueryBuilderProtocol(Protocol):
         """
         ...
 
-    def not_in(self, column: str = None, data: Union[tuple, list] = None,
-                **conditions: dict[str, Any]) -> AsyncQueryBuilderProtocol:
+    def not_in(
+            self, column: str = None, data: tuple | list = None,
+            **conditions: dict[str, Any]
+        ) -> AsyncQueryBuilderProtocol:
         """Save the 'column not in data' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data. This method can be called with `not_in(column, data)`
@@ -403,7 +468,9 @@ class AsyncQueryBuilderProtocol(Protocol):
         """
         ...
 
-    def where(self, **conditions: dict[str, dict[str, Any]|list[str]]) -> AsyncQueryBuilderProtocol:
+    def where(
+            self, **conditions: dict[str, dict[str, Any] | list[str]]
+        ) -> AsyncQueryBuilderProtocol:
         """Parse the conditions as if they are sequential calls to the
             equivalent SqlQueryBuilder methods. Syntax is as follows:
             `where(is_null=[column1,...], not_null=[column2,...],
@@ -428,8 +495,10 @@ class AsyncQueryBuilderProtocol(Protocol):
         """
         ...
 
-    def order_by(self, column: str = None, direction: str = 'desc',
-                 **conditions: dict[str, str]) -> AsyncQueryBuilderProtocol:
+    def order_by(
+            self, column: str = None, direction: str = 'desc',
+            **conditions: dict[str, str]
+        ) -> AsyncQueryBuilderProtocol:
         """Sets query order."""
         ...
 
@@ -441,7 +510,7 @@ class AsyncQueryBuilderProtocol(Protocol):
         """Returns a fresh instance using the configured model."""
         ...
 
-    async def insert(self, data: dict) -> Optional[AsyncModelProtocol|RowProtocol]:
+    async def insert(self, data: dict) -> AsyncModelProtocol | RowProtocol | None:
         """Insert a record and return a model instance."""
         ...
 
@@ -449,13 +518,14 @@ class AsyncQueryBuilderProtocol(Protocol):
         """Insert a batch of records and return the number inserted."""
         ...
 
-    async def find(self, id: str) -> Optional[AsyncModelProtocol|RowProtocol]:
+    async def find(self, id: str) -> AsyncModelProtocol | RowProtocol | None:
         """Find a record by its id and return it."""
         ...
 
-    def join(self, model_or_table: Type[AsyncModelProtocol]|str, on: list[str],
-             kind: str = "inner", joined_table_columns: tuple[str] = (),
-             ) -> AsyncQueryBuilderProtocol:
+    def join(
+            self, model_or_table: type[AsyncModelProtocol] | str, on: list[str],
+            kind: str = "inner", joined_table_columns: tuple[str] = (),
+        ) -> AsyncQueryBuilderProtocol:
         """Prepares the query for a join over multiple tables/models.
             Raises TypeError or ValueError for invalid model, on, or
             kind.
@@ -470,7 +540,11 @@ class AsyncQueryBuilderProtocol(Protocol):
         """Adds a group by constraint."""
         ...
 
-    async def get(self) -> list[AsyncModelProtocol]|list[AsyncJoinedModelProtocol]|list[RowProtocol]:
+    async def get(self) -> (
+            list[AsyncModelProtocol]
+            | list[AsyncJoinedModelProtocol]
+            | list[RowProtocol]
+        ):
         """Run the query on the datastore and return a list of results.
             Return SqlModels when running a simple query. Return
             JoinedModels when running a JOIN query. Return Rows when
@@ -482,15 +556,24 @@ class AsyncQueryBuilderProtocol(Protocol):
         """Returns the number of records matching the query."""
         ...
 
-    async def take(self, number: int) -> list[AsyncModelProtocol]|list[AsyncJoinedModelProtocol]|list[RowProtocol]:
+    async def take(self, number: int) -> (
+            list[AsyncModelProtocol]
+            | list[AsyncJoinedModelProtocol]
+            | list[RowProtocol]
+        ):
         """Takes the specified number of rows."""
         ...
 
-    def chunk(self, number: int) -> AsyncGenerator[list[AsyncModelProtocol]|list[AsyncJoinedModelProtocol]|list[RowProtocol], None, None]:
+    def chunk(self, number: int) -> AsyncGenerator[
+            list[AsyncModelProtocol]
+            | list[AsyncJoinedModelProtocol]
+            | list[RowProtocol],
+            None, None
+        ]:
         """Chunk all matching rows the specified number of rows at a time."""
         ...
 
-    async def first(self) -> Optional[AsyncModelProtocol|RowProtocol]:
+    async def first(self) -> AsyncModelProtocol | RowProtocol | None:
         """Run the query on the datastore and return the first result."""
         ...
 
@@ -504,7 +587,7 @@ class AsyncQueryBuilderProtocol(Protocol):
         """
         ...
 
-    def to_sql(self, interpolate_params: bool = True) -> str|tuple[str, list]:
+    def to_sql(self, interpolate_params: bool = True) -> str | tuple[str, list]:
         """Return the sql where clause from the clauses and params. If
             interpolate_params is True, the parameters will be
             interpolated into the SQL str and a single str result will
@@ -535,7 +618,7 @@ class AsyncRelationProtocol(Protocol):
         ...
 
     @property
-    def secondary(self) -> AsyncModelProtocol|tuple[AsyncModelProtocol]:
+    def secondary(self) -> AsyncModelProtocol | tuple[AsyncModelProtocol]:
         """Property that accesses the secondary instance(s)."""
         ...
 
@@ -558,7 +641,7 @@ class AsyncRelationProtocol(Protocol):
         ...
 
     @staticmethod
-    def pivot_preconditions(pivot: Type[AsyncModelProtocol]) -> None:
+    def pivot_preconditions(pivot: type[AsyncModelProtocol]) -> None:
         """Checks preconditions for a pivot."""
         ...
 
@@ -570,7 +653,7 @@ class AsyncRelationProtocol(Protocol):
         """Reload the secondary models from the database."""
         ...
 
-    def query(self) -> AsyncQueryBuilderProtocol|None:
+    def query(self) -> AsyncQueryBuilderProtocol | None:
         """Creates the base query for the underlying relation."""
         ...
 

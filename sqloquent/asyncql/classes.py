@@ -6,13 +6,15 @@ from sqloquent.asyncql.interfaces import (
     AsyncQueryBuilderProtocol,
     AsyncModelProtocol,
 )
-from sqloquent.classes import JoinSpec, Row, Default, quote_sql_str_value, quote_identifier
+from sqloquent.classes import (
+    JoinSpec, Row, Default, quote_sql_str_value, quote_identifier
+)
 from asyncio import iscoroutine, gather
 from dataclasses import dataclass
 from hashlib import sha256
 from time import time
 from types import MappingProxyType, TracebackType, UnionType
-from typing import Any, AsyncGenerator, Optional, Type, Callable
+from typing import Any, AsyncGenerator, Callable
 from uuid import uuid4
 import aiosqlite
 import packify
@@ -45,23 +47,27 @@ class AsyncSqliteContext:
         AsyncSqliteContext._depths[self.connection_info] += 1
 
         if self.connection_info not in AsyncSqliteContext._connections:
-            AsyncSqliteContext._connections[self.connection_info] = await aiosqlite.connect(
+            AsyncSqliteContext._connections[
                 self.connection_info
-            )
+            ] = await aiosqlite.connect(self.connection_info)
 
         self.connection = AsyncSqliteContext._connections[self.connection_info]
 
         if self.connection_info not in AsyncSqliteContext._cursors:
             cursor = self.connection.cursor()
-            AsyncSqliteContext._cursors[self.connection_info] = await cursor.__aenter__()
+            AsyncSqliteContext._cursors[
+                self.connection_info
+            ] = await cursor.__aenter__()
 
         self.cursor = AsyncSqliteContext._cursors[self.connection_info]
 
         return self.cursor
 
-    async def __aexit__(self, exc_type: Optional[Type[BaseException]],
-                exc_value: Optional[BaseException],
-                traceback: Optional[TracebackType]) -> None:
+    async def __aexit__(
+            self, exc_type: type[BaseException] | None,
+            exc_value: BaseException | None,
+            traceback: TracebackType | None
+        ) -> None:
         """Exit the context block. Commit or rollback as appropriate,
             then close the connection if this is the outermost context.
         """
@@ -82,10 +88,10 @@ class AsyncSqliteContext:
 @dataclass
 class AsyncJoinedModel:
     """Class for representing the results of SQL JOIN queries."""
-    models: list[Type[AsyncSqlModel]]
+    models: list[type[AsyncSqlModel]]
     data: dict
 
-    def __init__(self, models: list[Type[AsyncSqlModel]], data: dict) -> None:
+    def __init__(self, models: list[type[AsyncSqlModel]], data: dict) -> None:
         """Initialize the instance. Raises TypeError for invalid models
             or data.
         """
@@ -94,18 +100,18 @@ class AsyncJoinedModel:
 
     def __repr__(self) -> str:
         """Pretty str representation."""
-        return f"{self.__class__.__name__}" + \
-            f"(models={[m.__name__ for m in self.models]}, data={self.data})"
+        return (f"{self.__class__.__name__}"
+            f"(models={[m.__name__ for m in self.models]}, data={self.data})")
 
     @staticmethod
-    def parse_data(models: list[Type[AsyncSqlModel]], data: dict) -> dict:
+    def parse_data(models: list[type[AsyncSqlModel]], data: dict) -> dict:
         """Parse data of form {table.column:value} to
             {table:{column:value}}. Raises TypeError for invalid models
             or data.
         """
-        tert(type(models) is list, 'models must be list[Type[AsyncSqlModel]]')
+        tert(type(models) is list, 'models must be list[type[AsyncSqlModel]]')
         tert(all([issubclass(m, AsyncSqlModel) for m in models]),
-             'models must be list[Type[AsyncSqlModel]]')
+             'models must be list[type[AsyncSqlModel]]')
         tert(type(data) is dict, 'data must be dict')
         result = {}
         for model in models:
@@ -152,13 +158,16 @@ class AsyncJoinedModel:
         return instances
 
 
-def async_dynamic_sqlmodel(connection_string: str|bytes, table_name: str = '',
-                     column_names: tuple[str] = ()) -> Type[AsyncSqlModel]:
+def async_dynamic_sqlmodel(
+        connection_string: str | bytes, table_name: str = '',
+        column_names: tuple[str] = ()
+    ) -> type[AsyncSqlModel]:
     """Generates a dynamic sqlite model for instantiating context
         managers. Raises TypeError for invalid connection_string or
         table_name.
     """
-    tert(type(connection_string) in (str, bytes), 'connection_string must be str|bytes')
+    tert(type(connection_string) in (str, bytes),
+        'connection_string must be str | bytes')
     tert(type(table_name) is str, 'table_name must be str')
     class DynamicModel(AsyncSqlModel):
         connection_info: str = connection_string
@@ -172,8 +181,8 @@ class AsyncSqlQueryBuilder:
         specific database by supplying the context_manager param to a
         call to `super().__init__()`. Default binding is to aiosqlite.
     """
-    model: Type[AsyncModelProtocol]
-    context_manager: Type[AsyncDBContextProtocol]
+    model: type[AsyncModelProtocol]
+    context_manager: type[AsyncDBContextProtocol]
     connection_info: str
     clauses: list
     params: list
@@ -185,11 +194,12 @@ class AsyncSqlQueryBuilder:
     columns: list[str]
     grouping: str
 
-    def __init__(self, model_or_table: Type[AsyncSqlModel]|str = None,
-                 context_manager: Type[AsyncDBContextProtocol] = AsyncSqliteContext,
-                 connection_info: str = '', model: Type[AsyncSqlModel] = None,
-                 table: str = '', columns: list[str] = []
-                 ) -> None:
+    def __init__(
+            self, model_or_table: type[AsyncSqlModel] | str = None,
+            context_manager: type[AsyncDBContextProtocol] = AsyncSqliteContext,
+            connection_info: str = '', model: type[AsyncSqlModel] = None,
+            table: str = '', columns: list[str] = []
+        ) -> None:
         """Initialize the instance. Must supply model_or_table or model
             or table. Must supply context_manager.
         """
@@ -202,11 +212,19 @@ class AsyncSqlQueryBuilder:
         if model_or_table is None and table is not None:
             tert(type(table) is str, 'table must be str name')
             model_or_table = table
-        tert(type(model_or_table) is str or
-             (type(model_or_table) is type and issubclass(model_or_table, AsyncSqlModel)),
-             'model_or_table must be Type[AsyncSqlModel]|str')
-        tert(type(context_manager) is type and issubclass(context_manager, AsyncDBContextProtocol),
-             'context_manager must be class implementing AsyncDBContextProtocol')
+        tert(
+            type(model_or_table) is str or
+            (
+                type(model_or_table) is type
+                and issubclass(model_or_table, AsyncSqlModel)
+            ),
+            'model_or_table must be type[AsyncSqlModel] | str'
+        )
+        tert(
+            type(context_manager) is type
+            and issubclass(context_manager, AsyncDBContextProtocol),
+            'context_manager must be class implementing AsyncDBContextProtocol'
+        )
         tressa(type(model_or_table) is type or len(columns),
                'must provide class implementing AsyncModelProtocol or columns')
         if not connection_info and hasattr(self.__class__, 'connection_info'):
@@ -214,7 +232,9 @@ class AsyncSqlQueryBuilder:
         if type(model_or_table) is type:
             self._model = model_or_table
         else:
-            self._model = async_dynamic_sqlmodel(connection_info, model_or_table, columns)
+            self._model = async_dynamic_sqlmodel(
+                connection_info, model_or_table, columns
+            )
         self._table = self._model.table if self._model else model_or_table
         self.context_manager = context_manager
         self.connection_info = self._model.connection_info
@@ -229,7 +249,7 @@ class AsyncSqlQueryBuilder:
         self.grouping = None
 
     @property
-    def model(self) -> Type[AsyncSqlModel]:
+    def model(self) -> type[AsyncSqlModel]:
         """The model type that non-joined query results will be. Setting
             raises TypeError if supplied something other than a subclass
             of AsyncSqlModel.
@@ -237,9 +257,10 @@ class AsyncSqlQueryBuilder:
         return self._model
 
     @model.setter
-    def model(self, model: Type[AsyncSqlModel]) -> None:
+    def model(self, model: type[AsyncSqlModel]) -> None:
         tert(type(model) is type, 'model must be AsyncSqlModel subclass')
-        tert(issubclass(model, AsyncSqlModel), 'model must be AsyncSqlModel subclass')
+        tert(issubclass(model, AsyncSqlModel),
+            'model must be AsyncSqlModel subclass')
         self._model = model
 
     @property
@@ -254,7 +275,9 @@ class AsyncSqlQueryBuilder:
         tert(type(name) is str, 'name must be str')
         self._table = name
 
-    def is_null(self, column: str|list[str,]|tuple[str,]) -> AsyncSqlQueryBuilder:
+    def is_null(
+        self, column: str | list[str,] | tuple[str,]
+    ) -> AsyncSqlQueryBuilder:
         """Save the 'column is null' clause, then return self. Raises
             TypeError for invalid column. If a list or tuple is supplied,
             each element is treated as a separate clause.
@@ -270,7 +293,9 @@ class AsyncSqlQueryBuilder:
             self.clauses.append(f'{quote_identifier(column)} is null')
         return self
 
-    def not_null(self, column: str|list[str,]|tuple[str,]) -> AsyncSqlQueryBuilder:
+    def not_null(
+            self, column: str | list[str,] | tuple[str,]
+        ) -> AsyncSqlQueryBuilder:
         """Save the 'column is not null' clause, then return self.
             Raises TypeError for invalid column. If a list or tuple is
             supplied, each element is treated as a separate clause.
@@ -286,8 +311,10 @@ class AsyncSqlQueryBuilder:
             self.clauses.append(f'{quote_identifier(column)} is not null')
         return self
 
-    def equal(self, column: str = None, data: Any = None,
-              **conditions: dict[str, Any]) -> AsyncSqlQueryBuilder:
+    def equal(
+            self, column: str = None, data: Any = None,
+            **conditions: dict[str, Any]
+        ) -> AsyncSqlQueryBuilder:
         """Save the 'column = data' clause and param, then return self.
             Raises TypeError for invalid column. This method can be
             called with `equal(column, data)` or
@@ -304,8 +331,10 @@ class AsyncSqlQueryBuilder:
             self.params.append(data)
         return self
 
-    def not_equal(self, column: str = None, data: Any = None,
-                   **conditions: dict[str, Any]) -> AsyncSqlQueryBuilder:
+    def not_equal(
+            self, column: str = None, data: Any = None,
+            **conditions: dict[str, Any]
+        ) -> AsyncSqlQueryBuilder:
         """Save the 'column != data' clause and param, then return self.
             Raises TypeError for invalid column. This method can be
             called with `not_equal(column, data)` or
@@ -322,8 +351,10 @@ class AsyncSqlQueryBuilder:
             self.params.append(data)
         return self
 
-    def less(self, column: str = None, data: Any = None,
-             **conditions: dict[str, Any]) -> AsyncSqlQueryBuilder:
+    def less(
+            self, column: str = None, data: Any = None,
+            **conditions: dict[str, Any]
+        ) -> AsyncSqlQueryBuilder:
         """Save the 'column < data' clause and param, then return self.
             Raises TypeError for invalid column. This method can be
             called with `less(column, data)` or
@@ -340,8 +371,10 @@ class AsyncSqlQueryBuilder:
             self.params.append(data)
         return self
 
-    def less_or_equal(self, column: str = None, data: Any = None,
-             **conditions: dict[str, Any]) -> AsyncSqlQueryBuilder:
+    def less_or_equal(
+            self, column: str = None, data: Any = None,
+            **conditions: dict[str, Any]
+        ) -> AsyncSqlQueryBuilder:
         """Save the 'column <= data' clause and param, then return self.
             Raises TypeError for invalid column. This method can be
             called with `less_or_equal(column, data)` or
@@ -358,8 +391,10 @@ class AsyncSqlQueryBuilder:
             self.params.append(data)
         return self
 
-    def greater(self, column: str = None, data: Any = None,
-                **conditions: dict[str, Any]) -> AsyncSqlQueryBuilder:
+    def greater(
+            self, column: str = None, data: Any = None,
+            **conditions: dict[str, Any]
+        ) -> AsyncSqlQueryBuilder:
         """Save the 'column > data' clause and param, then return self.
             Raises TypeError for invalid column. This method can be
             called with `greater(column, data)` or
@@ -376,8 +411,10 @@ class AsyncSqlQueryBuilder:
             self.params.append(data)
         return self
 
-    def greater_or_equal(self, column: str = None, data: Any = None,
-                **conditions: dict[str, Any]) -> AsyncSqlQueryBuilder:
+    def greater_or_equal(
+            self, column: str = None, data: Any = None,
+            **conditions: dict[str, Any]
+        ) -> AsyncSqlQueryBuilder:
         """Save the 'column >= data' clause and param, then return self.
             Raises TypeError for invalid column. This method can be
             called with `greater_or_equal(column, data)` or
@@ -394,13 +431,19 @@ class AsyncSqlQueryBuilder:
             self.params.append(data)
         return self
 
-    def like(self, column: str = None, pattern: str = None,
-             data: str = None, **conditions: dict[str, tuple[str, str]]) -> AsyncSqlQueryBuilder:
+    def like(
+            self, column: str = None, pattern: str = None, data: str = None,
+            **conditions: dict[str, tuple[str, str]]
+        ) -> AsyncSqlQueryBuilder:
         """Save the 'column like {pattern.replace(?, data)}' clause and
             param, then return self. Raises TypeError or ValueError for
             invalid column, pattern, or data. This method can be called with
             `like(column, pattern, data)` or
-            `like(column1=pattern1, data1, column2=pattern2, data2, etc=pattern3, data3)`.
+            `like(
+                column1=(pattern1,str1),
+                column2=(pattern2,str2),
+                etc=(pattern3,str3)
+            )`.
         """
         if column is not None:
             tert(type(column) is str, 'column must be str')
@@ -421,13 +464,19 @@ class AsyncSqlQueryBuilder:
             self.like(column, pattern, data)
         return self
 
-    def not_like(self, column: str = None, pattern: str = None,
-                 data: str = None, **conditions: dict[str, tuple[str, str]]) -> AsyncSqlQueryBuilder:
+    def not_like(
+            self, column: str = None, pattern: str = None, data: str = None,
+            **conditions: dict[str, tuple[str, str]]
+        ) -> AsyncSqlQueryBuilder:
         """Save the 'column not like {pattern.replace(?, data)}' clause
             and param, then return self. Raises TypeError or ValueError
             for invalid column, pattern, or data. This method can be
             called with `not_like(column, pattern, data)` or
-            `not_like(column1=(pattern1, data1), column2=(pattern2, data2), etc=(pattern3, data3))`.
+            `not_like(
+                column1=(pattern1,str1),
+                column2=(pattern2,str2),
+                etc=(pattern3,str3)
+            )`.
         """
         if column is not None:
             tert(type(column) is str, 'column must be str')
@@ -454,8 +503,10 @@ class AsyncSqlQueryBuilder:
             self.not_like(column, pattern, data)
         return self
 
-    def starts_with(self, column: str = None, data: str = None,
-                    **conditions: dict[str, Any]) -> AsyncSqlQueryBuilder:
+    def starts_with(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, Any]
+        ) -> AsyncSqlQueryBuilder:
         """Save the 'column like data%' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data. This method can be called with `starts_with(column, data)`
@@ -468,8 +519,10 @@ class AsyncSqlQueryBuilder:
             self.like(column, '?%', data)
         return self
 
-    def does_not_start_with(self, column: str = None, data: str = None,
-                             **conditions: dict[str, Any]) -> AsyncSqlQueryBuilder:
+    def does_not_start_with(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, Any]
+        ) -> AsyncSqlQueryBuilder:
         """Save the 'column not like data%' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data. This method can be called with
@@ -483,8 +536,10 @@ class AsyncSqlQueryBuilder:
             self.not_like(column, '?%', data)
         return self
 
-    def contains(self, column: str = None, data: str = None,
-                 **conditions: dict[str, str]) -> AsyncSqlQueryBuilder:
+    def contains(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, str]
+        ) -> AsyncSqlQueryBuilder:
         """Save the 'column like %data%' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data. This method can be called with `contains(column, data)`
@@ -497,8 +552,10 @@ class AsyncSqlQueryBuilder:
             self.like(column, '%?%', data)
         return self
 
-    def excludes(self, column: str = None, data: str = None,
-                 **conditions: dict[str, str]) -> AsyncSqlQueryBuilder:
+    def excludes(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, str]
+        ) -> AsyncSqlQueryBuilder:
         """Save the 'column not like %data%' clause and param, then
             return self. Raises TypeError or ValueError for invalid
             column or data. This method can be called with
@@ -512,8 +569,10 @@ class AsyncSqlQueryBuilder:
             self.not_like(column, '%?%', data)
         return self
 
-    def ends_with(self, column: str = None, data: str = None,
-                 **conditions: dict[str, str]) -> AsyncSqlQueryBuilder:
+    def ends_with(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, str]
+        ) -> AsyncSqlQueryBuilder:
         """Save the 'column like %data' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data. This method can be called with `ends_with(column, data)`
@@ -526,8 +585,10 @@ class AsyncSqlQueryBuilder:
             self.like(column, '%?', data)
         return self
 
-    def does_not_end_with(self, column: str = None, data: str = None,
-                          **conditions: dict[str, str]) -> AsyncSqlQueryBuilder:
+    def does_not_end_with(
+            self, column: str = None, data: str = None,
+            **conditions: dict[str, str]
+        ) -> AsyncSqlQueryBuilder:
         """Save the 'column like %data' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data. This method can be called with
@@ -541,8 +602,10 @@ class AsyncSqlQueryBuilder:
             self.not_like(column, '%?', data)
         return self
 
-    def is_in(self, column: str = None, data: tuple|list = None,
-              **conditions: dict[str, tuple|list]) -> AsyncSqlQueryBuilder:
+    def is_in(
+            self, column: str = None, data: tuple | list = None,
+            **conditions: dict[str, tuple | list]
+        ) -> AsyncSqlQueryBuilder:
         """Save the 'column in data' clause and param, then return self.
             Raises TypeError or ValueError for invalid column or data.
             This method can be called with `is_in(column, data)` or
@@ -553,15 +616,19 @@ class AsyncSqlQueryBuilder:
             tert(type(data) in (tuple, list), 'data must be tuple or list')
             vert(len(column), 'column cannot be empty')
             vert(len(data), 'data cannot be empty')
-            self.clauses.append(f'{quote_identifier(column)} in ({",".join(["?" for _ in data])})')
+            self.clauses.append(
+                f'{quote_identifier(column)} in ({",".join(["?" for _ in data])})'
+            )
             self.params.extend(data)
 
         for column, data in conditions.items():
             self.is_in(column, data)
         return self
 
-    def not_in(self, column: str = None, data: tuple|list = None,
-                **conditions: dict[str, tuple|list]) -> AsyncSqlQueryBuilder:
+    def not_in(
+            self, column: str = None, data: tuple | list = None,
+            **conditions: dict[str, tuple | list]
+        ) -> AsyncSqlQueryBuilder:
         """Save the 'column not in data' clause and param, then return
             self. Raises TypeError or ValueError for invalid column or
             data. This method can be called with `not_in(column, data)`
@@ -572,14 +639,19 @@ class AsyncSqlQueryBuilder:
             tert(type(data) in (tuple, list), 'data must be tuple or list')
             vert(len(column), 'column cannot be empty')
             vert(len(data), 'data cannot be empty')
-            self.clauses.append(f'{quote_identifier(column)} not in ({",".join(["?" for _ in data])})')
+            self.clauses.append(
+                f'{quote_identifier(column)} not in '
+                f'({",".join(["?" for _ in data])})'
+            )
             self.params.extend(data)
 
         for column, data in conditions.items():
             self.not_in(column, data)
         return self
 
-    def where(self, **conditions: dict[str, dict[str, Any]|list[str]]) -> AsyncSqlQueryBuilder:
+    def where(
+            self, **conditions: dict[str, dict[str, Any] | list[str]]
+        ) -> AsyncSqlQueryBuilder:
         """Parse the conditions as if they are sequential calls to the
             equivalent SqlQueryBuilder methods. Syntax is as follows:
             `where(is_null=[column1,...], not_null=[column2,...],
@@ -618,31 +690,38 @@ class AsyncSqlQueryBuilder:
                 tert(type(condition_data) is dict, 'equal must be dict[str, Any]')
                 self.equal(**condition_data)
             elif condition_type == 'not_equal':
-                tert(type(condition_data) is dict, 'not_equal must be dict[str, Any]')
+                tert(type(condition_data) is dict,
+                    'not_equal must be dict[str, Any]')
                 self.not_equal(**condition_data)
             elif condition_type == 'less':
                 tert(type(condition_data) is dict, 'less must be dict[str, Any]')
                 self.less(**condition_data)
             elif condition_type == 'less_or_equal':
-                tert(type(condition_data) is dict, 'less_or_equal must be dict[str, Any]')
+                tert(type(condition_data) is dict,
+                    'less_or_equal must be dict[str, Any]')
                 self.less_or_equal(**condition_data)
             elif condition_type == 'greater':
                 tert(type(condition_data) is dict, 'greater must be dict[str, Any]')
                 self.greater(**condition_data)
             elif condition_type == 'greater_or_equal':
-                tert(type(condition_data) is dict, 'greater_or_equal must be dict[str, Any]')
+                tert(type(condition_data) is dict,
+                    'greater_or_equal must be dict[str, Any]')
                 self.greater_or_equal(**condition_data)
             elif condition_type == 'like':
-                tert(type(condition_data) is dict, 'like must be dict[str, tuple[str, str]]')
+                tert(type(condition_data) is dict,
+                    'like must be dict[str, tuple[str, str]]')
                 self.like(**condition_data)
             elif condition_type == 'not_like':
-                tert(type(condition_data) is dict, 'not_like must be dict[str, tuple[str, str]]')
+                tert(type(condition_data) is dict,
+                    'not_like must be dict[str, tuple[str, str]]')
                 self.not_like(**condition_data)
             elif condition_type == 'starts_with':
-                tert(type(condition_data) is dict, 'starts_with must be dict[str, str]')
+                tert(type(condition_data) is dict,
+                    'starts_with must be dict[str, str]')
                 self.starts_with(**condition_data)
             elif condition_type == 'does_not_start_with':
-                tert(type(condition_data) is dict, 'does_not_start_with must be dict[str, str]')
+                tert(type(condition_data) is dict,
+                    'does_not_start_with must be dict[str, str]')
                 self.does_not_start_with(**condition_data)
             elif condition_type == 'contains':
                 tert(type(condition_data) is dict, 'contains must be dict[str, str]')
@@ -664,8 +743,10 @@ class AsyncSqlQueryBuilder:
                 self.not_in(**condition_data)
         return self
 
-    def order_by(self, column: str = None, direction: str = 'desc',
-                 **conditions: dict[str, str]) -> AsyncSqlQueryBuilder:
+    def order_by(
+            self, column: str = None, direction: str = 'desc',
+            **conditions: dict[str, str]
+        ) -> AsyncSqlQueryBuilder:
         """Sets query order. Raises TypeError or ValueError for invalid
             column or direction. This method can be called with
             `order_by(column, direction)` or `order_by(column=direction)`.
@@ -674,14 +755,17 @@ class AsyncSqlQueryBuilder:
         if column is not None:
             tert(type(column) is str, 'column must be str')
             tert(type(direction) is str, 'direction must be str')
-            vert(column in self.model.columns or column in [j.table_2_columns for j in self.joins],
+            vert(column in self.model.columns
+                or column in [j.table_2_columns for j in self.joins],
                  f'unrecognized column {column}')
             vert(direction in ('asc', 'desc'), 'direction must be asc or desc')
-            vert(len(conditions.keys()) == 0, 'only one column can be ordered by per query')
+            vert(len(conditions.keys()) == 0,
+                'only one column can be ordered by per query')
             self.order_column = quote_identifier(column)
             self.order_dir = direction
 
-        vert(len(conditions.keys()) <= 1, 'only one column can be ordered by per query')
+        vert(len(conditions.keys()) <= 1,
+            'only one column can be ordered by per query')
         for column, direction in conditions.items():
             self.order_by(column, direction)
 
@@ -703,7 +787,7 @@ class AsyncSqlQueryBuilder:
             connection_info=self.connection_info
         )
 
-    async def insert(self, data: dict) -> Optional[AsyncSqlModel|Row]:
+    async def insert(self, data: dict) -> AsyncSqlModel | Row | None:
         """Insert a record and return a model instance. Raises TypeError
             for invalid data or ValueError if a record with the same id
             already exists.
@@ -725,8 +809,8 @@ class AsyncSqlQueryBuilder:
             vert(await self.find(data[self.model.id_column]) is None,
                  'record with this id already exists')
 
-        sql = f'insert into {self.model.table} ({",".join(columns)})' + \
-            f' values ({",".join(["?" for p in params])})'
+        sql = (f'insert into {self.model.table} ({",".join(columns)})'
+            f' values ({",".join(["?" for p in params])})')
 
         async with self.context_manager(self.connection_info) as cursor:
             await cursor.execute(sql, params)
@@ -745,17 +829,17 @@ class AsyncSqlQueryBuilder:
                     item[key] = None
             rows.append(tuple([item[key] for key in self.model.columns]))
 
-        sql = f"insert into {self.model.table} values "\
-            f"({','.join(['?' for f in self.model.columns])})"
+        sql = (f"insert into {self.model.table} values "
+            f"({','.join(['?' for f in self.model.columns])})")
 
         async with self.context_manager(self.connection_info) as cursor:
             return (await cursor.executemany(sql, rows)).rowcount
 
-    async def find(self, id: Any) -> Optional[AsyncSqlModel|Row]:
+    async def find(self, id: Any) -> AsyncSqlModel | Row | None:
         """Find a record by its id and return it."""
         async with self.context_manager(self.connection_info) as cursor:
             await cursor.execute(
-                f'select {",".join(self.model.columns)} from {self.model.table}' +
+                f'select {",".join(self.model.columns)} from {self.model.table}'
                 f' where {self.model.id_column} = ?',
                 [id]
             )
@@ -779,21 +863,27 @@ class AsyncSqlQueryBuilder:
 
         return self.model(data=data) if self.model else Row(data=data)
 
-    def join(self, model_or_table: Type[AsyncSqlModel]|str, on: list[str],
-             kind: str = "inner", joined_table_columns: tuple[str] = (),
-             ) -> AsyncSqlQueryBuilder:
+    def join(
+            self, model_or_table: type[AsyncSqlModel] | str, on: list[str],
+            kind: str = "inner", joined_table_columns: tuple[str] = (),
+        ) -> AsyncSqlQueryBuilder:
         """Prepares the query for a join over multiple tables/models.
             Raises TypeError or ValueError for invalid model, on, or
             kind.
         """
         tert(type(model_or_table) in (type, str),
-             "model_or_table must be Type[AsyncSqlModel] or str")
+             "model_or_table must be type[AsyncSqlModel] or str")
         if type(model_or_table) is str:
-            tressa(type(joined_table_columns) in (tuple, list) and len(joined_table_columns),
-                   'cannot join on table without columns')
+            tressa(
+                type(joined_table_columns) in (tuple, list)
+                and len(joined_table_columns),
+                'cannot join on table without columns'
+            )
         model = model_or_table
         if type(model) is not type:
-            model = async_dynamic_sqlmodel(self.connection_info, model, joined_table_columns)
+            model = async_dynamic_sqlmodel(
+                self.connection_info, model, joined_table_columns
+            )
         tert(type(on) is list, "on must be list[str]")
         tert(all([type(o) is str for o in on]), "on must be list[str]")
         tert(type(kind) is str, "kind must be str")
@@ -803,7 +893,7 @@ class AsyncSqlQueryBuilder:
 
         join = [kind]
 
-        def get_join(model: Type[AsyncSqlModel], column: str) -> str:
+        def get_join(model: type[AsyncSqlModel], column: str) -> str:
             # make column types dict from annotations
             column_types = {}
             for c in model.columns:
@@ -825,7 +915,10 @@ class AsyncSqlQueryBuilder:
             else:
                 tert(column in model.columns,
                      f"column name must be valid for {model.table}")
-                return [model.table, model, model.columns, column_types, f"{model.table}.{column}"]
+                return [
+                    model.table, model, model.columns, column_types,
+                    f"{model.table}.{column}"
+                ]
 
         if len(on) == 2:
             join.extend(get_join(self.model, on[0]))
@@ -847,7 +940,8 @@ class AsyncSqlQueryBuilder:
             columns.
         """
         tert(type(columns) in (list, tuple), "select columns must be list[str]")
-        tert(all([type(c) is str for c in columns]), "select columns must be list[str]")
+        tert(all([type(c) is str for c in columns]),
+            "select columns must be list[str]")
         self.columns = [*columns]
         return self
 
@@ -857,7 +951,7 @@ class AsyncSqlQueryBuilder:
         self.grouping = by
         return self
 
-    async def get(self) -> list[AsyncSqlModel]|list[AsyncJoinedModel]|list[Row]:
+    async def get(self) -> list[AsyncSqlModel] | list[AsyncJoinedModel] | list[Row]:
         """Run the query on the datastore and return a list of results.
             Return SqlModels when running a simple query. Return
             JoinedModels when running a JOIN query. Return Rows when
@@ -880,13 +974,15 @@ class AsyncSqlQueryBuilder:
                     classes.append(join.table_1_model)
                 else:
                     classes.append(async_dynamic_sqlmodel(
-                        self.connection_info, join.table_1, join.table_1_columns))
+                        self.connection_info, join.table_1, join.table_1_columns
+                    ))
             if join.table_2 not in [c.table for c in classes]:
                 if join.table_2_model:
                     classes.append(join.table_2_model)
                 else:
                     classes.append(async_dynamic_sqlmodel(
-                        self.connection_info, join.table_2, join.table_2_columns))
+                        self.connection_info, join.table_2, join.table_2_columns
+                    ))
 
         if self.columns:
             columns = self.columns
@@ -900,8 +996,9 @@ class AsyncSqlQueryBuilder:
         sql = f'select {",".join(columns)} from {quote_identifier(self.table)}'
 
         sql += ' ' + ''.join([
-            f'{j.kind} join {quote_identifier(j.table_2)} on ' +
-            f'{quote_identifier(j.column_1)} {j.comparison} {quote_identifier(j.column_2)}'
+            f'{j.kind} join {quote_identifier(j.table_2)} on '
+            f'{quote_identifier(j.column_1)} {j.comparison} '
+            f'{quote_identifier(j.column_2)}'
             for j in self.joins
         ])
 
@@ -941,14 +1038,15 @@ class AsyncSqlQueryBuilder:
                 ]
             return models
 
-    async def _get_normal(self) -> list[AsyncSqlModel|Row]:
+    async def _get_normal(self) -> list[AsyncSqlModel | Row]:
         """Run the query on the datastore and return a list of results
             without joins. Used by the `get` method when appropriate. Do
             not call this method manually.
         """
         columns: list[str] = self.columns or self.model.columns
         quoted_columns = [quote_identifier(c) for c in columns]
-        sql = f'select {",".join(quoted_columns)} from {quote_identifier(self.model.table)}'
+        sql = (f'select {",".join(quoted_columns)} from '
+            f'{quote_identifier(self.model.table)}')
 
         if len(self.clauses) > 0:
             sql += ' where ' + ' and '.join(self.clauses)
@@ -1006,7 +1104,11 @@ class AsyncSqlQueryBuilder:
             await cursor.execute(sql, self.params)
             return (await cursor.fetchone())[0]
 
-    async def take(self, limit: int) -> list[AsyncSqlModel]|list[AsyncJoinedModel]|list[Row]:
+    async def take(self, limit: int) -> (
+            list[AsyncSqlModel]
+            | list[AsyncJoinedModel]
+            | list[Row]
+        ):
         """Takes the specified number of rows. Raises TypeError or
             ValueError for invalid limit.
         """
@@ -1015,7 +1117,9 @@ class AsyncSqlQueryBuilder:
         self.limit = limit
         return await self.get()
 
-    def chunk(self, number: int) -> AsyncGenerator[list[AsyncSqlModel]|list[AsyncJoinedModel]|list[Row], None, None]:
+    def chunk(self, number: int) -> AsyncGenerator[
+            list[AsyncSqlModel] | list[AsyncJoinedModel] | list[Row], None, None
+        ]:
         """Chunk all matching rows the specified number of rows at a
             time. Raises TypeError or ValueError for invalid number.
         """
@@ -1023,7 +1127,9 @@ class AsyncSqlQueryBuilder:
         vert(number > 0, 'number must be int > 0')
         return self._chunk(number)
 
-    async def _chunk(self, number: int) -> AsyncGenerator[list[AsyncSqlModel]|list[AsyncJoinedModel]|list[Row], None, None]:
+    async def _chunk(self, number: int) -> AsyncGenerator[
+            list[AsyncSqlModel] | list[AsyncJoinedModel] | list[Row], None, None
+        ]:
         """Create the generator for chunking."""
         original_offset = self.offset
         self.offset = self.offset or 0
@@ -1038,7 +1144,7 @@ class AsyncSqlQueryBuilder:
 
             self.offset = original_offset
 
-    async def first(self) -> Optional[AsyncSqlModel|Row]:
+    async def first(self) -> AsyncSqlModel | Row | None:
         """Run the query on the datastore and return the first result."""
         sql = f'select {",".join(self.model.columns)} from {self.table}'
 
@@ -1119,7 +1225,7 @@ class AsyncSqlQueryBuilder:
         async with self.context_manager(self.connection_info) as cursor:
             return (await cursor.execute(sql, self.params)).rowcount
 
-    def to_sql(self, interpolate_params: bool = True) -> str|tuple[str, list]:
+    def to_sql(self, interpolate_params: bool = True) -> str | tuple[str, list]:
         """Return the sql where clause from the clauses and params. If
             interpolate_params is True, the parameters will be
             interpolated into the SQL str and a single str result will
@@ -1134,9 +1240,14 @@ class AsyncSqlQueryBuilder:
             bindings = []
             for clause, param in zip(self.clauses, self.params):
                 if type(param) in (tuple, list):
-                    bindings.append(clause.replace('?', f'[{",".join(quote_sql_str_value(str(p)) for p in param)}]'))
+                    bindings.append(clause.replace(
+                        '?',
+                        f'[{",".join(quote_sql_str_value(str(p)) for p in param)}]'
+                    ))
                 else:
-                    bindings.append(clause.replace('?', quote_sql_str_value(str(param))))
+                    bindings.append(clause.replace(
+                        '?', quote_sql_str_value(str(param))
+                    ))
 
             sql = f' where {" and ".join(bindings)}'
 
@@ -1168,7 +1279,7 @@ class AsyncSqlModel:
     columns: tuple = ('id', 'name')
     id: str
     name: str
-    query_builder_class: Type[AsyncQueryBuilderProtocol] = AsyncSqlQueryBuilder
+    query_builder_class: type[AsyncQueryBuilderProtocol] = AsyncSqlQueryBuilder
     connection_info: str = ''
     data: dict
     data_original: MappingProxyType
@@ -1204,7 +1315,8 @@ class AsyncSqlModel:
     def add_hook(cls, event: str, hook: Callable):
         """Add the hook for the event."""
         if cls._event_hooks.get('class', None) != cls.__name__:
-            cls._event_hooks = {f'class': cls.__name__} # give each class its own event hooks dict
+            # give each class its own event hooks dict
+            cls._event_hooks = {'class': cls.__name__}
         if event not in cls._event_hooks:
             cls._event_hooks[event] = []
         if hook not in cls._event_hooks[event]:
@@ -1214,7 +1326,8 @@ class AsyncSqlModel:
     def remove_hook(cls, event: str, hook: Callable):
         """Remove the hook for the event."""
         if cls._event_hooks.get('class', None) != cls.__name__:
-            cls._event_hooks = {f'class': cls.__name__} # give each class its own event hooks dict
+            # give each class its own event hooks dict
+            cls._event_hooks = {'class': cls.__name__}
         if event not in cls._event_hooks:
             return
         if hook in cls._event_hooks[event]:
@@ -1226,7 +1339,8 @@ class AsyncSqlModel:
             clear all hooks for all events.
         """
         if cls._event_hooks.get('class', None) != cls.__name__:
-            cls._event_hooks = {f'class': cls.__name__} # give each class its own event hooks dict
+            # give each class its own event hooks dict
+            cls._event_hooks = {'class': cls.__name__}
         if event is None:
             return cls._event_hooks.clear()
         if event not in cls._event_hooks:
@@ -1242,7 +1356,8 @@ class AsyncSqlModel:
             have executed; otherwise, each will be waited individually.
         """
         if cls._event_hooks.get('class', None) != cls.__name__:
-            cls._event_hooks = {f'class': cls.__name__} # give each class its own event hooks dict
+            # give each class its own event hooks dict
+            cls._event_hooks = {'class': cls.__name__}
         cors = []
         for hook in cls._event_hooks.get(event, []):
             val = hook(cls, *args, event=event, **kwargs)
@@ -1291,10 +1406,10 @@ class AsyncSqlModel:
 
     def __repr__(self) -> str:
         """Pretty str representation."""
-        return f"{self.__class__.__name__}(table='{self.table}', " + \
-            f"id_column='{self.id_column}', " + \
-            f"columns={self.columns}, data={self.data}, " + \
-            f"connection_info='{self.connection_info}')"
+        return (f"{self.__class__.__name__}(table='{self.table}', "
+            f"id_column='{self.id_column}', "
+            f"columns={self.columns}, data={self.data}, "
+            f"connection_info='{self.connection_info}')")
 
     @classmethod
     def generate_id(cls) -> str:
@@ -1302,20 +1417,24 @@ class AsyncSqlModel:
         return uuid4().bytes.hex()
 
     @classmethod
-    async def find(cls, id: Any) -> Optional[AsyncSqlModel]:
+    async def find(cls, id: Any) -> AsyncSqlModel | None:
         """Find a record by its id and return it. Return None if it does
             not exist.
         """
         return await cls().query().find(id)
 
     @classmethod
-    async def insert(cls, data: dict, /, *, suppress_events: bool = False,
-                     parallel_events: bool = False) -> Optional[AsyncSqlModel]:
+    async def insert(
+            cls, data: dict, /, *,
+            suppress_events: bool = False, parallel_events: bool = False
+        ) -> AsyncSqlModel | None:
         """Insert a new record to the datastore. Return instance. Raises
             TypeError if data is not a dict.
         """
         if not suppress_events:
-            await cls.invoke_hooks('before_insert', data=data, parallel_events=parallel_events)
+            await cls.invoke_hooks(
+                'before_insert', data=data, parallel_events=parallel_events
+            )
         tert(isinstance(data, dict), 'data must be dict')
         if cls.id_column not in data:
             data[cls.id_column] = cls.generate_id()
@@ -1328,9 +1447,10 @@ class AsyncSqlModel:
         return val
 
     @classmethod
-    async def insert_many(cls, items: list[dict], /, *,
-                          suppress_events: bool = False,
-                          parallel_events: bool = False) -> int:
+    async def insert_many(
+            cls, items: list[dict], /, *,
+            suppress_events: bool = False, parallel_events: bool = False
+        ) -> int:
         """Insert a batch of records and return the number of items
             inserted. Raises TypeError if items is not list[dict].
         """
@@ -1347,13 +1467,15 @@ class AsyncSqlModel:
         vals = await cls().query().insert_many(items)
         if not suppress_events:
             await cls.invoke_hooks(
-                'after_insert_many', items=items, vals=vals, parallel_events=parallel_events
+                'after_insert_many', items=items, vals=vals,
+                parallel_events=parallel_events
             )
         return vals
 
-    async def update(self, updates: dict, conditions: dict = None, /, *,
-                     suppress_events: bool = False,
-                     parallel_events: bool = False) -> AsyncSqlModel:
+    async def update(
+            self, updates: dict, conditions: dict = None, /, *,
+            suppress_events: bool = False, parallel_events: bool = False
+        ) -> AsyncSqlModel:
         """Persist the specified changes to the datastore. Return self
             in monad pattern. Raises TypeError or ValueError for invalid
             updates or conditions (self.data must include the id to
@@ -1377,7 +1499,9 @@ class AsyncSqlModel:
 
         # merge data into updates
         for key in self.data:
-            if key in self.columns and self.data[key] != self.data_original.get(key, None):
+            if  (   key in self.columns
+                    and self.data[key] != self.data_original.get(key, None)
+                ):
                 updates[key] = self.data[key]
 
         # parse conditions
@@ -1400,8 +1524,10 @@ class AsyncSqlModel:
 
         return self
 
-    async def save(self, /, *, suppress_events: bool = False,
-                   parallel_events: bool = False) -> AsyncSqlModel:
+    async def save(
+            self, /, *,
+            suppress_events: bool = False, parallel_events: bool = False
+        ) -> AsyncSqlModel:
         """Persist to the datastore. Return self in monad pattern.
             Calls insert or update and raises appropriate errors.
         """
@@ -1431,22 +1557,28 @@ class AsyncSqlModel:
         self.data_original = val.data_original
         return self
 
-    async def delete(self, /, *, suppress_events: bool = False,
-                     parallel_events: bool = False) -> None:
+    async def delete(
+            self, /, *,
+            suppress_events: bool = False, parallel_events: bool = False
+        ) -> None:
         """Delete the record."""
         if not suppress_events:
             await self.invoke_hooks(
                 'before_delete', self=self, parallel_events=parallel_events
             )
         if self.id_column in self.data:
-            await self.query().equal(self.id_column, self.data[self.id_column]).delete()
+            await self.query().equal(
+                self.id_column, self.data[self.id_column]
+            ).delete()
         if not suppress_events:
             await self.invoke_hooks(
                 'after_delete', self=self, parallel_events=parallel_events
             )
 
-    async def reload(self, /, *, suppress_events: bool = False,
-                     parallel_events: bool = False) -> AsyncSqlModel:
+    async def reload(
+            self, /, *,
+            suppress_events: bool = False, parallel_events: bool = False
+        ) -> AsyncSqlModel:
         """Reload values from datastore. Return self in monad pattern.
             Raises UsageError if id is not set in self.data.
         """
@@ -1467,7 +1599,9 @@ class AsyncSqlModel:
         return self
 
     @classmethod
-    def query(cls, conditions: dict = None, connection_info: str = None) -> AsyncQueryBuilderProtocol:
+    def query(
+            cls, conditions: dict = None, connection_info: str = None
+        ) -> AsyncQueryBuilderProtocol:
         """Returns a query builder with any conditions provided.
             Conditions are parsed as key=value and cannot handle other
             comparison types. If connection_info is not injected and was
@@ -1501,15 +1635,18 @@ class AsyncDeletedModel(AsyncSqlModel):
         super().__init__(data)
 
     @classmethod
-    async def insert(cls, data: dict, /, *,
-                     suppress_events: bool = False,
-                     parallel_events: bool = False) -> AsyncSqlModel | None:
+    async def insert(
+            cls, data: dict, /, *,
+            suppress_events: bool = False, parallel_events: bool = False
+        ) -> AsyncSqlModel | None:
         """Insert a new record to the datastore. Return instance. Raises
             TypeError if data is not a dict. Automatically sets a
             timestamp if one is not supplied.
         """
         if not suppress_events:
-            await cls.invoke_hooks('before_insert', data=data, parallel_events=parallel_events)
+            await cls.invoke_hooks(
+                'before_insert', data=data, parallel_events=parallel_events
+            )
         if 'timestamp' not in data:
             data['timestamp'] = str(int(time()))
         val = await super().insert(data, suppress_events=True) # no duplicate events
@@ -1519,9 +1656,10 @@ class AsyncDeletedModel(AsyncSqlModel):
             )
         return val
 
-    async def restore(self, inject: dict = {}, /, *,
-                      suppress_events: bool = False,
-                      parallel_events: bool = False) -> AsyncSqlModel:
+    async def restore(
+            self, inject: dict = {}, /, *,
+            suppress_events: bool = False, parallel_events: bool = False
+        ) -> AsyncSqlModel:
         """Restore a deleted record, remove from deleted_records, and
             return the restored model. Raises ValueError if model_class
             cannot be found. Raises TypeError if model_class is not a
@@ -1607,7 +1745,9 @@ class AsyncHashedModel(AsyncSqlModel):
                     data[name] = None
         data = {
             k: data[k] for k in data
-            if k in cls.columns and k != cls.id_column and k not in cls.columns_excluded_from_hash
+            if k in cls.columns
+                and k != cls.id_column
+                and k not in cls.columns_excluded_from_hash
         }
         return packify.pack(data)
 
@@ -1624,9 +1764,10 @@ class AsyncHashedModel(AsyncSqlModel):
         return sha256(cls.preimage(data)).digest().hex()
 
     @classmethod
-    async def insert(cls, data: dict, /, *,
-                     suppress_events: bool = False,
-                     parallel_events: bool = False) -> Optional[AsyncHashedModel]:
+    async def insert(
+            cls, data: dict, /, *,
+            suppress_events: bool = False, parallel_events: bool = False
+        ) -> AsyncHashedModel | None:
         """Insert a new record to the datastore. Return instance. Raises
             TypeError for non-dict data or unencodable type (calls
             cls.generate_id, which calls packify.pack).
@@ -1646,9 +1787,10 @@ class AsyncHashedModel(AsyncSqlModel):
         return val
 
     @classmethod
-    async def insert_many(cls, items: list[dict], /, *,
-                          suppress_events: bool = False,
-                          parallel_events: bool = False) -> int:
+    async def insert_many(
+            cls, items: list[dict], /, *,
+            suppress_events: bool = False, parallel_events: bool = False
+        ) -> int:
         """Insert a batch of records and return the number of items
             inserted. Raises TypeError for invalid items or unencodable
             value (calls cls.generate_id, which calls packify.pack).
@@ -1670,9 +1812,10 @@ class AsyncHashedModel(AsyncSqlModel):
             )
         return vals
 
-    async def update(self, updates: dict, /, *,
-                     suppress_events: bool = False,
-                     parallel_events: bool = False) -> AsyncHashedModel:
+    async def update(
+            self, updates: dict, /, *,
+            suppress_events: bool = False, parallel_events: bool = False
+        ) -> AsyncHashedModel:
         """Persist the specified changes to the datastore, creating a
             new record in the process unless the changes were to the
             hash-excluded columns. Update and return self in monad
@@ -1730,8 +1873,10 @@ class AsyncHashedModel(AsyncSqlModel):
             )
         return self
 
-    async def delete(self, /, *, suppress_events: bool = False,
-                     parallel_events: bool = False) -> AsyncDeletedModel:
+    async def delete(
+            self, /, *,
+            suppress_events: bool = False, parallel_events: bool = False
+        ) -> AsyncDeletedModel:
         """Delete the model, putting it in the deleted_records table,
             then return the AsyncDeletedModel. Raises packify.UsageError for
             unserializable data.
@@ -1764,14 +1909,15 @@ class AsyncAttachment(AsyncHashedModel):
     id: str
     related_model: str
     related_id: str
-    details: bytes|None
+    details: bytes | None
     _related: AsyncSqlModel = None
     _details: packify.SerializableType = None
 
     async def related(self, reload: bool = False) -> AsyncSqlModel:
         """Return the related record."""
         if self._related is None or reload:
-            vert(self.data['related_model'] in globals(), 'model_class must be accessible')
+            vert(self.data['related_model'] in globals(),
+                'model_class must be accessible')
             model_class: AsyncSqlModel = globals()[self.data['related_model']]
             tert(issubclass(model_class, AsyncSqlModel),
                 'related_model must inherit from AsyncSqlModel')
