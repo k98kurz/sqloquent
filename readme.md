@@ -556,7 +556,7 @@ class Friendship(SqlModel):
 
     def delete(self):
         # first delete the inverse
-        self.query().equal('user1_id', self.data['user2_.id']).equal(
+        self.query().equal('user1_id', self.data['user2_id']).equal(
             'user2_id', self.data['user1_id']
         ).delete()
         super().delete()
@@ -578,15 +578,15 @@ The relations can then be used as follows:
 
 ```python
 # add users
-alice: models2.User = models2.User.insert({"name": "Alice"})
-bob: models2.User = models2.User.insert({"name": "Bob"})
+alice: User = User.insert({"name": "Alice"})
+bob: User = User.insert({"name": "Bob"})
 
 # add avatars
-alice.avatar().secondary = models2.Avatar.insert({
+alice.avatar().secondary = Avatar.insert({
     "url": "http://www.perseus.tufts.edu/img/newbanner.png",
 })
 alice.avatar().save()
-bob.avatar = models2.Avatar.insert({
+bob.avatar = Avatar.insert({
     "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/90"
     "/Walrus_(Odobenus_rosmarus)_on_Svalbard.jpg/1200px-Walrus_(Odobe"
     "nus_rosmarus)_on_Svalbard.jpg",
