@@ -325,21 +325,18 @@ class ModelA(SqlModel):
     columns: tuple = ('id', 'name', 'details')
     id: str
     name: str
-    _details: dict = None
+    details: str
     model_b: RelatedCollection
 
-    def details(self, reload: bool = False) -> dict:
+    @property
+    def details(self) -> dict:
         """Decode json str to dict."""
-        if self._details is None or reload:
-            self._details = json.loads(self.data['details'])
-        return self._details
+        return json.loads(self.data.get('details', '{}'))
 
-    def set_details(self, details: dict = {}) -> ModelA:
+    @details.setter
+    def details(self, val: dict) -> None:
         """Sets details and encodes to json str."""
-        if details:
-            self._details = details
-        self.data['details'] = json.dumps(self._details)
-        return self
+        self.data['details'] = json.dumps(val or '{}')
 
 class ModelB(SqlModel):
     connection_info = connection_string
@@ -359,9 +356,10 @@ ModelB.model_a = belongs_to(ModelB, ModelA, 'model_a_id')
 if __name__ == "__main__":
     model_a = ModelA.insert({'name': 'Some ModelA'})
     model_b = ModelB({'name': 'Some ModelB'})
+    model_b.details = {'something': 'important(?)'}
     model_b.save()
-    assert hasattr(model_a, 'data') and type(model_a.data) is dict
-    assert hasattr(model_b, 'data') and type(model_b.data) is dict
+    assert type(model_a.details) is dict
+    assert type(model_b.details) is dict
     model_b.model_a = model_a
     model_b.model_a().save()
     model_a.model_b().reload()
@@ -429,18 +427,15 @@ class ModelA(SqlModel):
         self._model_b = model_b
         return self
 
-    def details(self, reload: bool = False) -> dict:
+    @property
+    def details(self) -> dict:
         """Decode json str to dict."""
-        if self._details is None or reload:
-            self._details = json.loads(self.data['details'])
-        return self._details
+        return json.loads(self.data.get('details', '{}'))
 
-    def set_details(self, details: dict = {}) -> ModelA:
+    @details.setter
+    def details(self, val: dict) -> None:
         """Sets details and encodes to json str."""
-        if details:
-            self._details = details
-        self.data['details'] = json.dumps(self._details)
-        return self
+        self.data['details'] = json.dumps(val or '{}')
 
 class ModelB(SqlModel):
     table: str = 'model_b'
@@ -473,11 +468,10 @@ the `RelationProtocol`: `HasOne`, `HasMany`, `BelongsTo`, `BelongsToMany`,
 Note that currently the async ORM may create `ResourceWarning`s when properties
 are accessed.
 
-Each `Relation` child class instance has a method `create_property` that returns
-a property that can be set on a model class:
+The recommended way to use the ORM is with the helper functions:
 
 ```python
-from sqloquent import SqlModel, HashedModel, HasOne, BelongsTo, Contains, Within
+from sqloquent import SqlModel, HashedModel, has_one, belongs_to, contains, within
 
 class User(SqlModel):
     ...
@@ -485,21 +479,22 @@ class User(SqlModel):
 class Avatar(SqlModel):
     columns = ('id', 'url', 'user_id')
 
-User.avatar = HasOne('user_id', User, Avatar).create_property()
-Avatar.user = BelongsTo('user_id', Avatar, User).create_property()
+User.avatar = has_one('user_id', User, Avatar)
+Avatar.user = belongs_to('user_id', Avatar, User)
 
 class DAGItem(HashedModel):
     columns = ('id', 'details', 'parent_ids')
 
-DAGItem.parents = Contains('parent_ids', DAGItem, DAGItem).create_property()
-DAGItem.children = Within('parent_ids', DAGItem, DAGItem).create_property()
+DAGItem.parents = contains('parent_ids', DAGItem, DAGItem)
+DAGItem.children = within('parent_ids', DAGItem, DAGItem)
 ```
 
-There are also six helper functions for setting up relations between models:
-`has_one`, `has_many`, `belongs_to`, `belongs_to_many`, `contains`, and `within`.
-These simplify and are the intended way for setting up relation between models.
-Far friendlier way to use the ORM. (Same applies for async, but with `async_`
-prefixes.)
+There are six helper functions for setting up relations between models: `has_one`,
+`has_many`, `belongs_to`, `belongs_to_many`, `contains`, and `within`.
+(Same are available for async, but with an `async_` prefix.)
+
+<details>
+<summary>Another example</summary>
 
 ```python
 from __future__ import annotations
@@ -604,11 +599,13 @@ alice.friends().reload()
 The above is included in the second integration test:
 - [models](https://github.com/k98kurz/sqloquent/blob/master/tests/integration_vectors/models2.py)
 - [test](https://github.com/k98kurz/sqloquent/blob/master/tests/test_integration.py#L371)
+</details>
 
 NB: polymorphic relations are not supported. See the `Attachment` class for an
 example of how to implement polymorphism if necessary.
 
-Below is an example of the Contains and Within relations:
+<details>
+<summary>Another example of the Contains and Within relations</summary>
 
 ```python
 from sqloquent import (
@@ -657,6 +654,7 @@ parent2.children().reload()
 assert len(parent1.children) == 2
 assert len(parent2.children) == 1
 ```
+</details>
 
 #### Table Construction
 
