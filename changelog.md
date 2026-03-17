@@ -5,8 +5,16 @@ column was empty
     - Now it sets an empty tuple as the secondary values instead
     - Fixed in both sync and async relations
     - Also updated `query()` for consistent handling of secondary ids
+- Bug fixes: the CLI tool was ignoring connection info strings in files
+    - `make migration --model` now respects model connection string if
+    either of `CONNECTION_STRING` or `MAKE_WITH_CONNSTRING` is not set
+    - `automigrate`/`autorollback`/`autorefresh` now fallback to first migration
+    connection info if `CONNECTION_STRING` is not set
+    - Default of 'temp.db' removed entirely
 - Added new documentation file: migrations.md
+- Reorganized/improved readme and moved db coupling guide to a new file
 - Added version information to CLI help text and a `sqloquent version` command
+- Improved CLI help text
 - Made some code hygiene updates and misc under-the-hood improvements
 
 ## 0.7.2

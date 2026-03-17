@@ -6,17 +6,19 @@ in particular Eloquent.
 ## Overview
 
 This package provides a set of interfaces and classes to make using a SQL
-database easier and simpler, both through synchronously and using asyncio. (See
+database easier and simpler, both synchronously and by using asyncio. (See
 section below for full list.)
 
-The primary features are the `SqlQueryBuilder` and `SqlModel` base classes (or
-`AsyncSqlQueryBuilder` and `AsyncSqlModel` for use with asyncio). The
-`SqlQueryBuilder` uses a builder pattern to build and execute a query from
-various clauses. The `SqlModel` handles encoding, persisting, reading, and
-decoding models that correspond to rows. The query builder can be used without a
-model, in which case a dynamic model will be created. Any grouping will result
-in `get` returning `Row`s, and joining will result in `get` returning
-`JoinedModel`s.
+The primary features are the `SqlQueryBuilder`, `SqlModel`, and `HashedModel` base
+classes (or `AsyncSqlQueryBuilder`, `AsyncSqlModel`, and `AsyncHashedModel` for use
+with asyncio) and ORM system. The `SqlQueryBuilder` uses a builder pattern to build
+and execute a query from various clauses. The `SqlModel` handles encoding,
+persisting, reading, and decoding models that correspond to rows. The query builder
+can be used without a model, in which case a dynamic model will be created. Any
+grouping will result in `get` returning `Row`s, and joining will result in `get`
+returning `JoinedModel`s.
+
+Below are some examples of using the query builder without models:
 
 ```python
 from sqloquent import SqlQueryBuilder
@@ -82,7 +84,7 @@ results = run(query('some_table', ['id', 'etc']).where(contains={'etc': 'somethi
 results = run(query('some_table', ['id', 'etc']).contains(etc='something').get())
 ```
 
-These base classes have a default binding to sqlite3 via the `SqliteContext`
+The base classes have a default binding to sqlite3 via the `SqliteContext`
 class, but they can be coupled to any SQL database client. See the "Usage"
 section below for detailed instructions for the latter.
 
@@ -133,6 +135,43 @@ To use the async version, instead install with the following:
 pip install sqloquent[asyncql]
 ```
 
+### Quick Start
+
+Getting started is pretty quick using the sqloquent CLI:
+
+```bash
+export CONNECTION_STRING='database.db' MAKE_WITH_CONNSTRING=1
+mkdir -p migrations
+mkdir -p models
+sqloquent make model GraphNode --columns "id=str,details=bytes,parent_ids=str" > models/GraphNode.py
+cat <<EOF >> models/__init__.py
+from .GraphNode import GraphNode
+from sqloquent import contains, within
+
+GraphNode.parents = contains(GraphNode, GraphNode, 'parent_ids')
+GraphNode.children = within(GraphNode, GraphNode, 'parent_ids')
+__all__ = [
+    GraphNode,
+]
+EOF
+
+sqloquent make migration --model GraphNode models/GraphNode.py > migrations/make_GraphNodes.py
+sqloquent automigrate migrations/
+```
+
+Then, the model can be used within an app or script:
+
+```python
+from models import GraphNode
+
+print(GraphNode.query().count())
+parent = GraphNode.insert({'details': b'parent: 1234'})
+child = GraphNode.insert({'details': b'child: 4321', 'parent_ids': parent.id})
+print(GraphNode.query().count())
+print([c.id for c in parent.children], child.id)
+print([p.id for p in child.parents], parent.id)
+```
+
 ### Usage
 
 There are two primary ways to use this package: either with a bundled sqlite3
@@ -142,6 +181,29 @@ cryptographic audit trail features can be used with any SQL database coupling.
 Note that if you create a custom async DB coupling, you will also need to create
 a non-async coupling to use the migration system. Also note that at the moment,
 this library has only been tested with sqlite3.
+
+#### CLI Tool
+
+For ease of development, a CLI tool is included which can be used for generating
+code scaffolds/boilerplates and for managing migrations. After installing via
+pip, run `sqloquent` in the terminal to view the help text.
+
+The CLI tool can generate models and migrations, including the ability to
+generate migrations from completed models. Migrations can be handled manually or
+using an automatic method that tracks migrations via a `migrations` table. To
+use the migration tools, the environment variable `CONNECTION_STRING` should be
+set either in the CLI environment or in a .env file, e.g.
+`CONNECTION_STRING=path/to/file.db`. To insert this connection string into
+generated scaffold code, also define a `MAKE_WITH_CONNSTRING` environment
+variable and set it to anything other than "false" or "0"; this is a convenience
+feature for working with sqlite3, since that is the only bundled coupling, but
+overwriting the `connection_info` attribute on models at the app execution entry
+point is probably a better strategy -- if using another SQL binding, the
+connection info should be injected into the context manager (see section about
+binding to other SQL databases/engines below).
+
+Additionally, the functionality exposed by the CLI tool can be accessed
+programmatically through `sqloquent.tools`.
 
 #### Connection Information
 
@@ -171,11 +233,10 @@ from sqloquent import SqliteContext
 
 def main():
     with SqliteContext(SomeSqlModel.connection_info) as cursor:
-        # application logic goes here
-        ...
+        ... # application logic goes here
 ```
 
-#### Example
+#### Examples
 
 The most thorough examples are the integration tests. The model files for the
 first can be found
@@ -194,128 +255,6 @@ the CLI tool, then does inserts/updates/deletes and checks the db for
 correctness. (These files provide a basic schema for correspondent banking.)
 
 The second integration test is outlined in the "Using the ORM" section below.
-
-#### CLI Tool
-
-For ease of development, a CLI tool is included which can be used for generating
-code scaffolds/boilerplates and for managing migrations. After installing via
-pip, run `sqloquent` in the terminal to view the help text.
-
-The CLI tool can generate models and migrations, including the ability to
-generate migrations from completed models. Migrations can be handled manually or
-using an automatic method that tracks migrations via a `migrations` table. To
-use the migration tools, the environment variable `CONNECTION_STRING` must be
-set either in the CLI environment or in a .env file, e.g.
-`CONNECTION_STRING=path/to/file.db`. To insert this connection string into
-generated scaffold code, also define a `MAKE_WITH_CONNSTRING` environment
-variable and set it to anything other than "false" or "0"; this is a convenience
-feature for working with sqlite3, since that is the only bundled coupling, but
-overwriting the `connection_info` attribute on models at the app execution entry
-point is probably a better strategy -- if using another SQL binding, the
-connection info should be injected into the context manager (see section about
-binding to other SQL databases/engines below).
-
-Additionally, the functionality of the CLI tool can be accessed programmatically
-through `sqloquent.tools`.
-
-#### Note About Table Construction
-
-The package as it stands relies upon text or varchar type `id` columns. The
-`SqlModel` uses a hexadecimal uuid4 as a GUID, while the `HashedModel` uses the
-sha256 of the deterministically encoded record content as a GUID. This can be
-changed for use with autoincrementing int id columns by extending `SqlModel` and
-overriding the `insert` and `insert_many` methods to prevent setting the id via
-`cls.generate_id()`. However, this is not recommended unless the autoincrement
-id can be reliably discerned from the db cursor and there are no concerns about,
-say, synchronizing between instances using a CRDT.
-
-Use one of the variants of the `sqloquent make migration` command to create a
-migration scaffold, then edit the result as necessary. If you specify the
-`--model name path/to/model/file` variant, the resultant source will include a
-unique index on the id column and simple indices on all other columns. This will
-also parse any class annotations that map to names of columns. For example,
-given the following class,
-
-```python
-from sqloquent import SqlModel, Default
-class Thing(SqlModel):
-    table = 'things'
-    columns = ('id', 'name', 'amount', 'is_nothing')
-    id: str
-    name: bytes|Default[b'something']
-    amount: int|None
-    is_nothing: bool|None|Default[True]
-```
-
-the `make migration --model` command will produce the following migration:
-
-```python
-from sqloquent import Migration, Table
-
-
-def create_table_things() -> list[Table]:
-    t = Table.create('things')
-    t.text('id').unique()
-    t.blob('name').default(b'something').index()
-    t.integer('amount').nullable().index()
-    t.boolean('is_nothing').default(True).nullable().index()
-    ...
-    return [t]
-
-def drop_table_things() -> list[Table]:
-    return [Table.drop('things')]
-
-def migration(connection_string: str = '') -> Migration:
-    migration = Migration(connection_string)
-    migration.up(create_table_things)
-    migration.down(drop_table_things)
-    return migration
-```
-
-This should provide a decent scaffold for migrations, allowing the user of this
-package to model their data first as classes if desired. If some custom SQL is
-necessary, it can be added using a callback:
-
-```python
-def add_custom_sql(clauses: list[str]) -> list[str]:
-    clauses.append("do something sql-y")
-    return clauses
-
-def create_table_things() -> list[Table]:
-    t = Table.create('things')
-    t.text('id').unique()
-    t.blob('name').index()
-    t.integer('amount').nullable().index()
-    t.boolean('is_nothing').nullable().default(True).index()
-    t.custom(add_custom_sql)
-    ...
-    return [t]
-```
-
-Examine the generated SQL of any migration using the
-`sqloquent examine path/to/migration/file` command. The above example will
-generate the following:
-
-```sql
-/**** generated up/apply sql ****/
-begin;
-create table if not exists "things" ("id" text, "name" blob default (x'736f6d657468696e67'), "amount" integer, "is_nothing" boolean default True);
-create unique index if not exists udx_things_id on "things" ("id");
-create index if not exists idx_things_name on "things" ("name");
-create index if not exists idx_things_amount on "things" ("amount");
-create index if not exists idx_things_is_nothing on "things" ("is_nothing");
-commit;
-
-/**** generated down/undo sql ****/
-begin;
-drop table if exists "things";
-commit;
-```
-
-For comprehensive documentation on the automatic migration system, including data
-type compatibility, automatic migration tracking, and complete workflow examples,
-see the
-[Migration Guide](https://github.com/k98kurz/sqloquent/blob/v0.7.3/migrations.md).
 
 #### Models
 
@@ -526,304 +465,6 @@ class ModelB(SqlModel):
         return self.save()
 ```
 
-#### Model Event Hooks
-
-As of v0.5.0, `SqlModel`, `HashedModel`, `DeletedModel`, `Attachment`,
-`AsyncSqlModel`, `AsyncHashedModel`, `AsyncDeletedModel`, and `AsyncAttachment`
-have an event hook system. Each has the following class methods:
-
-- `add_hook(event: str, hook: Callable)`
-- `remove_hook(event: str, hook: Callable)`
-- `clear_hooks(event: str = None)`
-- `invoke_hooks(event, *args, **kwargs)`
-
-The async version of `invoke_hooks` will detect when an event handler returns a
-coroutine and will await them if `parallel_events=True` is passed in (relevant
-other methods as described below have `parallel_events=False` default argument).
-Additionally, these methods contain checks to ensure that subclasses will have
-their own `_event_hooks` dictionary to avoid conflicts with parent classes (i.e.
-so that every class has its own unique event hooks).
-
-The following events are shared by all models:
-
-- `before_insert`
-- `after_insert`
-- `before_insert_many`
-- `after_insert_many`
-- `before_update`
-- `after_update`
-- `before_save`
-- `after_save`
-- `before_delete`
-- `after_delete`
-- `before_reload`
-- `after_reload`
-
-`DeletedModel` and `AsyncDeletedModel` also have the following unique events:
-
-- `before_restore`
-- `after_restore`
-
-Callbacks will receive one positional arg (the class calling the event hook) and
-the rest will be keyword args. Callbacks should accept `**kwargs` and check it
-for expected values necessary for handling the event. The `kwargs` will at a
-minimum contain the string event name under the key "event".
-
-To manage these events, use the methods on the class. For example:
-
-```python
-
-class Thing(SqlModel):
-    table = 'things'
-    columns = ('id', 'name')
-
-def make_handler(event):
-    def handle_event(*args, **kwargs):
-        print(f'{event} called')
-    return handle_event
-
-Thing.add_hook('before_insert', make_handler('before_insert'))
-thing = Thing.insert({'name': 'Stuff'}) # prints "before_insert called" before all insert logic
-Thing.insert({'name': 'Another Stuff'}, suppress_events = True) # event handler not called
-
-Thing.add_hook('after_delete', make_handler('after_delete'))
-thing.delete() # prints "after_delete called" after db operation
-```
-
-Async version:
-
-```python
-class Thing(AsyncSqlModel):
-    table = 'things'
-    columns = ('id', 'name')
-
-def make_handler(event):
-    async def handle_event(*args, **kwargs):
-        await asyncio.sleep(0.1)
-        print(f'{event} called')
-    return handle_event
-
-Thing.add_hook('before_insert', make_handler('before_insert1'))
-Thing.add_hook('before_insert', make_handler('before_insert2'))
-Thing.add_hook('after_delete', make_handler('after_delete'))
-
-async def test_events():
-    # prints "before_insert1 called" and then "before_insert2" before all insert logic
-    thing = await Thing.insert({'name': 'Stuff'})
-
-    # prints "before_insert1 called" and "before_insert2" in unknowable order
-    thing = await Thing.insert({'name': 'Stuff'}, parallel_events=True)
-
-    # event handlers not called
-    await Thing.insert({'name': 'Another Stuff'}, suppress_events = True)
-
-    # prints "after_delete called" after db operation
-    await thing.delete()
-```
-
-If you overwrite any hooked methods and use `super().hookedmethod()`, you should
-add calls to `invoke_hooks` to manage events for this overwritten method
-directly, and you should pass `suppress_events=True` to `super().hookedmethod()`
-calls to avoid duplicate events. Example:
-
-```python
-class Thing(SqlModel):
-    @classmethod
-    def insert(cls, data: dict, /, *, suppress_events=False) -> Thing:
-        """Overwrite for some reason, probably custom logic."""
-        cls.invoke_hooks('before_insert', data=data)
-        ...
-        super().insert(data, suppress_events=True) # no duplicate events
-        ...
-        cls.invoke_hooks('after_insert', data=data, something=something)
-        return something
-```
-
-Note that calls to `invoke_hooks` should pass all arguments other than the event
-name as keyword arguments.
-
-#### Coupling to a SQL Database Client
-
-To couple to a SQL database client, complete the following steps.
-
-##### 0. Implement the `CursorProtocol` or `AsyncCursorProtocol`
-
-If the database client does not include a cursor that implements the
-`CursorProtocol` or `AsyncCursorProtocol`, one must be implemented. Besides the
-methods `execute`, `executemany`, `executescript`, `fetchone`, and `fetchall`,
-an int `rowcount` attribute should be available and updated after calling
-`execute`.
-
-If a `rowcount` attribute is not available, then the following methods of the
-base `SqlQueryBuilder`/`AsyncSqlQueryBuilder` will need to be overridden in step
-2:
-
-- `insert_many`: returns the number of rows inserted
-- `update`: returns the number of rows updated
-- `delete`: returns the number of rows deleted
-
-Note also that this should handle connection pooling. See the
-[`SqliteContext`](https://github.com/k98kurz/sqloquent/blob/v0.7.3/sqloquent/classes.py#L23) and
-[`AsyncSqliteContext`](https://github.com/k98kurz/sqloquent/blob/v0.7.3/sqloquent/asyncql/classes.py#L21)
-classes for examples of how to implement this.
-
-##### 1. Implement the `DBContextProtocol` or `AsyncDBContextProtocol`
-
-See the `SqliteContext` and `AsyncSqliteContext` classes for examples of how to
-implement these interfaces. This is a standard context manager that accepts
-`connection_info` string and returns a cursor to be used within the context block:
-
-```python
-with SomeDBContextImplementation('some optional connection string') as cursor:
-    cursor.execute('...')
-# or for async
-async def wrap():
-    async with SomeAsyncContextImplementation('some connection string') as cursor:
-        await cursor.execute('...')
-asyncio.run(wrap())
-```
-
-Note that the connection information should be bound or injected here in the
-context manager. Connection strings can be put on the models themselves or by
-setting the `connection_info` attribute on the context manager class (e.g.
-`SqliteContext.connection_info = 'temp.db'`) or the `SqlQueryBuilder` class
-(e.g. `SqlQueryBuilder.connection_info = 'temp.db'`).
-
-##### 2. Extend `SqlQueryBuilder` or `AsyncSqlQueryBuilder`
-
-Extend `SqlQueryBuilder` or `AsyncSqlQueryBuilder` and supply the class from
-step 1 as the second parameter to `super().__init__()`. Example:
-
-```python
-class SomeDBQueryBuilder(SqlQueryBuilder):
-    def __init__(self, model: type, *args, **kwargs) -> None:
-        super().__init__(model, SomeDBContextImplementation, *args, **kwargs)
-# or for async
-class SomeAsyncQueryBuilder(AsyncSqlQueryBuilder):
-    def __init__(self, model: type, *args, **kwargs) -> None:
-        super().__init__(model, SomeAsyncContextImplementation, *args, **kwargs)
-```
-
-Additionally, since the `SqlQueryBuilder` was modeled on sqlite3, any difference
-in the SQL implementation of the database or db client will need to be reflected
-by overriding the relevant method(s). Same applies for `AsyncSqlQueryBuilder`,
-with the caveat that it uses the `aiosqlite` package.
-
-##### 3. Extend `SqlModel` or `AsyncSqlModel`
-
-Extend `SqlModel` or `AsyncSqlModel` to include whatever class or instance
-information is required and inject the class from step 2 into the class
-attribute `query_builder_class`. Example:
-
-```python
-class SomeDBModel(SqlModel):
-    """Model for interacting with SomeDB database."""
-    some_config_key: str = 'some_config_value'
-    query_builder_class: QueryBuilderProtocol = SomeDBQueryBuilder
-# or for async
-class SomeAsyncModel(AsyncSqlModel):
-    """Model for interacting with SomeDB database."""
-    some_config_key: str = 'some_config_value'
-    query_builder_class: AsyncQueryBuilderProtocol = SomeAsyncQueryBuilder
-```
-
-##### 4. Extend Class from Step 3
-
-To create models, simply extend the class from step 3, setting class annotations
-and filling these attributes:
-
-- `table: str`: the name of the table
-- `columns: tuple`: the ordered tuple of column names
-
-Model class annotations are helpful because the columns will be mapped to class
-properties, i.e. `model.data['id'] == model.id`. However, since the base class
-methods are type hinted for the base class, instance variables returned from
-class methods should be type hinted, e.g.
-`model: SomeDBModel = SomeDBModel.find(some_id)`; alternately, the methods can
-be overridden just for the type hints, and the code editor LSP should still read
-the doc block of the base class method if the child class method is left without
-a doc block.
-
-Additionally, set up any relevant relations using the ORM functions or,
-if you don't want to use the ORM, with `_{related_name}: SomeModel` attributes
-and `{related_name}(self, reload: bool = False)` methods. Dicts should be
-encoded to comply with the database client, e.g. by using `json.dumps` for
-databases that lack a native JSON data type or for clients that require encoding
-before making the query.
-
-##### 5. `SqlQueryBuilder`/`AsyncSqlQueryBuilder` Features
-
-A few quick notes about `QueryBuilderProtocol` implementations, including the
-bundled `SqlQueryBuilder`:
-
-- The query builder can be used either with a model or with a table, e.g.
-`SqlQueryBuilder(SomeModel)` or `SqlQueryBuilder('some_table', columns=['id', 'etc'])`.
-If used with a table name, then columns must be specified.
-- Pagination is accomplished using the `skip(number)` and `take(number)`
-methods, or by directly setting the `limit` and `offset` attributes. The
-`offset` will only apply when `limit` is specified because that is how SQL works
-generally.
-- For iterating over large data sets, the `chunk(number)` method returns a
-generator that yields subsets with length equal to the specified number.
-- For debugging/learning purposes, the `to_sql` produces human-readable SQL.
-- The `execute_raw(sql)` method executes raw SQL and returns a tuple of
-`(int rowcount, Any results from fetchall)`.
-- If only certain columns are desired, they can be selected with `select(names)`;
-SQL functions can also be selected in this way, e.g. `select["count(*)"]`.
-- Joins can be accomplished using `join(AnotherModel, [table1_col, table2_col])`
-or `join('another_table', [table1_col, table2_col], columns=['id', 'etc])`. Note
-that if a table name is specified, then columns for the table must be provided.
-
-The `AsyncSqlQueryBuilder` implementation of the `AsyncQueryBuilderProtocol` is
-similar, but the following methods are async and must be awaited:
-
-- `insert`
-- `insert_many`
-- `find`
-- `get`
-- `count`
-- `take`
-- `chunk`
-- `first`
-- `update`
-- `delete`
-- `execute_raw`
-
-#### Using the Cryptographic Features
-
-If a cryptographic audit trail is desirable, use an inheritance pattern to
-couple the supplied classes to the desired `ModelProtocol` implementation, or
-simply change the `connection_info` attribute to use with sqlite3.
-
-```python
-from .dbcxm import SomeDBContextImplementation
-from sqloquent import HashedModel, DeletedModel, Attachment, SqlQueryBuilder
-
-env_db_file_path = 'some_file.db'
-env_connstring = 'host=localhost,port=69,user=admin,password=admin'
-
-# option 1: inheritance
-class CustomQueryBuilder(SqlQueryBuilder):
-    def __init__(self, model_or_table, **kwargs,):
-        return super().__init__(model_or_table, SomeDBContextImplementation, **kwargs)
-
-class NewModel(HashedModel, SomeDBModel):
-    connection_info = env_connstring
-    query_builder_class = CustomQueryBuilder
-
-# option 2: bind the classes
-HashedModel.connection_info = env_db_file_path
-HashedModel.query_builder_class = CustomQueryBuilder
-DeletedModel.connection_info = env_db_file_path
-DeletedModel.query_builder_class = CustomQueryBuilder
-Attachment.connection_info = env_db_file_path
-Attachment.query_builder_class = CustomQueryBuilder
-```
-
-The latter must be done exactly once. The value supplied for `connection_info`
-should be set with some environment configuration system, but here it is only
-poorly mocked.
-
 #### Using the ORM
 
 The ORM is comprised of 6 classes inheriting from `Relation` and implementing
@@ -1016,6 +657,267 @@ parent2.children().reload()
 assert len(parent1.children) == 2
 assert len(parent2.children) == 1
 ```
+
+#### Table Construction
+
+The package as it stands relies upon text or varchar type `id` columns. The
+`SqlModel` uses a hexadecimal uuid4 as a GUID, while the `HashedModel` uses the
+sha256 of the deterministically encoded record content as a GUID. This can be
+changed for use with autoincrementing int id columns by extending `SqlModel` and
+overriding the `insert` and `insert_many` methods to prevent setting the id via
+`cls.generate_id()`. However, this is not recommended unless the autoincrement
+id can be reliably discerned from the db cursor and there are no concerns about,
+say, synchronizing between instances using a CRDT.
+
+Use one of the variants of the `sqloquent make migration` command to create a
+migration scaffold, then edit the result as necessary. If you specify the
+`--model name path/to/model/file` variant, the resultant source will include a
+unique index on the id column and simple indices on all other columns. This will
+also parse any class annotations that map to names of columns. For example,
+given the following class,
+
+```python
+from sqloquent import SqlModel, Default
+class Thing(SqlModel):
+    table = 'things'
+    columns = ('id', 'name', 'amount', 'is_nothing')
+    id: str
+    name: bytes|Default[b'something']
+    amount: int|None
+    is_nothing: bool|None|Default[True]
+```
+
+the `make migration --model` command will produce the following migration:
+
+```python
+from sqloquent import Migration, Table
+
+
+def create_table_things() -> list[Table]:
+    t = Table.create('things')
+    t.text('id').unique()
+    t.blob('name').default(b'something').index()
+    t.integer('amount').nullable().index()
+    t.boolean('is_nothing').default(True).nullable().index()
+    ...
+    return [t]
+
+def drop_table_things() -> list[Table]:
+    return [Table.drop('things')]
+
+def migration(connection_string: str = '') -> Migration:
+    migration = Migration(connection_string)
+    migration.up(create_table_things)
+    migration.down(drop_table_things)
+    return migration
+```
+
+This should provide a decent scaffold for migrations, allowing the user of this
+package to model their data first as classes if desired. If some custom SQL is
+necessary, it can be added using a callback:
+
+```python
+def add_custom_sql(clauses: list[str]) -> list[str]:
+    clauses.append("do something sql-y")
+    return clauses
+
+def create_table_things() -> list[Table]:
+    t = Table.create('things')
+    t.text('id').unique()
+    t.blob('name').index()
+    t.integer('amount').nullable().index()
+    t.boolean('is_nothing').nullable().default(True).index()
+    t.custom(add_custom_sql)
+    ...
+    return [t]
+```
+
+Examine the generated SQL of any migration using the
+`sqloquent examine path/to/migration/file` command. The above example (less the
+custom sql pseudocode) will generate the following:
+
+```sql
+/**** generated up/apply sql ****/
+begin;
+create table if not exists "things" ("id" text, "name" blob default (x'736f6d657468696e67'), "amount" integer, "is_nothing" boolean default True);
+create unique index if not exists udx_things_id on "things" ("id");
+create index if not exists idx_things_name on "things" ("name");
+create index if not exists idx_things_amount on "things" ("amount");
+create index if not exists idx_things_is_nothing on "things" ("is_nothing");
+commit;
+
+/**** generated down/undo sql ****/
+begin;
+drop table if exists "things";
+commit;
+```
+
+For comprehensive documentation on the automatic migration system, including data
+type compatibility, automatic migration tracking, and complete workflow examples,
+see the
+[Migration Guide](https://github.com/k98kurz/sqloquent/blob/v0.7.3/migrations.md).
+
+#### Model Event Hooks
+
+As of v0.5.0, `SqlModel`, `HashedModel`, `DeletedModel`, `Attachment`,
+`AsyncSqlModel`, `AsyncHashedModel`, `AsyncDeletedModel`, and `AsyncAttachment`
+have an event hook system. Each has the following class methods:
+
+- `add_hook(event: str, hook: Callable)`
+- `remove_hook(event: str, hook: Callable)`
+- `clear_hooks(event: str = None)`
+- `invoke_hooks(event, *args, **kwargs)`
+
+The async version of `invoke_hooks` will detect when an event handler returns a
+coroutine and will await them if `parallel_events=True` is passed in (relevant
+other methods as described below have `parallel_events=False` default argument).
+Additionally, these methods contain checks to ensure that subclasses will have
+their own `_event_hooks` dictionary to avoid conflicts with parent classes (i.e.
+so that every class has its own unique event hooks).
+
+The following events are shared by all models:
+
+- `before_insert`
+- `after_insert`
+- `before_insert_many`
+- `after_insert_many`
+- `before_update`
+- `after_update`
+- `before_save`
+- `after_save`
+- `before_delete`
+- `after_delete`
+- `before_reload`
+- `after_reload`
+
+`DeletedModel` and `AsyncDeletedModel` also have the following unique events:
+
+- `before_restore`
+- `after_restore`
+
+Callbacks will receive one positional arg (the class calling the event hook) and
+the rest will be keyword args. Callbacks should accept `**kwargs` and check it
+for expected values necessary for handling the event. The `kwargs` will at a
+minimum contain the string event name under the key "event".
+
+To manage these events, use the methods on the class. For example:
+
+```python
+
+class Thing(SqlModel):
+    table = 'things'
+    columns = ('id', 'name')
+
+def make_handler(event):
+    def handle_event(*args, **kwargs):
+        print(f'{event} called')
+    return handle_event
+
+Thing.add_hook('before_insert', make_handler('before_insert'))
+thing = Thing.insert({'name': 'Stuff'}) # prints "before_insert called" before all insert logic
+Thing.insert({'name': 'Another Stuff'}, suppress_events = True) # event handler not called
+
+Thing.add_hook('after_delete', make_handler('after_delete'))
+thing.delete() # prints "after_delete called" after db operation
+```
+
+Async version:
+
+```python
+class Thing(AsyncSqlModel):
+    table = 'things'
+    columns = ('id', 'name')
+
+def make_handler(event):
+    async def handle_event(*args, **kwargs):
+        await asyncio.sleep(0.1)
+        print(f'{event} called')
+    return handle_event
+
+Thing.add_hook('before_insert', make_handler('before_insert1'))
+Thing.add_hook('before_insert', make_handler('before_insert2'))
+Thing.add_hook('after_delete', make_handler('after_delete'))
+
+async def test_events():
+    # prints "before_insert1 called" and then "before_insert2" before all insert logic
+    thing = await Thing.insert({'name': 'Stuff'})
+
+    # prints "before_insert1 called" and "before_insert2" in unknowable order
+    thing = await Thing.insert({'name': 'Stuff'}, parallel_events=True)
+
+    # event handlers not called
+    await Thing.insert({'name': 'Another Stuff'}, suppress_events = True)
+
+    # prints "after_delete called" after db operation
+    await thing.delete()
+```
+
+If you overwrite any hooked methods and use `super().hookedmethod()`, you should
+add calls to `invoke_hooks` to manage events for this overwritten method
+directly, and you should pass `suppress_events=True` to `super().hookedmethod()`
+calls to avoid duplicate events. Example:
+
+```python
+class Thing(SqlModel):
+    @classmethod
+    def insert(cls, data: dict, /, *, suppress_events=False) -> Thing:
+        """Overwrite for some reason, probably custom logic."""
+        cls.invoke_hooks('before_insert', data=data)
+        ...
+        super().insert(data, suppress_events=True) # no duplicate events
+        ...
+        cls.invoke_hooks('after_insert', data=data, something=something)
+        return something
+```
+
+Note that calls to `invoke_hooks` should pass all arguments other than the event
+name as keyword arguments.
+
+#### Coupling to a Different SQL Database Client
+
+A guide for using this library with a differen SQL database client is provided
+[here](https://github.com/k98kurz/sqloquent/blob/v0.7.3/how_to_couple.md).
+
+#### Using the Cryptographic Features
+
+If a cryptographic audit trail is desirable, use an inheritance pattern to couple
+the supplied classes to the desired `ModelProtocol` implementation, or simply change
+the `connection_info` attribute to use with sqlite3. The simplest and recommended
+way is to subclass from `HashedModel` or `AsyncHashedModel`, e.g. by executing
+`sqloquent make model ModelName --hashed [--async] --columns id=str,etc` for a code
+scaffold. The `DeletedModel` or `AsyncDeletedModel` will need to be monkey-patched
+with the correct connection info to use `HashedModel` or subclasses.
+
+The below example demonstrates how to monkey-patch everything together.
+
+```python
+from .dbcxm import SomeDBContextImplementation
+from sqloquent import HashedModel, DeletedModel, Attachment, SqlQueryBuilder
+
+env_db_file_path = 'some_file.db'
+env_connstring = 'host=localhost,port=69,user=admin,password=admin'
+
+# option 1: inheritance
+class CustomQueryBuilder(SqlQueryBuilder):
+    def __init__(self, model_or_table, **kwargs,):
+        return super().__init__(model_or_table, SomeDBContextImplementation, **kwargs)
+
+class NewModel(HashedModel, SomeDBModel):
+    connection_info = env_connstring
+    query_builder_class = CustomQueryBuilder
+
+# option 2: bind the classes
+HashedModel.connection_info = env_db_file_path
+HashedModel.query_builder_class = CustomQueryBuilder
+DeletedModel.connection_info = env_db_file_path
+DeletedModel.query_builder_class = CustomQueryBuilder
+Attachment.connection_info = env_db_file_path
+Attachment.query_builder_class = CustomQueryBuilder
+```
+
+The latter must be done exactly once. The value supplied for `connection_info`
+should be set with some environment configuration system, but here it is only
+poorly mocked.
 
 ## Interfaces, Classes, Functions, and Tools
 
