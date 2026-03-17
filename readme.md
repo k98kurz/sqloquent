@@ -712,7 +712,10 @@ def migration(connection_string: str = '') -> Migration:
 
 This should provide a decent scaffold for migrations, allowing the user of this
 package to model their data first as classes if desired. If some custom SQL is
-necessary, it can be added using a callback:
+necessary, it can be added using a callback.
+
+<details>
+<summary>Example pseudocode scaffold for adding custom SQL to a migration</summary>
 
 ```python
 def add_custom_sql(clauses: list[str]) -> list[str]:
@@ -729,6 +732,7 @@ def create_table_things() -> list[Table]:
     ...
     return [t]
 ```
+</details>
 
 Examine the generated SQL of any migration using the
 `sqloquent examine path/to/migration/file` command. The above example (less the
@@ -819,7 +823,8 @@ Thing.add_hook('after_delete', make_handler('after_delete'))
 thing.delete() # prints "after_delete called" after db operation
 ```
 
-Async version:
+<details>
+<summary>Async version</summary>
 
 ```python
 class Thing(AsyncSqlModel):
@@ -849,24 +854,31 @@ async def test_events():
     # prints "after_delete called" after db operation
     await thing.delete()
 ```
+</details>
 
 If you overwrite any hooked methods and use `super().hookedmethod()`, you should
 add calls to `invoke_hooks` to manage events for this overwritten method
 directly, and you should pass `suppress_events=True` to `super().hookedmethod()`
-calls to avoid duplicate events. Example:
+calls to avoid duplicate events.
+
+<details>
+<summary>Example</summary>
 
 ```python
 class Thing(SqlModel):
     @classmethod
     def insert(cls, data: dict, /, *, suppress_events=False) -> Thing:
         """Overwrite for some reason, probably custom logic."""
-        cls.invoke_hooks('before_insert', data=data)
+        if not suppress_events:
+            cls.invoke_hooks('before_insert', data=data)
         ...
-        super().insert(data, suppress_events=True) # no duplicate events
+        something = super().insert(data, suppress_events=True) # no duplicate events
         ...
-        cls.invoke_hooks('after_insert', data=data, something=something)
+        if not suppress_events:
+            cls.invoke_hooks('after_insert', data=data, something=something)
         return something
 ```
+</details>
 
 Note that calls to `invoke_hooks` should pass all arguments other than the event
 name as keyword arguments.
@@ -919,9 +931,10 @@ poorly mocked.
 
 ## Interfaces, Classes, Functions, and Tools
 
-Below is a list of interfaces, classes, errors, and functions.
+Below are lists of interfaces, classes, errors, and functions.
 
-### Interfaces
+<details>
+<summary>Interfaces</summary>
 
 - CursorProtocol(Protocol)
 - DBContextProtocol(Protocol)
@@ -935,8 +948,10 @@ Below is a list of interfaces, classes, errors, and functions.
 - ColumnProtocol(Protocol)
 - TableProtocol(Protocol)
 - MigrationProtocol(Protocol)
+</details>
 
-### Classes
+<details>
+<summary>Classes</summary>
 
 Classes implement the protocols or extend the classes indicated.
 
@@ -973,8 +988,10 @@ Classes implement the protocols or extend the classes indicated.
 - AsyncBelongsToMany(AsyncRelation)
 - AsyncContains(AsyncHasMany)
 - AsyncWithin(AsyncHasMany)
+</details>
 
-### Functions
+<details>
+<summary>Functions</summary>
 
 The package includes some ORM helper functions for setting up relations and some
 other useful functions.
@@ -994,8 +1011,10 @@ other useful functions.
 - `async_belongs_to_many`
 - `async_contains`
 - `async_within`
+</details>
 
-### Tools
+<details>
+<summary>Tools</summary>
 
 The package includes a set of tools with a CLI invocation script.
 
@@ -1013,6 +1032,7 @@ The package includes a set of tools with a CLI invocation script.
 - `automigrate`
 - `autorollback`
 - `autorefresh`
+</details>
 
 ## More Resources
 
