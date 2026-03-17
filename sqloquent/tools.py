@@ -121,6 +121,8 @@ def make_migration_from_model_path(
     model: ModelProtocol = getattr(module, model_name)
     tert(isinstance(model(), ModelProtocol),
             "specified model is invalid; must implement ModelProtocol")
+    if not connection_string and model.connection_info:
+        connection_string = model.connection_info
     return make_migration_from_model(model, model_name, connection_string, ctx)
 
 def _get_column_type_from_annotation(
@@ -146,7 +148,7 @@ def _get_column_type_from_annotation(
         if int in annotation:
             return (
                 ('integer', nullable, default)
-                if has_default 
+                if has_default
                 else ('integer', nullable)
             )
         if bool in annotation:
@@ -360,7 +362,10 @@ def _import_migration(path: str, connection_string: str = '') -> Migration:
     module = _import(path)
     tressa(hasattr(module, 'migration') and callable(module.migration),
         f"{path} is missing the `migration` function")
-    migration = module.migration(connection_string)
+    if connection_string:
+        migration = module.migration(connection_string)
+    else:
+        migration = module.migration()
     tert(isinstance(migration, MigrationProtocol),
         f"{path} invalid; migration() must return instance implementing "
         "MigrationProtocol")
@@ -423,6 +428,10 @@ def automigrate(path: str, connection_string: str = '') -> None:
     files = [f for f in listdir(path) if isfile(f"{path}/{f}") and f[-3:] == ".py"]
     files.sort()
     m = _import_migration(f"{path}/{files[0]}", connection_string)
+    if not connection_string:
+        print(f'Note: Using connection info from {files[0]}; all migrations will be '
+            'tracked in that database')
+        connection_string = m.connection_info
     MigrationModel = _get_migration_model(connection_string)
     done: list[SqlModel] = []
     with m.context_manager(connection_string) as cursor:
@@ -453,6 +462,10 @@ def autorollback(path: str, connection_string: str = '', all: bool = False) -> N
     files = [f for f in listdir(path) if isfile(f"{path}/{f}") and f[-3:] == ".py"]
     files.sort()
     m = _import_migration(f"{path}/{files[0]}", connection_string)
+    if not connection_string:
+        print(f'Note: Using connection info from {files[0]}; all migrations will be '
+            'tracked in that database')
+        connection_string = m.connection_info
     MigrationModel = _get_migration_model(connection_string)
     done: list[SqlModel] = []
     with m.context_manager(connection_string) as cursor:
@@ -496,14 +509,14 @@ def help_cli(name: str) -> str:
     name = name.split("/")[-1]
     """Produce and return the help text."""
     return (f"""sqloquent version {version()} -- usage:
+    {name} make model name [--hashed] [--async] [--table table_name]
+        [--columns name1=type|None|Default[value],name2=type,etc]
+        [--sqb name [--from package_name]]
     {name} make migration --create name [--ctx name [--from package_name]]
     {name} make migration --alter name [--ctx name [--from package_name]]
     {name} make migration --drop name [--ctx name [--from package_name]]
     {name} make migration --model name path/to/model/file [--ctx name [--from """
     "package_name]]" f"""
-    {name} make model name [--hashed] [--columns name1=type|None|Default[value],"""
-    "name2,etc] [--async] [--sqb name [--from package_name]] "
-    "[--table table_name]" f"""
     {name} migrate path/to/migration/file
     {name} rollback path/to/migration/file
     {name} refresh path/to/migration/file
@@ -517,7 +530,11 @@ def help_cli(name: str) -> str:
     "desired. The `automigrate` command reads the files in the specified\n"
     "directory, then runs the managed migration tool which tracks migrations\n"
     "using a migrations table.\n\n"
-    "The data types for the --columns param are (str, int, float, bytes).\n\n"
+    "The data types for the --columns param are (str, int, float, bytes, bool).\n"
+    "Columns can be made nullable, e.g. `name=str|None`.\n"
+    "Columns can be given default values, e.g. `errors=int|Default[0]`.\n"
+    "These are used in generating migrations and as a fallback in parsing db "
+    "records.\nBe sure to surround the columns definition in quotes.\n\n"
     "The `publish` command publishes migrations for the included DeletedModel,\n"
     "HashedModel, and Attachment classes. Use of these is optional.\n\n"
     "Include CONNECTION_STRING in a .env file or as an environment variable\n"
@@ -537,6 +554,7 @@ def run_cli() -> None:
 
     connection_string = environ.get('CONNECTION_STRING')
     use_connstring_for_make = environ.get('MAKE_WITH_CONNSTRING') is not None
+
     if not connection_string and isfile('.env'):
         with open('.env', 'r') as f:
             lines = f.readlines()
@@ -544,14 +562,15 @@ def run_cli() -> None:
                 if l[:18] == 'CONNECTION_STRING=':
                     connection_string = l[18:-1]
                 elif l[:20] == 'MAKE_WITH_CONNSTRING':
-                    use_connstring_for_make = l[20:-1].lower() not in ('false', '0')
-    connection_string = connection_string or 'temp.db'
+                    use_connstring_for_make = l[21:-1].lower() not in ('false', '0')
+
     connstring_for_make = connection_string if use_connstring_for_make else ''
     table = None
 
     mode = argv[1]
     if mode == "make":
         kind = argv[2]
+
         if kind == "migration":
             if len(argv) < 5:
                 print("error: make migration missing parameters")
@@ -560,6 +579,7 @@ def run_cli() -> None:
             param = argv[3]
             name = argv[4]
             ctx = None
+
             if "--ctx" in argv:
                 argi = argv.index("--ctx")
                 if len(argv) < argi + 2:
@@ -572,6 +592,7 @@ def run_cli() -> None:
                         print(help_cli(argv[0]))
                         exit(1)
                     ctx.append(argv[argi + 1])
+
             if param == "--create":
                 return print(make_migration_create(name, connstring_for_make, ctx))
             elif param == "--alter":
@@ -587,6 +608,7 @@ def run_cli() -> None:
                 return print(make_migration_from_model_path(
                     name, argv[5], connstring_for_make, ctx
                 ))
+
         elif kind == "model":
             if len(argv) < 4:
                 print("make model missing parameter: name")
@@ -596,6 +618,7 @@ def run_cli() -> None:
             columns = {}
             base = "SqlModel"
             sqb = None
+
             if '--columns' in argv:
                 colindex = argv.index('--columns')
                 if len(argv) >= colindex + 2:
@@ -607,10 +630,13 @@ def run_cli() -> None:
                             columns[colname] = datatype
                         else:
                             columns[s] = 'str'
+
             if "--hashed" in argv:
                 base = 'HashedModel'
+
             if "--async" in argv:
                 base = f"Async{base}"
+
             if "--sqb" in argv:
                 argi = argv.index("--sqb")
                 if len(argv) < argi + 2:
@@ -623,6 +649,7 @@ def run_cli() -> None:
                         print(help_cli(argv[0]))
                         exit(1)
                     sqb.append(argv[argi + 1])
+
             if "--table" in argv:
                 argi = argv.index("--table")
                 if len(argv) < argi + 2:
@@ -637,34 +664,43 @@ def run_cli() -> None:
         else:
             print(f"unrecognized make kind: {kind}")
             exit(1)
+
     elif mode == "migrate":
         path = argv[2]
         migrate(path, connection_string)
+
     elif mode == "rollback":
         path = argv[2]
         rollback(path, connection_string)
+
     elif mode == "refresh":
         path = argv[2]
         refresh(path, connection_string)
+
     elif mode == "examine":
         path = argv[2]
         apply, undo = examine(path)
         print("/**** generated up/apply sql ****/\n" + apply)
         print("\n/**** generated down/undo sql ****/\n" + undo)
+
     elif mode == "automigrate":
         path = argv[2]
         automigrate(path, connection_string)
+
     elif mode == "autorollback":
         path = argv[2]
         autorollback(path, connection_string)
+
     elif mode == "autorefresh":
         path = argv[2]
         autorefresh(path, connection_string)
+
     elif mode == "publish":
         if len(argv) < 3:
             print("missing path")
             exit(1)
         ctx = None
+
         if "--ctx" in argv:
             argi = argv.index("--ctx")
             if len(argv) < argi + 2:
@@ -677,7 +713,9 @@ def run_cli() -> None:
                     print(help_cli(argv[0]))
                     exit(1)
                 ctx.append(argv[argi + 1])
+
         return publish_migrations(argv[2], connstring_for_make, ctx)
+
     else:
         print(f"unrecognized mode: {mode}")
         exit(1)
