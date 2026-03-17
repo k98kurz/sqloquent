@@ -13,6 +13,7 @@ column was empty
     - Default of 'temp.db' removed entirely
 - Added new documentation file: migrations.md
 - Reorganized/improved readme and moved db coupling guide to a new file
+- Moved documentation files to new docs/ folder
 - Added version information to CLI help text and a `sqloquent version` command
 - Improved CLI help text
 - Made some code hygiene updates and misc under-the-hood improvements
