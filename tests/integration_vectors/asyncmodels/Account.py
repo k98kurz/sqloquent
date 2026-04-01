@@ -13,6 +13,7 @@ class Account(AsyncHashedModel):
     table: str = 'accounts'
     id_column: str = 'id'
     columns: tuple[str] = ('id', 'name', 'ledger_id', 'type', 'is_active')
+    columns_excluded_from_hash: tuple[str] = ('is_active',)
     id: str
     name: str
     ledger_id: str

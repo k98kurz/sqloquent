@@ -9,10 +9,12 @@ from sqloquent.asyncql import (
 class Ledger(AsyncHashedModel):
     table: str = 'ledgers'
     id_column: str = 'id'
-    columns: tuple[str] = ('id', 'name', 'identity_id')
+    columns: tuple[str] = ('id', 'name', 'identity_id', 'note')
+    columns_excluded_from_hash = ('note',)
     id: str
     name: str
     identity_id: str
+    note: str|None
     accounts: AsyncRelatedCollection
     transactions: AsyncRelatedCollection
     owner: AsyncRelatedModel
