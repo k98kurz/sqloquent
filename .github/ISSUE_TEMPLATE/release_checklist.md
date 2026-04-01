@@ -33,6 +33,7 @@ Once all other issues are complete, prepare to release the next version.
   - `version.py`
   - `pyproject.toml`
   - `readme.md` links
+  - `how-to-couple.md` links
 - [ ] Close milestone on GitHub
 - [ ] Push tag and make release on GitHub
 - [ ] Update PyPI
