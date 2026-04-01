@@ -365,8 +365,10 @@ class HasOne(Relation):
 
 
         class HasOneWrapped(self.secondary_class):
-            def __init__(self, original: ModelProtocol = None) -> None:
-                self.data = original.data if original else {}
+            def __init__(
+                    self, original: ModelProtocol = None, data: dict = None
+                ) -> None:
+                self.data = (original.data if original else data) or {}
                 self.data_original = MappingProxyType({**self.data})
             def __call__(self) -> Relation:
                 return self.relations[cache_key]
@@ -759,8 +761,10 @@ class BelongsTo(HasOne):
 
 
         class BelongsToWrapped(self.secondary_class):
-            def __init__(self, original: ModelProtocol = None) -> None:
-                self.data = original.data if original else {}
+            def __init__(
+                    self, original: ModelProtocol = None, data: dict = None
+                ) -> None:
+                self.data = (original.data if original else data) or {}
                 self.data_original = MappingProxyType({**self.data})
             def __call__(self) -> Relation:
                 return self.relations[f'{cache_key}']

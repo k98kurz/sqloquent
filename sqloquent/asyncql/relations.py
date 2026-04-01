@@ -372,8 +372,10 @@ class AsyncHasOne(AsyncRelation):
 
 
         class HasOneWrapped(self.secondary_class):
-            def __init__(self, original: AsyncModelProtocol = None) -> None:
-                self.data = original.data if original else {}
+            def __init__(
+                    self, original: AsyncModelProtocol = None, data: dict = None
+                ) -> None:
+                self.data = (original.data if original else data) or {}
                 self.data_original = MappingProxyType({**self.data})
             def __call__(self) -> AsyncRelation:
                 return self.relations[cache_key]
@@ -775,8 +777,10 @@ class AsyncBelongsTo(AsyncHasOne):
 
 
         class BelongsToWrapped(self.secondary_class):
-            def __init__(self, original: AsyncModelProtocol = None) -> None:
-                self.data = original.data if original else {}
+            def __init__(
+                    self, original: AsyncModelProtocol = None, data: dict = None
+                ) -> None:
+                self.data = (original.data if original else data) or {}
                 self.data_original = MappingProxyType({**self.data})
             def __call__(self) -> AsyncRelation:
                 return self.relations[f'{cache_key}']
