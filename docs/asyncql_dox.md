@@ -823,7 +823,9 @@ Find a record by its id and return it.
 ##### `join(model_or_table: type[AsyncSqlModel] | str, on: list[str], kind: str = 'inner', joined_table_columns: tuple[str] = ()) -> AsyncSqlQueryBuilder:`
 
 Prepares the query for a join over multiple tables/models. Raises TypeError or
-ValueError for invalid model, on, or kind.
+ValueError for invalid model, on, or kind. The `on` parameter must be a list of
+2 or 3 strs, of the form `[col1, col2]` or `[col1, comparison, col2]`; e.g.
+`['id', 'foreign_id']`.
 
 ##### `select(columns: list[str]) -> AsyncQueryBuilderProtocol:`
 
