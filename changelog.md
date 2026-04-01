@@ -1,3 +1,12 @@
+## 0.7.4
+
+- Bug fix: `BelongsToWrapped` threw a `TypeError` if used with a `HashedModel`
+subclass and `.save()` was called on one of those wrapped class instances; fixed
+in both sync and async versions
+- Bug fix: identical bug discovered and fixed in `HasOneWrapped`
+- Improved documentation for `.join()` method of the query builders, explaining
+how the `on` parameter works
+
 ## 0.7.3
 
 - Bug fix: `contains` relation `reload()` raised `ValueError` if the foreign key

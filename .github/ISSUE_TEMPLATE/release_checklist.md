@@ -26,7 +26,8 @@ Once all other issues are complete, prepare to release the next version.
   - [ ] `readme.md`
   - [ ] `changelog.md`
   - [ ] `migrations.md`
-  - [ ] autodox: `dox.md`, `interfaces.md`, `asyncql_dox.md`, `async_interfaces.md`
+  - [ ] `how-to-couple.md`
+  - [ ] autodox: `dox.md`, `interfaces.md`, `asyncql_dox.md`, `async_interfaces.md`, `tools.md`
 - [ ] Review and finalize documentation
 - [ ] Ensure version strings are set to `'M.m.p'`
   - `version.py`

@@ -19,8 +19,8 @@ base `SqlQueryBuilder`/`AsyncSqlQueryBuilder` will need to be overridden in step
 - `delete`: returns the number of rows deleted
 
 Note also that this should handle connection pooling. See the
-[`SqliteContext`](https://github.com/k98kurz/sqloquent/blob/v0.7.3/sqloquent/classes.py#L24) and
-[`AsyncSqliteContext`](https://github.com/k98kurz/sqloquent/blob/v0.7.3/sqloquent/asyncql/classes.py#L23)
+[`SqliteContext`](https://github.com/k98kurz/sqloquent/blob/v0.7.4/sqloquent/classes.py#L24) and
+[`AsyncSqliteContext`](https://github.com/k98kurz/sqloquent/blob/v0.7.4/sqloquent/asyncql/classes.py#L23)
 classes for examples of how to implement this.
 
 ## 1. Implement the `DBContextProtocol` or `AsyncDBContextProtocol`

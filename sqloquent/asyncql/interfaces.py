@@ -528,7 +528,9 @@ class AsyncQueryBuilderProtocol(Protocol):
         ) -> AsyncQueryBuilderProtocol:
         """Prepares the query for a join over multiple tables/models.
             Raises TypeError or ValueError for invalid model, on, or
-            kind.
+            kind. The `on` parameter must be a list of 2 or 3 strs, of
+            the form `[col1, col2]` or `[col1, comparison, col2]`; e.g.
+            `['id', 'foreign_id']`.
         """
         ...
 
