@@ -328,7 +328,7 @@ def make_model(
     src += f"    id_column: str = 'id'\n"
     at_least_one_default = False
     if columns:
-        src += f"    columns: tuple[str] = {tuple([name for name in columns])}\n"
+        src += f"    columns: tuple[str, ...] = {tuple([name for name in columns])}\n"
         for name, datatype in columns.items():
             default = None
             if 'Default' in datatype:
@@ -343,7 +343,7 @@ def make_model(
             else:
                 src += f"    {name}: {datatype}\n"
     else:
-        src += f"    columns: tuple[str] = ('id',)\n"
+        src += f"    columns: tuple[str, ...] = ('id',)\n"
 
     if "Async" in base:
         src_start = f"from sqloquent.asyncql import {base}"

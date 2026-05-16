@@ -1325,7 +1325,7 @@ class SqlModel:
     """General model for mapping a SQL row to an in-memory object."""
     table: str = 'example'
     id_column: str = 'id'
-    columns: tuple = ('id', 'name')
+    columns: tuple[str, ...] = ('id', 'name')
     id: str
     name: str
     query_builder_class: type[QueryBuilderProtocol] = SqlQueryBuilder
@@ -1626,7 +1626,7 @@ class SqlModel:
 class DeletedModel(SqlModel):
     """Model for preserving and restoring deleted HashedModel records."""
     table: str = 'deleted_records'
-    columns: tuple = ('id', 'model_class', 'record_id', 'record', 'timestamp')
+    columns: tuple[str, ...] = ('id', 'model_class', 'record_id', 'record', 'timestamp')
     id: str
     model_class: str
     record_id: str
@@ -1694,7 +1694,7 @@ class DeletedModel(SqlModel):
 class HashedModel(SqlModel):
     """Model for interacting with sql database using sha256 for id."""
     table: str = 'hashed_records'
-    columns: tuple[str] = ('id', 'details')
+    columns: tuple[str, ...] = ('id', 'details')
     columns_excluded_from_hash: tuple[str] = tuple()
     id: str
     details: bytes
@@ -1868,7 +1868,7 @@ class HashedModel(SqlModel):
 class Attachment(HashedModel):
     """Class for attaching immutable details to a record."""
     table: str = 'attachments'
-    columns: tuple = ('id', 'related_model', 'related_id', 'details')
+    columns: tuple[str, ...] = ('id', 'related_model', 'related_id', 'details')
     id: str
     related_model: str
     related_id: str
