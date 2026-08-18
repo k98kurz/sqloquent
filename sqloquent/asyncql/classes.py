@@ -448,7 +448,7 @@ class AsyncJoinedModel:
 
 def async_dynamic_sqlmodel(
         connection_string: str | bytes, table_name: str = '',
-        column_names: tuple[str] = ()
+        column_names: tuple[str, ...] = ()
     ) -> type[AsyncSqlModel]:
     """Generates a dynamic sqlite model for instantiating context
         managers. Raises TypeError for invalid connection_string or
@@ -460,7 +460,7 @@ def async_dynamic_sqlmodel(
     class DynamicModel(AsyncSqlModel):
         connection_info: str = connection_string
         table: str = table_name
-        columns: tuple[str] = column_names
+        columns: tuple[str, ...] = column_names
     return DynamicModel
 
 
@@ -565,14 +565,14 @@ class AsyncSqlQueryBuilder:
         self._table = name
 
     def is_null(
-        self, column: str | list[str] | tuple[str]
+        self, column: str | list[str] | tuple[str, ...]
     ) -> AsyncSqlQueryBuilder:
         """Save the 'column is null' clause, then return self. Raises
             TypeError for invalid column. If a list or tuple is supplied,
             each element is treated as a separate clause.
         """
         tert(type(column) in (str, list, tuple),
-             'column must be str, list[str], or tuple[str]')
+             'column must be str, list[str], or tuple[str, ...]')
         if type(column) in (list, tuple):
             tert(all([type(c) is str for c in column]),
                  'column must be str or list[str]')
@@ -583,14 +583,14 @@ class AsyncSqlQueryBuilder:
         return self
 
     def not_null(
-            self, column: str | list[str] | tuple[str]
+            self, column: str | list[str] | tuple[str, ...]
         ) -> AsyncSqlQueryBuilder:
         """Save the 'column is not null' clause, then return self.
             Raises TypeError for invalid column. If a list or tuple is
             supplied, each element is treated as a separate clause.
         """
         tert(type(column) in (str, list, tuple),
-             'column must be str, list[str], or tuple[str]')
+             'column must be str, list[str], or tuple[str, ...]')
         if type(column) in (list, tuple):
             tert(all([type(c) is str for c in column]),
                  'column must be str or list[str]')
@@ -1154,7 +1154,7 @@ class AsyncSqlQueryBuilder:
 
     def join(
             self, model_or_table: type[AsyncSqlModel] | str, on: list[str],
-            kind: str = "inner", joined_table_columns: tuple[str] = (),
+            kind: str = "inner", joined_table_columns: tuple[str, ...] = (),
         ) -> AsyncSqlQueryBuilder:
         """Prepares the query for a join over multiple tables/models.
             Raises TypeError or ValueError for invalid model, on, or
@@ -1565,7 +1565,7 @@ class AsyncSqlQueryBuilder:
 
         return sql if interpolate_params else (sql, self.params)
 
-    async def execute_raw(self, sql: str) -> tuple[int, list[tuple[Any]]]:
+    async def execute_raw(self, sql: str) -> tuple[int, list[tuple[Any, ...]]]:
         """Execute raw SQL against the database. Return rowcount and
             fetchall results.
         """
@@ -1579,7 +1579,7 @@ class AsyncSqlModel:
     """General model for mapping a SQL row to an in-memory object."""
     table: str = 'example'
     id_column: str = 'id'
-    columns: tuple = ('id', 'name')
+    columns: tuple[str, ...] = ('id', 'name')
     id: str
     name: str
     query_builder_class: type[AsyncQueryBuilderProtocol] = AsyncSqlQueryBuilder
@@ -1926,7 +1926,9 @@ class AsyncSqlModel:
 class AsyncDeletedModel(AsyncSqlModel):
     """Model for preserving and restoring deleted AsyncHashedModel records."""
     table: str = 'deleted_records'
-    columns: tuple = ('id', 'model_class', 'record_id', 'record', 'timestamp')
+    columns: tuple[str, ...] = (
+        'id', 'model_class', 'record_id', 'record', 'timestamp'
+    )
     id: str
     model_class: str
     record_id: str
@@ -2005,8 +2007,8 @@ class AsyncDeletedModel(AsyncSqlModel):
 class AsyncHashedModel(AsyncSqlModel):
     """Model for interacting with sql database using sha256 for id."""
     table: str = 'hashed_records'
-    columns: tuple[str] = ('id', 'details')
-    columns_excluded_from_hash: tuple[str] = tuple()
+    columns: tuple[str, ...] = ('id', 'details')
+    columns_excluded_from_hash: tuple[str, ...] = tuple()
     id: str
     details: bytes
 
@@ -2211,7 +2213,7 @@ class AsyncHashedModel(AsyncSqlModel):
 class AsyncAttachment(AsyncHashedModel):
     """Class for attaching immutable details to a record."""
     table: str = 'attachments'
-    columns: tuple = ('id', 'related_model', 'related_id', 'details')
+    columns: tuple[str, ...] = ('id', 'related_model', 'related_id', 'details')
     id: str
     related_model: str
     related_id: str

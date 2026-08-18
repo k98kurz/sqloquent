@@ -28,7 +28,7 @@ def _pascalcase_to_snake_case(name: str) -> str:
     """
     return re.sub(r'(?<!^)(?=[A-Z])', '_', name).lower()
 
-def _make_migration_src_start(ctx: tuple = None) -> str:
+def _make_migration_src_start(ctx: tuple[str, ...] | list[str] | None = None) -> str:
     src = "from sqloquent import Migration, Table\n"
     if type(ctx) in (tuple, list) and len(ctx) <= 2:
         tert(all([type(c) is str for c in ctx]), 'ctx must be (str,) or (str, str)')
@@ -38,7 +38,8 @@ def _make_migration_src_start(ctx: tuple = None) -> str:
     return f"{src}\n\n"
 
 def make_migration_create(
-        name: str, connection_string: str = '', ctx: tuple = None
+        name: str, connection_string: str = '',
+        ctx: tuple[str, ...] | list[str] | None = None
     ) -> str:
     """Generate a migration scaffold from a table name to create a table."""
     src = _make_migration_src_start(ctx)
@@ -62,7 +63,8 @@ def make_migration_create(
     return src
 
 def make_migration_alter(
-        name: str, connection_string: str = '', ctx: tuple = None
+        name: str, connection_string: str = '',
+        ctx: tuple[str, ...] | list[str] | None = None
     ) -> str:
     """Generate a migration scaffold from a table name to alter a table."""
     src = _make_migration_src_start(ctx)
@@ -87,7 +89,8 @@ def make_migration_alter(
     return src
 
 def make_migration_drop(
-        name: str, connection_string: str = '', ctx: tuple = None
+        name: str, connection_string: str = '',
+        ctx: tuple[str, ...] | list[str] | None = None
     ) -> str:
     """Generate a migration scaffold from a table name to drop a table."""
     src = _make_migration_src_start(ctx)
@@ -112,7 +115,7 @@ def make_migration_drop(
 
 def make_migration_from_model_path(
         model_name: str, model_path: str, connection_string: str = '',
-        ctx: tuple = None
+        ctx: tuple[str, ...] | list[str] | None = None
     ) -> str:
     """Generate a migration from a model name and path."""
     module = _import(model_path)
@@ -201,7 +204,7 @@ def _get_column_type_from_annotation(
 
 def make_migration_from_model(
         model: ModelProtocol, model_name: str = None,
-        connection_string: str = '', ctx: tuple = None
+        connection_string: str = '', ctx: tuple[str, ...] | list[str] | None = None
     ) -> str:
     """Generate a migration from a model."""
     table_name = model.table or _pascalcase_to_snake_case(
@@ -242,7 +245,10 @@ def make_migration_from_model(
     src += f"    return migration"
     return src
 
-def publish_migrations(path: str, connection_string: str = '', ctx: tuple = None):
+def publish_migrations(
+        path: str, connection_string: str = '',
+        ctx: tuple[str, ...] | list[str] | None = None
+    ):
     """Publish the migrations for the DeletedModel, HashedModel, and Attachment."""
     tert(type(path) is str, 'path must be str')
     tressa(isdir(path), 'path must be valid path to an existing directory')
@@ -398,7 +404,7 @@ def _get_migration_model(connection_string: str = '') -> type[SqlModel]:
     class MigrationModel(SqlModel):
         connection_info: str = connection_string
         table: str = 'migrations'
-        columns: tuple[str] = ('id', 'batch', 'date')
+        columns: tuple[str, ...] = ('id', 'batch', 'date')
     return MigrationModel
 
 def _make_migrations_table_migration(connection_string: str = '') -> Migration:

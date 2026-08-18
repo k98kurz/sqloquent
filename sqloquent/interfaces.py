@@ -100,7 +100,7 @@ class ModelProtocol(Protocol):
         ...
 
     @property
-    def columns(self) -> tuple[str]:
+    def columns(self) -> tuple[str, ...]:
         """Tuple of str column names."""
         ...
 
@@ -257,7 +257,7 @@ class QueryBuilderProtocol(Protocol):
         ...
 
     def is_null(
-            self, column: str | list[str] | tuple[str]
+            self, column: str | list[str] | tuple[str, ...]
         ) -> QueryBuilderProtocol:
         """Save the 'column is null' clause, then return self. Raises
             TypeError for invalid column. If a list or tuple is supplied,
@@ -266,7 +266,7 @@ class QueryBuilderProtocol(Protocol):
         ...
 
     def not_null(
-            self, column: str | list[str] | tuple[str]
+            self, column: str | list[str] | tuple[str, ...]
         ) -> QueryBuilderProtocol:
         """Save the 'column is not null' clause, then return self.
             Raises TypeError for invalid column. If a list or tuple is
@@ -519,7 +519,7 @@ class QueryBuilderProtocol(Protocol):
 
     def join(
             self, model_or_table: type[ModelProtocol] | str, on: list[str],
-            kind: str = "inner", joined_table_columns: tuple[str] = (),
+            kind: str = "inner", joined_table_columns: tuple[str, ...] = (),
         ) -> QueryBuilderProtocol:
         """Prepares the query for a join over multiple tables/models.
             Raises TypeError or ValueError for invalid model, on, or
@@ -589,7 +589,7 @@ class QueryBuilderProtocol(Protocol):
         """
         ...
 
-    def execute_raw(self, sql: str) -> tuple[int, list[tuple[Any]]]:
+    def execute_raw(self, sql: str) -> tuple[int, list[tuple[Any, ...]]]:
         """Execute raw SQL against the database. Return rowcount and fetchall
             results.
         """
@@ -609,7 +609,7 @@ class RelationProtocol(Protocol):
         ...
 
     @property
-    def secondary(self) -> ModelProtocol | tuple[ModelProtocol]:
+    def secondary(self) -> ModelProtocol | tuple[ModelProtocol, ...]:
         """Property that accesses the secondary instance(s)."""
         ...
 

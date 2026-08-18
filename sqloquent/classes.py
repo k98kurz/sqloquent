@@ -416,7 +416,7 @@ class Row:
 
 def dynamic_sqlmodel(
         connection_string: str | bytes, table_name: str = '',
-        column_names: tuple[str] = ()
+        column_names: tuple[str, ...] = ()
     ) -> type[SqlModel]:
     """Generates a dynamic sqlite model for instantiating context
         managers. Raises TypeError for invalid connection_string or
@@ -428,7 +428,7 @@ def dynamic_sqlmodel(
     class DynamicModel(SqlModel):
         connection_info: str = connection_string
         table: str = table_name
-        columns: tuple[str] = column_names
+        columns: tuple[str, ...] = column_names
     return DynamicModel
 
 def quote_sql_str_value(value: str) -> str:
@@ -553,13 +553,13 @@ class SqlQueryBuilder:
         tert(type(name) is str, 'name must be str')
         self._table = name
 
-    def is_null(self, column: str | list[str] | tuple[str]) -> SqlQueryBuilder:
+    def is_null(self, column: str | list[str] | tuple[str, ...]) -> SqlQueryBuilder:
         """Save the 'column is null' clause, then return self. Raises
             TypeError for invalid column. If a list or tuple is supplied,
             each element is treated as a separate clause.
         """
         tert(type(column) in (str, list, tuple),
-             'column must be str, list[str], or tuple[str]')
+             'column must be str, list[str], or tuple[str, ...]')
         if type(column) in (list, tuple):
             tert(all([type(c) is str for c in column]),
                  'column must be str or list[str]')
@@ -569,13 +569,13 @@ class SqlQueryBuilder:
             self.clauses.append(f'{quote_identifier(column)} is null')
         return self
 
-    def not_null(self, column: str | list[str] | tuple[str]) -> SqlQueryBuilder:
+    def not_null(self, column: str | list[str] | tuple[str, ...]) -> SqlQueryBuilder:
         """Save the 'column is not null' clause, then return self.
             Raises TypeError for invalid column. If a list or tuple is
             supplied, each element is treated as a separate clause.
         """
         tert(type(column) in (str, list, tuple),
-             'column must be str, list[str], or tuple[str]')
+             'column must be str, list[str], or tuple[str, ...]')
         if type(column) in (list, tuple):
             tert(all([type(c) is str for c in column]),
                  'column must be str or list[str]')
@@ -1139,7 +1139,7 @@ class SqlQueryBuilder:
 
     def join(
             self, model_or_table: type[SqlModel] | str, on: list[str],
-            kind: str = "inner", joined_table_columns: tuple[str] = (),
+            kind: str = "inner", joined_table_columns: tuple[str, ...] = (),
         ) -> SqlQueryBuilder:
         """Prepares the query for a join over multiple tables/models.
             Raises TypeError or ValueError for invalid model, on, or
@@ -1535,7 +1535,7 @@ class SqlQueryBuilder:
 
         return sql if interpolate_params else (sql, self.params)
 
-    def execute_raw(self, sql: str) -> tuple[int, list[tuple[Any]]]:
+    def execute_raw(self, sql: str) -> tuple[int, list[tuple[Any, ...]]]:
         """Execute raw SQL against the database. Return rowcount and
             fetchall results.
         """
@@ -1850,7 +1850,9 @@ class SqlModel:
 class DeletedModel(SqlModel):
     """Model for preserving and restoring deleted HashedModel records."""
     table: str = 'deleted_records'
-    columns: tuple[str, ...] = ('id', 'model_class', 'record_id', 'record', 'timestamp')
+    columns: tuple[str, ...] = (
+        'id', 'model_class', 'record_id', 'record', 'timestamp'
+    )
     id: str
     model_class: str
     record_id: str
@@ -1919,7 +1921,7 @@ class HashedModel(SqlModel):
     """Model for interacting with sql database using sha256 for id."""
     table: str = 'hashed_records'
     columns: tuple[str, ...] = ('id', 'details')
-    columns_excluded_from_hash: tuple[str] = tuple()
+    columns_excluded_from_hash: tuple[str, ...] = tuple()
     id: str
     details: bytes
 

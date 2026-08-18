@@ -273,7 +273,7 @@ class TestIntegration(unittest.TestCase):
                 assert f"from sqloquent import {base}, Default" in result, result
             assert f"class {name}({base}):" in result, result
             assert (
-                f"columns: tuple[str] = {tuple([c for c in columns])}" in result
+                f"columns: tuple[str, ...] = {tuple([c for c in columns])}" in result
             ), result
             assert f"connection_info: str = '{DB_FILEPATH}'" in result, result
             assert f"id: str" in result, result
