@@ -236,6 +236,93 @@ def main():
         ... # application logic goes here
 ```
 
+#### Transactions
+
+Sqloquent supports atomic transactions using the `SqlTransaction` context
+manager. This allows multiple `insert()`, `update()`, `delete()`, and `save()`
+calls to commit or rollback as a single unit.
+
+##### Single Database Transaction
+
+```python
+from sqloquent import SqlTransaction
+
+# Multiple operations in a single transaction
+with SqlTransaction(MyModel):
+    m1 = MyModel.insert({'name': 'Alice'})
+    m2 = MyModel.insert({'name': 'Bob', 'parent_id': m1.id})
+# Both commit atomically - if second fails, first rolls back
+```
+
+##### Manual Commit/Rollback
+
+You can manually commit or rollback within the transaction:
+
+```python
+with SqlTransaction(MyModel) as tx:
+    m1 = MyModel.insert({'name': 'Alice'})
+    tx.commit()  # Commit Alice immediately
+    m2 = MyModel.insert({'name': 'Bob'})
+    tx.rollback()  # Rollback Bob, Alice remains committed
+```
+
+##### Multiple Database Transaction
+
+For coordinating transactions across multiple databases, use `MultiDBTransaction`:
+
+```python
+from sqloquent import MultiDBTransaction
+
+# Coordinate transactions across multiple connections
+with MultiDBTransaction(Model1.connection_info, Model2.connection_info):
+    Model1.insert({'name': 'Alice'})
+    Model2.insert({'name': 'Bob'})
+# Both commit atomically - if either fails, both roll back
+```
+
+##### Transactional Decorator
+
+For wrapping entire functions in a transaction, use the `@transactional` decorator:
+
+```python
+from sqloquent import transactional
+
+@transactional(MyModel.connection_info)
+def create_user_with_posts():
+    user = UserModel.insert({'name': 'Alice'})
+    PostModel.insert({'user_id': user.id, 'title': 'First Post'})
+    PostModel.insert({'user_id': user.id, 'title': 'Second Post'})
+    # All commits atomically or all roll back on exception
+
+create_user_with_posts()
+```
+
+##### Thread Safety
+
+Transactions are thread-safe - each thread maintains its own transaction
+context. This allows concurrent transactions on the same database connection
+without interference.
+
+##### Error Handling
+
+Transactions automatically rollback on exceptions:
+
+```python
+try:
+    with SqlTransaction(MyModel):
+        MyModel.insert({'name': 'Alice'})
+        raise ValueError('Something went wrong')
+except ValueError:
+    pass
+# No records were committed - transaction rolled back automatically
+```
+
+##### Nested Transactions
+
+Nested transactions on the same connection are not supported and will raise a
+`RuntimeError`. To perform operations on multiple connections, use
+`MultiDBTransaction` instead.
+
 #### Examples
 
 The most thorough examples are the integration tests. The model files for the

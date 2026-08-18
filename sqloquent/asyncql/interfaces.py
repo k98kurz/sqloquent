@@ -98,7 +98,7 @@ class AsyncModelProtocol(Protocol):
         ...
 
     @property
-    def columns(self) -> tuple[str]:
+    def columns(self) -> tuple[str, ...]:
         """Tuple of str column names."""
         ...
 
@@ -262,7 +262,7 @@ class AsyncQueryBuilderProtocol(Protocol):
         ...
 
     def is_null(
-            self, column: str | list[str] | tuple[str]
+            self, column: str | list[str] | tuple[str, ...]
         ) -> AsyncQueryBuilderProtocol:
         """Save the 'column is null' clause, then return self. Raises
             TypeError for invalid column. If a list or tuple is supplied,
@@ -271,7 +271,7 @@ class AsyncQueryBuilderProtocol(Protocol):
         ...
 
     def not_null(
-            self, column: str | list[str] | tuple[str]
+            self, column: str | list[str] | tuple[str, ...]
         ) -> AsyncQueryBuilderProtocol:
         """Save the 'column is not null' clause, then return self.
             Raises TypeError for invalid column. If a list or tuple is
@@ -524,7 +524,7 @@ class AsyncQueryBuilderProtocol(Protocol):
 
     def join(
             self, model_or_table: type[AsyncModelProtocol] | str, on: list[str],
-            kind: str = "inner", joined_table_columns: tuple[str] = (),
+            kind: str = "inner", joined_table_columns: tuple[str, ...] = (),
         ) -> AsyncQueryBuilderProtocol:
         """Prepares the query for a join over multiple tables/models.
             Raises TypeError or ValueError for invalid model, on, or
@@ -600,7 +600,7 @@ class AsyncQueryBuilderProtocol(Protocol):
         """
         ...
 
-    async def execute_raw(self, sql: str) -> tuple[int, list[tuple[Any]]]:
+    async def execute_raw(self, sql: str) -> tuple[int, list[tuple[Any, ...]]]:
         """Execute raw SQL against the database. Return rowcount and fetchall
             results.
         """
@@ -620,7 +620,7 @@ class AsyncRelationProtocol(Protocol):
         ...
 
     @property
-    def secondary(self) -> AsyncModelProtocol | tuple[AsyncModelProtocol]:
+    def secondary(self) -> AsyncModelProtocol | tuple[AsyncModelProtocol, ...]:
         """Property that accesses the secondary instance(s)."""
         ...
 

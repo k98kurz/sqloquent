@@ -1,3 +1,14 @@
+ ## WIP
+
+- **NEW**: Added atomic transaction support with `SqlTransaction` context manager
+    - Supports single-database transactions with `SqlTransaction(conn_string)`
+    - Supports multi-database coordinated transactions with `MultiDBTransaction(conn1, conn2, ...)`
+    - Added `@transactional` decorator for wrapping functions in transactions
+    - Supports manual commit/rollback with `tx.commit()` and `tx.rollback()`
+    - Automatic rollback on exceptions
+    - Thread-safe transaction management
+    - See readme.md for usage examples and documentation
+
 ## 0.7.4
 
 - Bug fix: `BelongsToWrapped` threw a `TypeError` if used with a `HashedModel`

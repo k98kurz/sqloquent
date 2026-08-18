@@ -10,6 +10,7 @@ from sqloquent.classes import (
     JoinSpec, Row, Default, quote_sql_str_value, quote_identifier
 )
 from asyncio import iscoroutine, gather
+from contextvars import ContextVar
 from dataclasses import dataclass
 from hashlib import sha256
 from time import time
@@ -17,18 +18,49 @@ from types import MappingProxyType, TracebackType, UnionType
 from typing import Any, AsyncGenerator, Callable
 from uuid import uuid4
 import aiosqlite
+import functools
 import packify
+
+
+class DictWrapper:
+    def __init__(self):
+        self._d = {}
+    def __setattr__(self, name: str, value: Any):
+        if name == '_d':
+            super().__setattr__(name, value)
+        else:
+            self._d[name] = value
+    def __getattr__(self, name: str) -> Any:
+        if name == '_d':
+            return super().__getattr__(name)
+        return self._d.get(name)
 
 
 class AsyncSqliteContext:
     """Context manager for sqlite. Automatically handles connection pooling."""
-    _connections: dict[str, aiosqlite.Connection] = {}
-    _cursors: dict[str, aiosqlite.Cursor] = {}
-    _depths: dict[str, int] = {}
+    _task_local: ContextVar[DictWrapper | None] = ContextVar('task_local')
 
     connection: aiosqlite.Connection
     cursor: aiosqlite.Cursor
     connection_info: str
+
+    @classmethod
+    def _task_state(cls) -> DictWrapper:
+        """Get the task-local state, initializing it if needed. Each
+            async task that did not inherit state from a parent context
+            gets its own connections, cursors, depths, and
+            active_transactions dicts.
+        """
+        state = cls._task_local.get(None)
+        if state is None:
+            state = DictWrapper()
+            state.connections = {}
+            state.cursors = {}
+            state.depths = {}
+            state.active_transactions = {}
+            state.pending_transactions = set()
+            cls._task_local.set(state)
+        return state
 
     def __init__(self, connection_info: str = '') -> None:
         """Initialize the instance. Raises TypeError for non-str connection_info."""
@@ -38,28 +70,40 @@ class AsyncSqliteContext:
             'connection_info must be str')
         tressa(len(connection_info) > 0, 'cannot use with empty connection_info')
         self.connection_info = connection_info
+        self._should_commit = True
 
     async def __aenter__(self) -> AsyncCursorProtocol:
         """Enter the context block and return the cursor."""
-        if self.connection_info not in AsyncSqliteContext._depths:
-            AsyncSqliteContext._depths[self.connection_info] = 0
+        task_local = AsyncSqliteContext._task_state()
 
-        AsyncSqliteContext._depths[self.connection_info] += 1
+        if self.connection_info not in task_local.depths:
+            task_local.depths[self.connection_info] = 0
 
-        if self.connection_info not in AsyncSqliteContext._connections:
-            AsyncSqliteContext._connections[
-                self.connection_info
-            ] = await aiosqlite.connect(self.connection_info)
+        # Check for active transaction
+        active_tx = task_local.active_transactions.get(
+            self.connection_info
+        )
+        if active_tx:
+            # Reuse transaction's connection and cursor
+            self.connection = active_tx._connection
+            self.cursor = active_tx._cursor
+            self._should_commit = False
+        else:
+            # Normal flow - create new connection
+            if self.connection_info not in task_local.connections:
+                task_local.connections[
+                    self.connection_info
+                ] = await aiosqlite.connect(self.connection_info)
 
-        self.connection = AsyncSqliteContext._connections[self.connection_info]
+            self.connection = task_local.connections[self.connection_info]
 
-        if self.connection_info not in AsyncSqliteContext._cursors:
-            cursor = self.connection.cursor()
-            AsyncSqliteContext._cursors[
-                self.connection_info
-            ] = await cursor.__aenter__()
+            if self.connection_info not in task_local.cursors:
+                cursor = self.connection.cursor()
+                task_local.cursors[self.connection_info] = await cursor.__aenter__()
 
-        self.cursor = AsyncSqliteContext._cursors[self.connection_info]
+            self.cursor = task_local.cursors[self.connection_info]
+
+        task_local.depths[self.connection_info] += 1
 
         return self.cursor
 
@@ -71,18 +115,262 @@ class AsyncSqliteContext:
         """Exit the context block. Commit or rollback as appropriate,
             then close the connection if this is the outermost context.
         """
-        AsyncSqliteContext._depths[self.connection_info] -= 1
+        task_local = AsyncSqliteContext._task_state()
+        task_local.depths[self.connection_info] -= 1
 
-        if exc_type is not None:
-            await self.connection.rollback()
-        else:
-            await self.connection.commit()
+        # Only commit/rollback if we own the transaction
+        if self._should_commit:
+            if exc_type is not None:
+                await self.connection.rollback()
+            else:
+                await self.connection.commit()
 
-        if AsyncSqliteContext._depths[self.connection_info] == 0:
+        if task_local.depths[self.connection_info] == 0:
+            del task_local.connections[self.connection_info]
+            del task_local.cursors[self.connection_info]
+            del task_local.depths[self.connection_info]
+            # Also clean up active_transactions if present
+            if self.connection_info in task_local.active_transactions:
+                del task_local.active_transactions[self.connection_info]
+            await self.cursor.close()
             await self.connection.close()
-            del AsyncSqliteContext._connections[self.connection_info]
-            del AsyncSqliteContext._cursors[self.connection_info]
-            del AsyncSqliteContext._depths[self.connection_info]
+
+
+class AsyncSqlTransaction:
+    """Async context manager for wrapping multiple SQL operations in a single
+        transaction.
+    """
+    def __init__(
+            self,
+            model_or_connstring: type[AsyncSqlModel]|str = None,
+        ) -> None:
+        """Initialize the async transaction context manager. Raises
+            `TypeError` if `model_or_connstring` is not an `AsyncSqlModel`
+            subclass or `str`.
+        """
+        tert(
+            type(model_or_connstring) is str
+            or (type(model_or_connstring) is type
+                and issubclass(model_or_connstring, AsyncSqlModel)),
+            'model_or_connstring must be a subclass of AsyncSqlModel or a str'
+        )
+        if type(model_or_connstring) is str:
+            self.connection_info = model_or_connstring
+        else:
+            if not hasattr(model_or_connstring, 'connection_info'):
+                raise TypeError("Model must have connection_info attribute")
+            self.connection_info = model_or_connstring.connection_info
+
+        self._context: AsyncSqliteContext | None = None
+        self._cursor: aiosqlite.Cursor | None = None
+        self._connection: aiosqlite.Connection | None = None
+        self._original_depth: int = 0
+        self._is_committed: bool = False
+        self._is_rolled_back: bool = False
+        self._has_manually_committed: bool = False
+        self._has_manually_rolled_back: bool = False
+
+    async def __aenter__(self) -> AsyncSqlTransaction:
+        """Enter the async transaction context and register it as active."""
+        task_local = AsyncSqliteContext._task_state()
+
+        # Check for nested/pending transactions on same connection. The
+        # pending claim is registered synchronously - before any await -
+        # so sibling tasks cannot both claim the same connection while
+        # one is suspended inside aiosqlite.connect.
+        if (self.connection_info in task_local.active_transactions
+                or self.connection_info in task_local.pending_transactions):
+            raise RuntimeError(
+                f"Nested transactions on same connection '{self.connection_info}' "
+                "are not supported"
+            )
+        task_local.pending_transactions.add(self.connection_info)
+
+        # Create the underlying AsyncSqliteContext and enter it; discard
+        # the claim if entering fails so siblings are not blocked.
+        try:
+            self._context = AsyncSqliteContext(self.connection_info)
+            self._cursor = await self._context.__aenter__()
+            self._connection = self._context.connection
+        except BaseException:
+            task_local.pending_transactions.discard(self.connection_info)
+            raise
+
+        # Record the current depth
+        self._original_depth = task_local.depths.get(
+            self.connection_info, 0
+        )
+
+        # Register this transaction as active
+        task_local.pending_transactions.discard(self.connection_info)
+        task_local.active_transactions[self.connection_info] = self
+
+        return self
+
+    async def __aexit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc_value: BaseException | None,
+            traceback: TracebackType | None
+        ) -> None:
+        """Exit the transaction context, committing or rolling back."""
+        task_local = AsyncSqliteContext._task_state()
+        try:
+            # Unregister before committing (in case commit fails)
+            if self.connection_info in task_local.active_transactions:
+                del task_local.active_transactions[self.connection_info]
+
+            # Commit or rollback based on whether an exception occurred
+            if exc_type is not None:
+                if self._connection:
+                    await self._connection.rollback()
+                self._is_rolled_back = True
+            elif not self._is_committed and not self._is_rolled_back:
+                if self._connection:
+                    await self._connection.commit()
+                self._is_committed = True
+        finally:
+            if self._context:
+                # If we manually committed/rolled back, operations after
+                # that might have increased the depth. We need to call
+                # __aexit__ for each context that was created.
+                current_depth = task_local.depths.get(self.connection_info, 0)
+                while current_depth > self._original_depth:
+                    task_local.depths[self.connection_info] -= 1
+                    current_depth -= 1
+                    # Manually commit (don't rollback) since these were
+                    # auto-committed
+                    if not exc_type and self._connection:
+                        await self._connection.commit()
+                # Now exit our original context
+                await self._context.__aexit__(exc_type, exc_value, traceback)
+
+    async def commit(self) -> None:
+        """Manually commit the transaction early. After calling this,
+            the transaction is considered complete and subsequent
+            operations will not be part of this transaction.
+        """
+        if self._is_committed or self._is_rolled_back:
+            raise RuntimeError("Transaction has already been completed")
+
+        await self._connection.commit()
+        self._is_committed = True
+        self._has_manually_committed = True
+
+        # Start a new transaction so subsequent operations can be
+        # rolled back if needed
+        await self._connection.execute('BEGIN')
+
+        # Reset the committed flag to allow rollback of subsequent operations
+        # but keep has_manually_committed to prevent double commit
+        self._is_committed = False
+
+    async def rollback(self) -> None:
+        """Manually rollback the transaction. After calling this, the
+            transaction is considered rolled back and subsequent
+            operations will not be part of this transaction.
+        """
+        if self._is_rolled_back:
+            raise RuntimeError("Transaction has already been rolled back")
+
+        await self._connection.rollback()
+        self._is_rolled_back = True
+        self._has_manually_rolled_back = True
+
+        # Start a new transaction so subsequent operations can be
+        # committed or rolled back as needed
+        await self._connection.execute('BEGIN')
+
+        # Reset the rolled back flag to allow commit of subsequent operations
+        # but keep has_manually_rolled_back to prevent double rollback
+        self._is_rolled_back = False
+
+    @property
+    def cursor(self) -> aiosqlite.Cursor:
+        """Get the transaction's cursor for raw SQL operations."""
+        if self._cursor is None:
+            raise RuntimeError("Transaction not active - use async with statement first")
+        return self._cursor
+
+    @property
+    def connection(self) -> aiosqlite.Connection:
+        """Get the transaction's connection for advanced operations."""
+        if self._connection is None:
+            raise RuntimeError("Transaction not active - use async with statement first")
+        return self._connection
+
+    @property
+    def is_committed(self) -> bool:
+        """Check if the transaction has been committed."""
+        return self._is_committed or self._has_manually_committed
+
+    @property
+    def is_rolled_back(self) -> bool:
+        """Check if the transaction has been rolled back."""
+        return self._is_rolled_back or self._has_manually_rolled_back
+
+
+class AsyncMultiDBTransaction:
+    """Wrap multiple connections in a coordinated async transaction."""
+    def __init__(self, *models_or_connstrings: type[AsyncSqlModel]|str):
+        self.transactions = [
+            AsyncSqlTransaction(m) for m in models_or_connstrings
+        ]
+
+    async def __aenter__(self):
+        # Initialize the shared task state before gathering so the
+        # gathered tasks inherit it rather than each creating their own;
+        # otherwise the caller's context would not see the active
+        # transactions.
+        AsyncSqliteContext._task_state()
+        entered = []
+        results = await gather(*(tx.__aenter__() for tx in self.transactions),
+                               return_exceptions=True)
+        first_error = None
+        for tx, result in zip(self.transactions, results):
+            if isinstance(result, BaseException):
+                if first_error is None:
+                    first_error = result
+            else:
+                entered.append(tx)
+        if first_error is not None:
+            # Exit the successfully entered transactions so their
+            # connections are cleaned up, then raise the first error.
+            for tx in entered:
+                try:
+                    await tx.__aexit__(
+                        type(first_error), first_error,
+                        first_error.__traceback__
+                    )
+                except Exception:
+                    pass
+            raise first_error
+        return self
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        succeeded = []
+        try:
+            for tx in self.transactions:
+                await tx.__aexit__(exc_type, exc_value, traceback)
+                succeeded.append(tx)
+        except Exception:
+            for tx in succeeded:
+                try:
+                    await tx._connection.rollback()
+                except:
+                    pass
+            raise
+
+
+def atransactional(*models_or_connstrings: type[AsyncSqlModel]|str):
+    """Decorator to make the async db ops in a function transactional."""
+    def decorator(fn):
+        @functools.wraps(fn)
+        async def wrapper(*args, **kwargs):
+            async with AsyncMultiDBTransaction(*models_or_connstrings):
+                return await fn(*args, **kwargs)
+        return wrapper
+    return decorator
 
 
 @dataclass
@@ -160,7 +448,7 @@ class AsyncJoinedModel:
 
 def async_dynamic_sqlmodel(
         connection_string: str | bytes, table_name: str = '',
-        column_names: tuple[str] = ()
+        column_names: tuple[str, ...] = ()
     ) -> type[AsyncSqlModel]:
     """Generates a dynamic sqlite model for instantiating context
         managers. Raises TypeError for invalid connection_string or
@@ -172,7 +460,7 @@ def async_dynamic_sqlmodel(
     class DynamicModel(AsyncSqlModel):
         connection_info: str = connection_string
         table: str = table_name
-        columns: tuple[str] = column_names
+        columns: tuple[str, ...] = column_names
     return DynamicModel
 
 
@@ -277,14 +565,14 @@ class AsyncSqlQueryBuilder:
         self._table = name
 
     def is_null(
-        self, column: str | list[str] | tuple[str]
+        self, column: str | list[str] | tuple[str, ...]
     ) -> AsyncSqlQueryBuilder:
         """Save the 'column is null' clause, then return self. Raises
             TypeError for invalid column. If a list or tuple is supplied,
             each element is treated as a separate clause.
         """
         tert(type(column) in (str, list, tuple),
-             'column must be str, list[str], or tuple[str]')
+             'column must be str, list[str], or tuple[str, ...]')
         if type(column) in (list, tuple):
             tert(all([type(c) is str for c in column]),
                  'column must be str or list[str]')
@@ -295,14 +583,14 @@ class AsyncSqlQueryBuilder:
         return self
 
     def not_null(
-            self, column: str | list[str] | tuple[str]
+            self, column: str | list[str] | tuple[str, ...]
         ) -> AsyncSqlQueryBuilder:
         """Save the 'column is not null' clause, then return self.
             Raises TypeError for invalid column. If a list or tuple is
             supplied, each element is treated as a separate clause.
         """
         tert(type(column) in (str, list, tuple),
-             'column must be str, list[str], or tuple[str]')
+             'column must be str, list[str], or tuple[str, ...]')
         if type(column) in (list, tuple):
             tert(all([type(c) is str for c in column]),
                  'column must be str or list[str]')
@@ -866,7 +1154,7 @@ class AsyncSqlQueryBuilder:
 
     def join(
             self, model_or_table: type[AsyncSqlModel] | str, on: list[str],
-            kind: str = "inner", joined_table_columns: tuple[str] = (),
+            kind: str = "inner", joined_table_columns: tuple[str, ...] = (),
         ) -> AsyncSqlQueryBuilder:
         """Prepares the query for a join over multiple tables/models.
             Raises TypeError or ValueError for invalid model, on, or
@@ -1128,24 +1416,35 @@ class AsyncSqlQueryBuilder:
         """
         tert(type(number) is int, 'number must be int > 0')
         vert(number > 0, 'number must be int > 0')
-        return self._chunk(number)
 
-    async def _chunk(self, number: int) -> AsyncGenerator[
-            list[AsyncSqlModel] | list[AsyncJoinedModel] | list[Row], None, None
-        ]:
-        """Create the generator for chunking."""
-        original_offset = self.offset
-        self.offset = self.offset or 0
-        # use connection pooling
-        async with self.context_manager(self.connection_info):
-            result = await self.take(number)
-
-            while len(result) > 0:
-                yield result
-                self.offset += number
+        async def _chunk() -> AsyncGenerator[
+                list[AsyncSqlModel] | list[AsyncJoinedModel] | list[Row], None, None
+            ]:
+            """Create the generator for chunking."""
+            original_offset = self.offset
+            self.offset = self.offset or 0
+            state = AsyncSqliteContext._task_state()
+            if self.connection_info in state.active_transactions:
                 result = await self.take(number)
 
-            self.offset = original_offset
+                while len(result) > 0:
+                    yield result
+                    self.offset += number
+                    result = await self.take(number)
+
+                self.offset = original_offset
+            else:
+                async with self.context_manager(self.connection_info):
+                    result = await self.take(number)
+
+                    while len(result) > 0:
+                        yield result
+                        self.offset += number
+                        result = await self.take(number)
+
+                    self.offset = original_offset
+
+        return _chunk()
 
     async def first(self) -> AsyncSqlModel | Row | None:
         """Run the query on the datastore and return the first result."""
@@ -1179,7 +1478,7 @@ class AsyncSqlQueryBuilder:
             else:
                 return Row(data={
                     key: value
-                    for key, value in zip()
+                    for key, value in zip(self.model.columns, row)
                 })
 
     async def update(self, updates: dict, conditions: dict | None = None) -> int:
@@ -1266,7 +1565,7 @@ class AsyncSqlQueryBuilder:
 
         return sql if interpolate_params else (sql, self.params)
 
-    async def execute_raw(self, sql: str) -> tuple[int, list[tuple[Any]]]:
+    async def execute_raw(self, sql: str) -> tuple[int, list[tuple[Any, ...]]]:
         """Execute raw SQL against the database. Return rowcount and
             fetchall results.
         """
@@ -1280,7 +1579,7 @@ class AsyncSqlModel:
     """General model for mapping a SQL row to an in-memory object."""
     table: str = 'example'
     id_column: str = 'id'
-    columns: tuple = ('id', 'name')
+    columns: tuple[str, ...] = ('id', 'name')
     id: str
     name: str
     query_builder_class: type[AsyncQueryBuilderProtocol] = AsyncSqlQueryBuilder
@@ -1627,7 +1926,9 @@ class AsyncSqlModel:
 class AsyncDeletedModel(AsyncSqlModel):
     """Model for preserving and restoring deleted AsyncHashedModel records."""
     table: str = 'deleted_records'
-    columns: tuple = ('id', 'model_class', 'record_id', 'record', 'timestamp')
+    columns: tuple[str, ...] = (
+        'id', 'model_class', 'record_id', 'record', 'timestamp'
+    )
     id: str
     model_class: str
     record_id: str
@@ -1706,8 +2007,8 @@ class AsyncDeletedModel(AsyncSqlModel):
 class AsyncHashedModel(AsyncSqlModel):
     """Model for interacting with sql database using sha256 for id."""
     table: str = 'hashed_records'
-    columns: tuple[str] = ('id', 'details')
-    columns_excluded_from_hash: tuple[str] = tuple()
+    columns: tuple[str, ...] = ('id', 'details')
+    columns_excluded_from_hash: tuple[str, ...] = tuple()
     id: str
     details: bytes
 
@@ -1912,7 +2213,7 @@ class AsyncHashedModel(AsyncSqlModel):
 class AsyncAttachment(AsyncHashedModel):
     """Class for attaching immutable details to a record."""
     table: str = 'attachments'
-    columns: tuple = ('id', 'related_model', 'related_id', 'details')
+    columns: tuple[str, ...] = ('id', 'related_model', 'related_id', 'details')
     id: str
     related_model: str
     related_id: str

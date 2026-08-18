@@ -12,6 +12,7 @@ from time import time
 from types import MappingProxyType, TracebackType, UnionType
 from typing import Any, Generator, Callable
 from uuid import uuid4
+import functools
 import packify
 import sqlite3
 import threading
@@ -37,6 +38,7 @@ class SqliteContext:
             'connection_info must be str')
         tressa(len(connection_info) > 0, 'cannot use with empty connection_info')
         self.connection_info = connection_info
+        self._should_commit = True
 
     def __enter__(self) -> CursorProtocol:
         """Enter the context block and return the cursor."""
@@ -47,27 +49,40 @@ class SqliteContext:
             SqliteContext._thread_local.cursors = {}
         if not hasattr(SqliteContext._thread_local, 'depths'):
             SqliteContext._thread_local.depths = {}
+        if not hasattr(SqliteContext._thread_local, 'active_transactions'):
+            SqliteContext._thread_local.active_transactions = {}
 
         if self.connection_info not in SqliteContext._thread_local.depths:
             SqliteContext._thread_local.depths[self.connection_info] = 0
 
-        SqliteContext._thread_local.depths[self.connection_info] += 1
-
-        if self.connection_info not in SqliteContext._thread_local.connections:
-            SqliteContext._thread_local.connections[
-                self.connection_info
-            ] = sqlite3.connect(self.connection_info)
-
-        self.connection = SqliteContext._thread_local.connections[
+        # Check for active transaction
+        active_tx = SqliteContext._thread_local.active_transactions.get(
             self.connection_info
-        ]
+        )
+        if active_tx:
+            # Reuse transaction's connection and cursor
+            self.connection = active_tx._connection
+            self.cursor = active_tx._cursor
+            self._should_commit = False
+        else:
+            # Normal flow - create new connection
+            if self.connection_info not in SqliteContext._thread_local.connections:
+                SqliteContext._thread_local.connections[
+                    self.connection_info
+                ] = sqlite3.connect(self.connection_info)
 
-        if self.connection_info not in SqliteContext._thread_local.cursors:
-            SqliteContext._thread_local.cursors[
+            self.connection = SqliteContext._thread_local.connections[
                 self.connection_info
-            ] = self.connection.cursor()
+            ]
 
-        self.cursor = SqliteContext._thread_local.cursors[self.connection_info]
+            if self.connection_info not in SqliteContext._thread_local.cursors:
+                SqliteContext._thread_local.cursors[
+                    self.connection_info
+                ] = self.connection.cursor()
+
+            self.cursor = SqliteContext._thread_local.cursors[self.connection_info]
+
+        SqliteContext._thread_local.depths[self.connection_info] += 1
 
         return self.cursor
 
@@ -81,10 +96,12 @@ class SqliteContext:
         """
         SqliteContext._thread_local.depths[self.connection_info] -= 1
 
-        if exc_type is not None:
-            self.connection.rollback()
-        else:
-            self.connection.commit()
+        # Only commit/rollback if we own the transaction
+        if self._should_commit:
+            if exc_type is not None:
+                self.connection.rollback()
+            else:
+                self.connection.commit()
 
         if SqliteContext._thread_local.depths[self.connection_info] == 0:
             self.cursor.close()
@@ -92,6 +109,213 @@ class SqliteContext:
             del SqliteContext._thread_local.connections[self.connection_info]
             del SqliteContext._thread_local.cursors[self.connection_info]
             del SqliteContext._thread_local.depths[self.connection_info]
+            # Also clean up active_transactions if present
+            if (hasattr(SqliteContext._thread_local, 'active_transactions') and
+                self.connection_info in SqliteContext._thread_local.active_transactions):
+                del SqliteContext._thread_local.active_transactions[self.connection_info]
+
+
+class SqlTransaction:
+    """Context manager for wrapping multiple SQL operations in a single
+        transaction.
+    """
+    def __init__(
+            self,
+            model_or_connstring: type[SqlModel]|str = None,
+        ) -> None:
+        """Initialize the transaction context manager. Raises
+            `TypeError` if `model_or_connstring` is not a `SqlModel`
+            subclass or `str`.
+        """
+        tert(
+            type(model_or_connstring) is str
+            or (type(model_or_connstring) is type
+                and issubclass(model_or_connstring, SqlModel)),
+            'model_or_connstring must be a subclass of SqlModel or a str'
+        )
+        if type(model_or_connstring) is str:
+            self.connection_info = model_or_connstring
+        else:
+            if not hasattr(model_or_connstring, 'connection_info'):
+                raise TypeError("Model must have connection_info attribute")
+            self.connection_info = model_or_connstring.connection_info
+
+        self._context: SqliteContext | None = None
+        self._cursor: sqlite3.Cursor | None = None
+        self._connection: sqlite3.Connection | None = None
+        self._original_depth: int = 0
+        self._is_committed: bool = False
+        self._is_rolled_back: bool = False
+        self._has_manually_committed: bool = False
+        self._has_manually_rolled_back: bool = False
+
+    def __enter__(self) -> SqlTransaction:
+        """Enter the transaction context and register it as active."""
+        # Initialize thread-local storage for active transactions
+        if not hasattr(SqliteContext._thread_local, 'active_transactions'):
+            SqliteContext._thread_local.active_transactions = {}
+
+        # Check for nested transactions on same connection
+        if self.connection_info in SqliteContext._thread_local.active_transactions:
+            raise RuntimeError(
+                f"Nested transactions on same connection '{self.connection_info}' "
+                "are not supported"
+            )
+
+        # Create the underlying SqliteContext
+        self._context = SqliteContext(self.connection_info)
+        self._cursor = self._context.__enter__()
+        self._connection = self._context.connection
+
+        # Record the current depth
+        self._original_depth = SqliteContext._thread_local.depths.get(
+            self.connection_info, 0
+        )
+
+        # Register this transaction as active
+        SqliteContext._thread_local.active_transactions[self.connection_info] = self
+
+        return self
+
+    def __exit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc_value: BaseException | None,
+            traceback: TracebackType | None
+        ) -> None:
+        """Exit the transaction context, committing or rolling back."""
+        # Unregister before committing (in case commit fails)
+        if self.connection_info in SqliteContext._thread_local.active_transactions:
+            del SqliteContext._thread_local.active_transactions[self.connection_info]
+
+        # Commit or rollback based on whether an exception occurred
+        if exc_type is not None:
+            self._connection.rollback()
+            self._is_rolled_back = True
+        elif not self._is_committed and not self._is_rolled_back:
+            self._connection.commit()
+            self._is_committed = True
+
+        # Exit the underlying context
+        if self._context:
+            # If we manually committed/rolled back, operations after that might have
+            # increased the depth. We need to call __exit__ for each context that
+            # was created.
+            current_depth = SqliteContext._thread_local.depths.get(
+                self.connection_info, 0
+            )
+            while current_depth > self._original_depth:
+                SqliteContext._thread_local.depths[self.connection_info] -= 1
+                current_depth -= 1
+                # Manually commit (don't rollback) since these were auto-committed
+                if not exc_type and self.connection:
+                    self.connection.commit()
+            # Now exit our original context
+            return self._context.__exit__(exc_type, exc_value, traceback)
+
+    def commit(self) -> None:
+        """Manually commit the transaction early. After calling this,
+            the transaction is considered complete and subsequent
+            operations will not be part of this transaction.
+        """
+        if self._is_committed or self._is_rolled_back:
+            raise RuntimeError("Transaction has already been completed")
+
+        self._connection.commit()
+        self._is_committed = True
+        self._has_manually_committed = True
+
+        # Start a new transaction so subsequent operations can be
+        # rolled back if needed
+        self._connection.execute('BEGIN')
+
+        # Reset the committed flag to allow rollback of subsequent operations
+        # but keep has_manually_committed to prevent double commit
+        self._is_committed = False
+
+    def rollback(self) -> None:
+        """Manually rollback the transaction. After calling this, the
+            transaction is considered rolled back and subsequent
+            operations will not be part of this transaction.
+        """
+        if self._is_rolled_back:
+            raise RuntimeError("Transaction has already been rolled back")
+
+        self._connection.rollback()
+        self._is_rolled_back = True
+        self._has_manually_rolled_back = True
+
+        # Start a new transaction so subsequent operations can be
+        # committed or rolled back as needed
+        self._connection.execute('BEGIN')
+
+        # Reset the rolled back flag to allow commit of subsequent operations
+        # but keep has_manually_rolled_back to prevent double rollback
+        self._is_rolled_back = False
+
+    @property
+    def cursor(self) -> sqlite3.Cursor:
+        """Get the transaction's cursor for raw SQL operations."""
+        if self._cursor is None:
+            raise RuntimeError("Transaction not active - use with statement first")
+        return self._cursor
+
+    @property
+    def connection(self) -> sqlite3.Connection:
+        """Get the transaction's connection for advanced operations."""
+        if self._connection is None:
+            raise RuntimeError("Transaction not active - use with statement first")
+        return self._connection
+
+    @property
+    def is_committed(self) -> bool:
+        """Check if the transaction has been committed."""
+        return self._is_committed or self._has_manually_committed
+
+    @property
+    def is_rolled_back(self) -> bool:
+        """Check if the transaction has been rolled back."""
+        return self._is_rolled_back or self._has_manually_rolled_back
+
+
+class MultiDBTransaction:
+    """Wrap multiple connections in a coordinated transaction."""
+    def __init__(self, *models_or_connstrings: type[SqlModel]|str):
+        self.transactions = [
+            SqlTransaction(m) for m in models_or_connstrings
+        ]
+
+    def __enter__(self):
+        for tx in self.transactions:
+            tx.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        # Exit all transactions; if any fail, roll back all
+        succeeded = []
+        try:
+            for tx in self.transactions:
+                tx.__exit__(exc_type, exc_value, traceback)
+                succeeded.append(tx)
+        except Exception as e:
+            # Roll back those that succeeded
+            for tx in succeeded:
+                try:
+                    tx._connection.rollback()
+                except:
+                    pass
+            raise
+
+
+def transactional(*models_or_connstrings: type[SqlModel]|str):
+    """Decorator to make the db ops in a function transactional."""
+    def decorator(fn):
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            with MultiDBTransaction(*models_or_connstrings):
+                return fn(*args, **kwargs)
+        return wrapper
+    return decorator
 
 
 @dataclass
@@ -109,7 +333,7 @@ class JoinedModel:
 
     def __repr__(self) -> str:
         """Pretty str representation."""
-        return (f"{self.__class__.__name__}" 
+        return (f"{self.__class__.__name__}"
             f"(models={[m.__name__ for m in self.models]}, data={self.data})")
 
     @staticmethod
@@ -192,7 +416,7 @@ class Row:
 
 def dynamic_sqlmodel(
         connection_string: str | bytes, table_name: str = '',
-        column_names: tuple[str] = ()
+        column_names: tuple[str, ...] = ()
     ) -> type[SqlModel]:
     """Generates a dynamic sqlite model for instantiating context
         managers. Raises TypeError for invalid connection_string or
@@ -204,7 +428,7 @@ def dynamic_sqlmodel(
     class DynamicModel(SqlModel):
         connection_info: str = connection_string
         table: str = table_name
-        columns: tuple[str] = column_names
+        columns: tuple[str, ...] = column_names
     return DynamicModel
 
 def quote_sql_str_value(value: str) -> str:
@@ -329,13 +553,13 @@ class SqlQueryBuilder:
         tert(type(name) is str, 'name must be str')
         self._table = name
 
-    def is_null(self, column: str | list[str] | tuple[str]) -> SqlQueryBuilder:
+    def is_null(self, column: str | list[str] | tuple[str, ...]) -> SqlQueryBuilder:
         """Save the 'column is null' clause, then return self. Raises
             TypeError for invalid column. If a list or tuple is supplied,
             each element is treated as a separate clause.
         """
         tert(type(column) in (str, list, tuple),
-             'column must be str, list[str], or tuple[str]')
+             'column must be str, list[str], or tuple[str, ...]')
         if type(column) in (list, tuple):
             tert(all([type(c) is str for c in column]),
                  'column must be str or list[str]')
@@ -345,13 +569,13 @@ class SqlQueryBuilder:
             self.clauses.append(f'{quote_identifier(column)} is null')
         return self
 
-    def not_null(self, column: str | list[str] | tuple[str]) -> SqlQueryBuilder:
+    def not_null(self, column: str | list[str] | tuple[str, ...]) -> SqlQueryBuilder:
         """Save the 'column is not null' clause, then return self.
             Raises TypeError for invalid column. If a list or tuple is
             supplied, each element is treated as a separate clause.
         """
         tert(type(column) in (str, list, tuple),
-             'column must be str, list[str], or tuple[str]')
+             'column must be str, list[str], or tuple[str, ...]')
         if type(column) in (list, tuple):
             tert(all([type(c) is str for c in column]),
                  'column must be str or list[str]')
@@ -915,7 +1139,7 @@ class SqlQueryBuilder:
 
     def join(
             self, model_or_table: type[SqlModel] | str, on: list[str],
-            kind: str = "inner", joined_table_columns: tuple[str] = (),
+            kind: str = "inner", joined_table_columns: tuple[str, ...] = (),
         ) -> SqlQueryBuilder:
         """Prepares the query for a join over multiple tables/models.
             Raises TypeError or ValueError for invalid model, on, or
@@ -1311,7 +1535,7 @@ class SqlQueryBuilder:
 
         return sql if interpolate_params else (sql, self.params)
 
-    def execute_raw(self, sql: str) -> tuple[int, list[tuple[Any]]]:
+    def execute_raw(self, sql: str) -> tuple[int, list[tuple[Any, ...]]]:
         """Execute raw SQL against the database. Return rowcount and
             fetchall results.
         """
@@ -1366,7 +1590,7 @@ class SqlModel:
         """Add the hook for the event."""
         if cls._event_hooks.get('class', None) != cls.__name__:
             # give each class its own event hooks dict
-            cls._event_hooks = {'class': cls.__name__} 
+            cls._event_hooks = {'class': cls.__name__}
         if event not in cls._event_hooks:
             cls._event_hooks[event] = []
         if hook not in cls._event_hooks[event]:
@@ -1377,7 +1601,7 @@ class SqlModel:
         """Remove the hook for the event."""
         if cls._event_hooks.get('class', None) != cls.__name__:
             # give each class its own event hooks dict
-            cls._event_hooks = {'class': cls.__name__} 
+            cls._event_hooks = {'class': cls.__name__}
         if event not in cls._event_hooks:
             return
         if hook in cls._event_hooks[event]:
@@ -1445,7 +1669,7 @@ class SqlModel:
 
     def __repr__(self) -> str:
         """Pretty str representation."""
-        return (f"{self.__class__.__name__}(table='{self.table}', " 
+        return (f"{self.__class__.__name__}(table='{self.table}', "
             f"id_column='{self.id_column}', "
             f"columns={self.columns}, data={self.data}, "
             f"connection_info='{self.connection_info}')")
@@ -1527,7 +1751,7 @@ class SqlModel:
 
         # merge data into updates
         for key in self.data:
-            if  (   key in self.columns 
+            if  (   key in self.columns
                     and self.data[key] != self.data_original.get(key, None)
                 ):
                 updates[key] = self.data[key]
@@ -1626,7 +1850,9 @@ class SqlModel:
 class DeletedModel(SqlModel):
     """Model for preserving and restoring deleted HashedModel records."""
     table: str = 'deleted_records'
-    columns: tuple[str, ...] = ('id', 'model_class', 'record_id', 'record', 'timestamp')
+    columns: tuple[str, ...] = (
+        'id', 'model_class', 'record_id', 'record', 'timestamp'
+    )
     id: str
     model_class: str
     record_id: str
@@ -1695,7 +1921,7 @@ class HashedModel(SqlModel):
     """Model for interacting with sql database using sha256 for id."""
     table: str = 'hashed_records'
     columns: tuple[str, ...] = ('id', 'details')
-    columns_excluded_from_hash: tuple[str] = tuple()
+    columns_excluded_from_hash: tuple[str, ...] = tuple()
     id: str
     details: bytes
 
@@ -1741,7 +1967,7 @@ class HashedModel(SqlModel):
         data = {
             k: data[k] for k in data
             if k in cls.columns
-                and k != cls.id_column 
+                and k != cls.id_column
                 and k not in cls.columns_excluded_from_hash
         }
         return packify.pack(data)

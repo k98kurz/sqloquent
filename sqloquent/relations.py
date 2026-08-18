@@ -32,7 +32,7 @@ class Relation:
     secondary_to_add: list[ModelProtocol]
     secondary_to_remove: list[ModelProtocol]
     primary: ModelProtocol
-    secondary: ModelProtocol | tuple[ModelProtocol]
+    secondary: ModelProtocol | tuple[ModelProtocol, ...]
     _primary: ModelProtocol | None
     _secondary: ModelProtocol | None
 
@@ -44,7 +44,7 @@ class Relation:
         secondary_to_add: list[ModelProtocol] | None = None,
         secondary_to_remove: list[ModelProtocol] | None = None,
         primary: ModelProtocol = None,
-        secondary: ModelProtocol | tuple[ModelProtocol] = None,
+        secondary: ModelProtocol | tuple[ModelProtocol, ...] = None,
     ) -> None:
         self._primary = None
         self._secondary = None
@@ -123,13 +123,15 @@ class Relation:
         self._primary = primary
 
     @property
-    def secondary(self) -> ModelProtocol | tuple[ModelProtocol] | None:
+    def secondary(self) -> ModelProtocol | tuple[ModelProtocol, ...] | None:
         """The secondary model instance(s)."""
         return self._secondary
 
     @secondary.setter
     @abstractmethod
-    def secondary(self, secondary: ModelProtocol | tuple[ModelProtocol]) -> None:
+    def secondary(
+            self, secondary: ModelProtocol | tuple[ModelProtocol, ...]
+        ) -> None:
         """Sets the secondary model instance(s)."""
         pass
 
@@ -460,7 +462,7 @@ class HasMany(HasOne):
         instance of this class is set on the owner model.
     """
     @property
-    def secondary(self) -> tuple[ModelProtocol] | None:
+    def secondary(self) -> tuple[ModelProtocol, ...] | None:
         """The secondary model instance. Setting raises TypeError if the
             precondition check fails.
         """
@@ -675,9 +677,9 @@ class HasMany(HasOne):
                 precondition check fails.
             """
             tert(type(models) in (list, tuple),
-                 'models must be list[ModelProtocol] or tuple[ModelProtocol]')
+                 'models must be list[ModelProtocol] or tuple[ModelProtocol, ...]')
             tert(all([isinstance(m, ModelProtocol) for m in models]),
-                 'models must be list[ModelProtocol] or tuple[ModelProtocol]')
+                 'models must be list[ModelProtocol] or tuple[ModelProtocol, ...]')
             self.relations[cache_key].secondary = models
 
         return secondary
@@ -1159,8 +1161,8 @@ class Contains(HasMany):
         HashedModel or something similar. IDs are sorted for
         deterministic hashing via HashedModel.
     """
-    secondary: tuple[ModelProtocol]
-    _secondary: tuple[ModelProtocol]
+    secondary: tuple[ModelProtocol, ...]
+    _secondary: tuple[ModelProtocol, ...]
 
     def save(self) -> None:
         """Persists the relation to the database. Raises UsageError if
@@ -1323,7 +1325,7 @@ class Within(HasMany):
         similar. IDs are sorted for deterministic hashing via
         HashedModel.
     """
-    secondary: tuple[ModelProtocol]
+    secondary: tuple[ModelProtocol, ...]
 
     def save(self) -> None:
         """Persists the relation to the database. Raises UsageError if

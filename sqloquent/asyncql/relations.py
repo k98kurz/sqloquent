@@ -37,7 +37,7 @@ class AsyncRelation:
     secondary_to_add: list[AsyncModelProtocol]
     secondary_to_remove: list[AsyncModelProtocol]
     primary: AsyncModelProtocol
-    secondary: AsyncModelProtocol | tuple[AsyncModelProtocol]
+    secondary: AsyncModelProtocol | tuple[AsyncModelProtocol, ...]
     _primary: AsyncModelProtocol | None
     _secondary: AsyncModelProtocol | None
 
@@ -49,7 +49,7 @@ class AsyncRelation:
         secondary_to_add: list[AsyncModelProtocol] | None = None,
         secondary_to_remove: list[AsyncModelProtocol] | None = None,
         primary: AsyncModelProtocol = None,
-        secondary: AsyncModelProtocol | tuple[AsyncModelProtocol] = None,
+        secondary: AsyncModelProtocol | tuple[AsyncModelProtocol, ...] = None,
     ) -> None:
         self._primary = None
         self._secondary = None
@@ -125,14 +125,14 @@ class AsyncRelation:
         self._primary = primary
 
     @property
-    def secondary(self) -> AsyncModelProtocol | tuple[AsyncModelProtocol]:
+    def secondary(self) -> AsyncModelProtocol | tuple[AsyncModelProtocol, ...]:
         """The secondary model instance(s)."""
         return self._secondary
 
     @secondary.setter
     @abstractmethod
     def secondary(
-            self, secondary: AsyncModelProtocol | tuple[AsyncModelProtocol]
+            self, secondary: AsyncModelProtocol | tuple[AsyncModelProtocol, ...]
         ) -> None:
         """Sets the secondary model instance(s)."""
         pass
@@ -464,7 +464,7 @@ class AsyncHasMany(AsyncHasOne):
         instance of this class is set on the owner model.
     """
     @property
-    def secondary(self) -> tuple[AsyncModelProtocol]:
+    def secondary(self) -> tuple[AsyncModelProtocol, ...]:
         """The secondary model instance. Setting raises TypeError if the
             precondition check fails.
         """
@@ -687,10 +687,10 @@ class AsyncHasMany(AsyncHasOne):
             """
             tert(type(models) in (list, tuple),
                  'models must be list[AsyncModelProtocol] or '
-                 'tuple[AsyncModelProtocol]')
+                 'tuple[AsyncModelProtocol, ...]')
             tert(all([isinstance(m, AsyncModelProtocol) for m in models]),
                  'models must be list[AsyncModelProtocol] or '
-                 'tuple[AsyncModelProtocol]')
+                 'tuple[AsyncModelProtocol, ...]')
             self.relations[cache_key].secondary = models
 
         return secondary
@@ -1185,8 +1185,8 @@ class AsyncContains(AsyncHasMany):
         HashedModel or something similar. IDs are sorted for
         deterministic hashing via HashedModel.
     """
-    secondary: tuple[AsyncModelProtocol]
-    _secondary: tuple[AsyncModelProtocol]
+    secondary: tuple[AsyncModelProtocol, ...]
+    _secondary: tuple[AsyncModelProtocol, ...]
 
     async def save(self) -> None:
         """Persists the relation to the database. Raises UsageError if
@@ -1353,7 +1353,7 @@ class AsyncWithin(AsyncHasMany):
         similar. IDs are sorted for deterministic hashing via
         HashedModel.
     """
-    secondary: tuple[AsyncModelProtocol]
+    secondary: tuple[AsyncModelProtocol, ...]
 
     async def save(self) -> None:
         """Persists the relation to the database. Raises UsageError if
