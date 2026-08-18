@@ -199,8 +199,11 @@ class SqlTransaction:
         # Exit the underlying context
         if self._context:
             # If we manually committed/rolled back, operations after that might have
-            # increased the depth. We need to call __exit__ for each context that was created.
-            current_depth = SqliteContext._thread_local.depths.get(self.connection_info, 0)
+            # increased the depth. We need to call __exit__ for each context that
+            # was created.
+            current_depth = SqliteContext._thread_local.depths.get(
+                self.connection_info, 0
+            )
             while current_depth > self._original_depth:
                 SqliteContext._thread_local.depths[self.connection_info] -= 1
                 current_depth -= 1

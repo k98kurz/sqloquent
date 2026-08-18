@@ -22,6 +22,9 @@ from .classes import (
     AsyncDeletedModel,
     AsyncHashedModel,
     AsyncAttachment,
+    AsyncSqlTransaction,
+    AsyncMultiDBTransaction,
+    atransactional,
     Default,
     async_dynamic_sqlmodel,
 )

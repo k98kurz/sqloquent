@@ -44,3 +44,12 @@ reviewing code.
 
 If you encounter anything tricky that is likely to trip up future agents, add a
 concise entry here and tell your human.
+
+- aiosqlite (0.19) connections run on non-daemon threads that only exit after
+  `close()`. Any leaked/unclosed aiosqlite connection hangs the process forever
+  at interpreter shutdown (stuck in `threading._shutdown`). Run async test files
+  with a `timeout` (e.g. `timeout 120 python tests/test_async_classes.py`) so a
+  connection leak surfaces as exit code 124 instead of an indefinite hang.
+- `sqloquent/asyncql/relations.py` calls `nest_asyncio.apply()` on import, a
+  process-wide side effect that allows nested `asyncio.run` calls (tests rely on
+  it: setUp/test/tearDown each call `run`).
