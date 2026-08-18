@@ -18,6 +18,14 @@ For migration tools, set environment variables:
 - `CONNECTION_STRING`: Database connection info
 - `MAKE_WITH_CONNSTRING` (optional): Include connection string in generated scaffolds
 
+## Development and Testing
+
+- Use a todo list for any non-trivial or long-running task.
+  - If you have access to BOTH the todoread and todowrite tools, use them.
+  - If you lack access to one of those tools, use a todo.md file.
+  - ALWAYS check both todoread and the todo.md file when continuing after compaction.
+- NEVER use `git checkout`, `git reset`, or `git stash`. DO NOT DO IT.
+
 ## Build & Release
 
 Version strings must be updated in sync across:
