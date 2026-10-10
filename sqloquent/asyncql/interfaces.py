@@ -559,7 +559,11 @@ class AsyncQueryBuilderProtocol(Protocol):
         ...
 
     async def count(self) -> int:
-        """Returns the number of records matching the query."""
+        """Returns the number of records matching the query. Includes
+            joins. When the query is distinct, returns the number of
+            distinct values of the selected column or, when grouped,
+            the number of distinct groups.
+        """
         ...
 
     async def take(self, number: int) -> (

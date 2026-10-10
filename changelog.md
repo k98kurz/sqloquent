@@ -12,9 +12,13 @@
 - Added `.distinct()` to query builders to support distinct queries
     - Supports `.select(more_than_one_col).distinct().get()`
     - Supports `.select(one_column).distinct().count()`
+    - Supports `.join(...).select(one_column).distinct().count()`
+    - Supports `.group(column).distinct().count()` to count distinct groups
     - Does not support count on more than one distinct col, which requires subqueries
     - Does not support count with distinct but without select
-    - Does not support distinct count with joins or grouping
+    - Does not support `.select()` combined with `.group()` in a distinct count
+- Bug fix: `.join(...).count()` now includes the join in the count; previously the
+join was silently ignored
 
 ## 0.7.4
 

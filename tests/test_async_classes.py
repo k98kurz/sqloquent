@@ -1963,6 +1963,38 @@ class TestAsyncClasses(unittest.TestCase):
             r.data for r in run(sqb.distinct().get())
         ]
 
+    def test_AsyncSqlQueryBuilder_count_works_with_joins_and_grouping(self):
+        models = [run(ExampleModel.insert({'field1': 'abc'}))]
+        models += [run(ExampleModel.insert({'field1': 'abc'}))]
+        models += [run(ExampleModel.insert({'field1': '123'}))]
+        for model in models:
+            for i in range(5):
+                attachment = async_classes.AsyncAttachment(
+                    {"details": f"test data {i}"}
+                )
+                run(attachment.attach_to(model).save())
+
+        # plain count includes the joined rows
+        sqb = ExampleModel.query().join(
+            async_classes.AsyncAttachment, ['id', 'related_id'])
+        assert run(sqb.count()) == 15, run(sqb.count())
+
+        # distinct count over the joined rows
+        sqb = ExampleModel.query().join(
+            async_classes.AsyncAttachment, ['id', 'related_id']
+        ).select(['field1'])
+        assert run(sqb.distinct().count()) == 2, run(sqb.distinct().count())
+
+        # distinct count with grouping counts the groups
+        sqb = ExampleModel.query().join(
+            async_classes.AsyncAttachment, ['id', 'related_id']
+        ).group('attachments.related_id')
+        assert run(sqb.distinct().count()) == 3, run(sqb.distinct().count())
+
+        # and without a join
+        sqb = async_classes.AsyncAttachment.query().group('related_id')
+        assert run(sqb.distinct().count()) == 3, run(sqb.distinct().count())
+
     def test_AsyncSqlQueryBuilder_distinct_count_raises_usage_error(self):
         sqb = ExampleModel.query()
         with self.assertRaises(errors.UsageError):
@@ -1976,7 +2008,7 @@ class TestAsyncClasses(unittest.TestCase):
                 ).distinct().count()
             )
         with self.assertRaises(errors.UsageError):
-            run(sqb.group('field1').distinct().count())
+            run(sqb.select(['field1']).group('field1').distinct().count())
 
     def test_AsyncSqlQueryBuilder_works_with_table_or_model(self):
         sqb1 = async_classes.AsyncSqlQueryBuilder(

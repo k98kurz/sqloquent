@@ -1842,6 +1842,36 @@ class TestClasses(unittest.TestCase):
         assert len(sqb.get()) == 3
         assert len(sqb.distinct().get()) == 2, sqb.distinct().get()
 
+    def test_SqlQueryBuilder_count_works_with_joins_and_grouping(self):
+        models = [ExampleModel.insert({'field1': 'abc'})]
+        models += [ExampleModel.insert({'field1': 'abc'})]
+        models += [ExampleModel.insert({'field1': '123'})]
+        for model in models:
+            for i in range(5):
+                attachment = classes.Attachment({"details": f"test data {i}"})
+                attachment.attach_to(model).save()
+
+        # plain count includes the joined rows
+        sqb = ExampleModel.query().join(
+            classes.Attachment, ['id', 'related_id'])
+        assert sqb.count() == 15, sqb.count()
+
+        # distinct count over the joined rows
+        sqb = ExampleModel.query().join(
+            classes.Attachment, ['id', 'related_id']
+        ).select(['field1'])
+        assert sqb.distinct().count() == 2, sqb.distinct().count()
+
+        # distinct count with grouping counts the groups
+        sqb = ExampleModel.query().join(
+            classes.Attachment, ['id', 'related_id']
+        ).group('attachments.related_id')
+        assert sqb.distinct().count() == 3, sqb.distinct().count()
+
+        # and without a join
+        sqb = classes.Attachment.query().group('related_id')
+        assert sqb.distinct().count() == 3, sqb.distinct().count()
+
     def test_SqlQueryBuilder_distinct_count_raises_usage_error(self):
         sqb = ExampleModel.query()
         with self.assertRaises(errors.UsageError):
@@ -1853,7 +1883,7 @@ class TestClasses(unittest.TestCase):
                 classes.Attachment, ['id', 'related_id']
             ).distinct().count()
         with self.assertRaises(errors.UsageError):
-            sqb.group('field1').distinct().count()
+            sqb.select(['field1']).group('field1').distinct().count()
 
     def test_SqlQueryBuilder_works_with_table_or_model(self):
         sqb1 = classes.SqlQueryBuilder(model=classes.HashedModel)
