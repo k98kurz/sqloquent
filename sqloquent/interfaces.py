@@ -537,6 +537,10 @@ class QueryBuilderProtocol(Protocol):
         """Adds a group by constraint."""
         ...
 
+    def distinct(self) -> QueryBuilderProtocol:
+        """Mark the query as a distinct query."""
+        ...
+
     def get(self) -> (
             list[ModelProtocol] | list[JoinedModelProtocol] | list[RowProtocol]
         ):

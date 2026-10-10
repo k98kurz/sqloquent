@@ -1935,6 +1935,49 @@ class TestAsyncClasses(unittest.TestCase):
             for r in results
         ])
 
+    def test_AsyncSqlQueryBuilder_distinct_omits_duplicates(self):
+        models = [run(ExampleModel.insert({'field1': 'abc'}))]
+        models += [run(ExampleModel.insert({'field1': 'abc'}))]
+        models += [run(ExampleModel.insert({'field1': '123'}))]
+        sqb = ExampleModel.query()
+        assert len(run(sqb.get())) == 3, run(sqb.get())
+        assert len(run(sqb.select(['field1']).distinct().get())) == 2, (
+            run(sqb.get())
+        )
+        assert run(sqb.count()) == 2, run(sqb.count())
+
+        # and with joins
+        for model in models:
+            for i in range(5):
+                attachment = async_classes.AsyncAttachment(
+                    {"details": f"test data {i}"}
+                )
+                run(attachment.attach_to(model).save())
+        sqb = ExampleModel.query().join(
+                async_classes.AsyncAttachment, ['id', 'related_id']
+            ).group(
+                "attachments.related_id"
+            ).select(["field1"])
+        assert len(run(sqb.get())) == 3
+        assert len(run(sqb.distinct().get())) == 2, [
+            r.data for r in run(sqb.distinct().get())
+        ]
+
+    def test_AsyncSqlQueryBuilder_distinct_count_raises_usage_error(self):
+        sqb = ExampleModel.query()
+        with self.assertRaises(errors.UsageError):
+            run(sqb.distinct().count())
+        with self.assertRaises(errors.UsageError):
+            run(sqb.select(['field1', 'field2']).distinct().count())
+        with self.assertRaises(errors.UsageError):
+            run(
+                sqb.join(
+                    async_classes.AsyncAttachment, ['id', 'related_id']
+                ).distinct().count()
+            )
+        with self.assertRaises(errors.UsageError):
+            run(sqb.group('field1').distinct().count())
+
     def test_AsyncSqlQueryBuilder_works_with_table_or_model(self):
         sqb1 = async_classes.AsyncSqlQueryBuilder(
             model=async_classes.AsyncHashedModel

@@ -476,6 +476,7 @@ class AsyncSqlQueryBuilder:
     params: list
     order_column: str
     order_dir: str
+    is_distinct: bool
     limit: int
     offset: int
     joins: list[JoinSpec]
@@ -531,6 +532,7 @@ class AsyncSqlQueryBuilder:
         self.params = []
         self.order_column = None
         self.order_dir = 'desc'
+        self.is_distinct = False
         self.limit = None
         self.offset = None
         self.joins = []
@@ -1242,6 +1244,11 @@ class AsyncSqlQueryBuilder:
         self.grouping = by
         return self
 
+    def distinct(self) -> AsyncSqlQueryBuilder:
+        """Mark the query as a distinct query."""
+        self.is_distinct = True
+        return self
+
     async def get(self) -> list[AsyncSqlModel] | list[AsyncJoinedModel] | list[Row]:
         """Run the query on the datastore and return a list of results.
             Return SqlModels when running a simple query. Return
@@ -1284,7 +1291,8 @@ class AsyncSqlQueryBuilder:
                     for f in modelclass.columns
                 ])
 
-        sql = f'select {",".join(columns)} from {quote_identifier(self.table)}'
+        sql = f'select {"distinct " if self.is_distinct else ""}{",".join(columns)}'
+        sql += f' from {quote_identifier(self.table)}'
 
         sql += ' ' + ''.join([
             f'{j.kind} join {quote_identifier(j.table_2)} on '
@@ -1336,7 +1344,8 @@ class AsyncSqlQueryBuilder:
         """
         columns: list[str] = self.columns or self.model.columns
         quoted_columns = [quote_identifier(c) for c in columns]
-        sql = (f'select {",".join(quoted_columns)} from '
+        sql = (f'select {"distinct " if self.is_distinct else ""}'
+            f'{",".join(quoted_columns)} from '
             f'{quote_identifier(self.model.table)}')
 
         if len(self.clauses) > 0:
@@ -1386,7 +1395,17 @@ class AsyncSqlQueryBuilder:
 
     async def count(self) -> int:
         """Returns the number of records matching the query."""
-        sql = f'select count(*) from {self.model.table}'
+        sql = 'select count(*) '
+        if self.is_distinct:
+            tressa(self.columns, '.distinct().count() without .select() is not '
+                'supported')
+            tressa(len(self.columns) == 1,
+                f'.select({self.columns}).distinct().count() '
+                'is not supported')
+            tressa(not self.joins, '.join().distinct().count() is not supported')
+            tressa(not self.grouping, '.group().distinct().count() is not supported')
+            sql = f'select count(distinct {quote_identifier(self.columns[0])}) '
+        sql += f'from {quote_identifier(self.model.table)}'
 
         if len(self.clauses) > 0:
             sql += ' where ' + ' and '.join(self.clauses)

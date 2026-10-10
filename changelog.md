@@ -1,13 +1,20 @@
  ## WIP
 
-- **NEW**: Added atomic transaction support with `SqlTransaction` context manager
+- Added atomic transaction support with `SqlTransaction` context manager
     - Supports single-database transactions with `SqlTransaction(conn_string)`
-    - Supports multi-database coordinated transactions with `MultiDBTransaction(conn1, conn2, ...)`
+    - Supports multi-database coordinated transactions with
+    `MultiDBTransaction(conn1, conn2, ...)`
     - Added `@transactional` decorator for wrapping functions in transactions
     - Supports manual commit/rollback with `tx.commit()` and `tx.rollback()`
     - Automatic rollback on exceptions
     - Thread-safe transaction management
     - See readme.md for usage examples and documentation
+- Added `.distinct()` to query builders to support distinct queries
+    - Supports `.select(more_than_one_col).distinct().get()`
+    - Supports `.select(one_column).distinct().count()`
+    - Does not support count on more than one distinct col, which requires subqueries
+    - Does not support count with distinct but without select
+    - Does not support distinct count with joins or grouping
 
 ## 0.7.4
 

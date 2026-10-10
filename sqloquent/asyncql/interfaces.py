@@ -542,6 +542,10 @@ class AsyncQueryBuilderProtocol(Protocol):
         """Adds a group by constraint."""
         ...
 
+    def distinct(self) -> AsyncQueryBuilderProtocol:
+        """Mark the query as a distinct query."""
+        ...
+
     async def get(self) -> (
             list[AsyncModelProtocol]
             | list[AsyncJoinedModelProtocol]

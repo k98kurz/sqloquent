@@ -1820,6 +1820,41 @@ class TestClasses(unittest.TestCase):
             for r in results
         ])
 
+    def test_SqlQueryBuilder_distinct_omits_duplicates(self):
+        models = [ExampleModel.insert({'field1': 'abc'})]
+        models += [ExampleModel.insert({'field1': 'abc'})]
+        models += [ExampleModel.insert({'field1': '123'})]
+        sqb = ExampleModel.query()
+        assert len(sqb.get()) == 3, sqb.get()
+        assert len(sqb.select(['field1']).distinct().get()) == 2, sqb.get()
+        assert sqb.count() == 2, sqb.count()
+
+        # and with joins
+        for model in models:
+            for i in range(5):
+                attachment = classes.Attachment({"details": f"test data {i}"})
+                attachment.attach_to(model).save()
+        sqb = ExampleModel.query().join(
+                classes.Attachment, ['id', 'related_id']
+            ).group(
+                "attachments.related_id"
+            ).select(["field1"])
+        assert len(sqb.get()) == 3
+        assert len(sqb.distinct().get()) == 2, sqb.distinct().get()
+
+    def test_SqlQueryBuilder_distinct_count_raises_usage_error(self):
+        sqb = ExampleModel.query()
+        with self.assertRaises(errors.UsageError):
+            sqb.distinct().count()
+        with self.assertRaises(errors.UsageError):
+            sqb.select(['field1', 'field2']).distinct().count()
+        with self.assertRaises(errors.UsageError):
+            sqb.join(
+                classes.Attachment, ['id', 'related_id']
+            ).distinct().count()
+        with self.assertRaises(errors.UsageError):
+            sqb.group('field1').distinct().count()
+
     def test_SqlQueryBuilder_works_with_table_or_model(self):
         sqb1 = classes.SqlQueryBuilder(model=classes.HashedModel)
         assert sqb1.model is classes.HashedModel
