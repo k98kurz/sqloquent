@@ -1,4 +1,4 @@
- ## WIP
+ ## 0.8.0
 
 - Added atomic transaction support with `SqlTransaction` context manager
     - Supports single-database transactions with `SqlTransaction(conn_string)`

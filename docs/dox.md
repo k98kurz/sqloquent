@@ -16,7 +16,7 @@ General model for mapping a SQL row to an in-memory object.
 
 - table: str
 - id_column: str
-- columns: tuple
+- columns: tuple[str, ...]
 - id: str
 - name: str
 - query_builder_class: type[QueryBuilderProtocol]
@@ -131,6 +131,7 @@ Default binding is to sqlite3.
 - params: list
 - order_column: str
 - order_dir: str
+- is_distinct: bool
 - limit: int
 - offset: int
 - joins: list[JoinSpec]
@@ -151,13 +152,13 @@ something other than a str.
 Initialize the instance. Must supply model_or_table or model or table. Must
 supply context_manager.
 
-##### `is_null(column: str | list[str] | tuple[str]) -> SqlQueryBuilder:`
+##### `is_null(column: str | list[str] | tuple[str, ...]) -> SqlQueryBuilder:`
 
 Save the 'column is null' clause, then return self. Raises TypeError for invalid
 column. If a list or tuple is supplied, each element is treated as a separate
 clause.
 
-##### `not_null(column: str | list[str] | tuple[str]) -> SqlQueryBuilder:`
+##### `not_null(column: str | list[str] | tuple[str, ...]) -> SqlQueryBuilder:`
 
 Save the 'column is not null' clause, then return self. Raises TypeError for
 invalid column. If a list or tuple is supplied, each element is treated as a
@@ -304,7 +305,7 @@ invalid items.
 
 Find a record by its id and return it.
 
-##### `join(model_or_table: type[SqlModel] | str, on: list[str], kind: str = 'inner', joined_table_columns: tuple[str] = ()) -> SqlQueryBuilder:`
+##### `join(model_or_table: type[SqlModel] | str, on: list[str], kind: str = 'inner', joined_table_columns: tuple[str, ...] = ()) -> SqlQueryBuilder:`
 
 Prepares the query for a join over multiple tables/models. Raises TypeError or
 ValueError for invalid model, on, or kind. The `on` parameter must be a list of
@@ -319,6 +320,10 @@ Sets the columns to select. Raises TypeError for invalid columns.
 
 Adds a GROUP BY constraint. Raises TypeError for invalid by.
 
+##### `distinct() -> SqlQueryBuilder:`
+
+Mark the query as a distinct query.
+
 ##### `get() -> list[SqlModel] | list[JoinedModel] | list[Row]:`
 
 Run the query on the datastore and return a list of results. Return SqlModels
@@ -327,7 +332,9 @@ Return Rows when running a non-joined GROUP BY query.
 
 ##### `count() -> int:`
 
-Returns the number of records matching the query.
+Returns the number of records matching the query. Includes joins. When the query
+is distinct, returns the number of distinct values of the selected column or,
+when grouped, the number of distinct groups.
 
 ##### `take(limit: int) -> list[SqlModel] | list[JoinedModel] | list[Row]:`
 
@@ -361,7 +368,7 @@ result will be returned. If interpolate_params is False, the parameters will not
 be interpolated into the SQL str, instead including question marks, and an
 additional list of params will be returned along with the SQL str.
 
-##### `execute_raw(sql: str) -> tuple[int, list[tuple[Any]]]:`
+##### `execute_raw(sql: str) -> tuple[int, list[tuple[Any, ...]]]:`
 
 Execute raw SQL against the database. Return rowcount and fetchall results.
 
@@ -390,6 +397,56 @@ Enter the context block and return the cursor.
 Exit the context block. Commit or rollback as appropriate, then close the
 connection if this is the outermost context.
 
+### `SqlTransaction`
+
+Context manager for wrapping multiple SQL operations in a single transaction.
+
+#### Properties
+
+- cursor: Get the transaction's cursor for raw SQL operations.
+- connection: Get the transaction's connection for advanced operations.
+- is_committed: Check if the transaction has been committed.
+- is_rolled_back: Check if the transaction has been rolled back.
+
+#### Methods
+
+##### `__init__(model_or_connstring: type[SqlModel] | str = None) -> None:`
+
+Initialize the transaction context manager. Raises `TypeError` if
+`model_or_connstring` is not a `SqlModel` subclass or `str`.
+
+##### `__enter__() -> SqlTransaction:`
+
+Enter the transaction context and register it as active.
+
+##### `__exit__(exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: TracebackType | None) -> None:`
+
+Exit the transaction context, committing or rolling back.
+
+##### `commit() -> None:`
+
+Manually commit the transaction early. After calling this, the transaction is
+considered complete and subsequent operations will not be part of this
+transaction.
+
+##### `rollback() -> None:`
+
+Manually rollback the transaction. After calling this, the transaction is
+considered rolled back and subsequent operations will not be part of this
+transaction.
+
+### `MultiDBTransaction`
+
+Wrap multiple connections in a coordinated transaction.
+
+#### Methods
+
+##### `__init__(models_or_connstrings: type[SqlModel] | str):`
+
+##### `__enter__():`
+
+##### `__exit__():`
+
 ### `DeletedModel(SqlModel)`
 
 Model for preserving and restoring deleted HashedModel records.
@@ -398,7 +455,7 @@ Model for preserving and restoring deleted HashedModel records.
 
 - table: str
 - id_column: str
-- columns: tuple
+- columns: tuple[str, ...]
 - id: str
 - name: str
 - query_builder_class: type[QueryBuilderProtocol]
@@ -435,7 +492,7 @@ Model for interacting with sql database using sha256 for id.
 
 - table: str
 - id_column: str
-- columns: tuple[str]
+- columns: tuple[str, ...]
 - id: str
 - name: str
 - query_builder_class: type[QueryBuilderProtocol]
@@ -443,7 +500,7 @@ Model for interacting with sql database using sha256 for id.
 - data: dict
 - data_original: MappingProxyType
 - _event_hooks: dict[str, list[Callable]]
-- columns_excluded_from_hash: tuple[str]
+- columns_excluded_from_hash: tuple[str, ...]
 - details: bytes
 
 #### Methods
@@ -497,7 +554,7 @@ Class for attaching immutable details to a record.
 
 - table: str
 - id_column: str
-- columns: tuple
+- columns: tuple[str, ...]
 - id: str
 - name: str
 - query_builder_class: type[QueryBuilderProtocol]
@@ -505,7 +562,7 @@ Class for attaching immutable details to a record.
 - data: dict
 - data_original: MappingProxyType
 - _event_hooks: dict[str, list[Callable]]
-- columns_excluded_from_hash: tuple[str]
+- columns_excluded_from_hash: tuple[str, ...]
 - details: bytes | None
 - related_model: str
 - related_id: str
@@ -747,13 +804,13 @@ Interface showing how a query builder should function.
 Initialize the instance. A class implementing ModelProtocol or the str name of a
 table must be provided.
 
-##### `is_null(column: str | list[str] | tuple[str]) -> QueryBuilderProtocol:`
+##### `is_null(column: str | list[str] | tuple[str, ...]) -> QueryBuilderProtocol:`
 
 Save the 'column is null' clause, then return self. Raises TypeError for invalid
 column. If a list or tuple is supplied, each element is treated as a separate
 clause.
 
-##### `not_null(column: str | list[str] | tuple[str]) -> QueryBuilderProtocol:`
+##### `not_null(column: str | list[str] | tuple[str, ...]) -> QueryBuilderProtocol:`
 
 Save the 'column is not null' clause, then return self. Raises TypeError for
 invalid column. If a list or tuple is supplied, each element is treated as a
@@ -894,7 +951,7 @@ Insert a batch of records and return the number inserted.
 
 Find a record by its id and return it.
 
-##### `join(model_or_table: type[ModelProtocol] | str, on: list[str], kind: str = 'inner', joined_table_columns: tuple[str] = ()) -> QueryBuilderProtocol:`
+##### `join(model_or_table: type[ModelProtocol] | str, on: list[str], kind: str = 'inner', joined_table_columns: tuple[str, ...] = ()) -> QueryBuilderProtocol:`
 
 Prepares the query for a join over multiple tables/models. Raises TypeError or
 ValueError for invalid model, on, or kind. The `on` parameter must be a list of
@@ -909,6 +966,10 @@ Sets the columns to select.
 
 Adds a group by constraint.
 
+##### `distinct() -> QueryBuilderProtocol:`
+
+Mark the query as a distinct query.
+
 ##### `get() -> list[ModelProtocol] | list[JoinedModelProtocol] | list[RowProtocol]:`
 
 Run the query on the datastore and return a list of results. Return SqlModels
@@ -917,7 +978,9 @@ Return Rows when running a non-joined GROUP BY query.
 
 ##### `count() -> int:`
 
-Returns the number of records matching the query.
+Returns the number of records matching the query. Includes joins. When the query
+is distinct, returns the number of distinct values of the selected column or,
+when grouped, the number of distinct groups.
 
 ##### `take(number: int) -> list[ModelProtocol] | list[JoinedModelProtocol] | list[RowProtocol]:`
 
@@ -948,7 +1011,7 @@ result will be returned. If interpolate_params is False, the parameters will not
 be interpolated into the SQL str, instead including question marks, and an
 additional list of params will be returned along with the SQL str.
 
-##### `execute_raw(sql: str) -> tuple[int, list[tuple[Any]]]:`
+##### `execute_raw(sql: str) -> tuple[int, list[tuple[Any, ...]]]:`
 
 Execute raw SQL against the database. Return rowcount and fetchall results.
 
@@ -1088,7 +1151,7 @@ Base class for setting up relations.
 - secondary_to_add: list[ModelProtocol]
 - secondary_to_remove: list[ModelProtocol]
 - primary: ModelProtocol
-- secondary: ModelProtocol | tuple[ModelProtocol]
+- secondary: ModelProtocol | tuple[ModelProtocol, ...]
 - _primary: ModelProtocol | None
 - _secondary: ModelProtocol | None
 
@@ -1100,7 +1163,7 @@ precondition check fails.
 
 #### Methods
 
-##### `__init__(primary_class: type[ModelProtocol], secondary_class: type[ModelProtocol], primary_to_add: ModelProtocol = None, primary_to_remove: ModelProtocol = None, secondary_to_add: list[ModelProtocol] | None = None, secondary_to_remove: list[ModelProtocol] | None = None, primary: ModelProtocol = None, secondary: ModelProtocol | tuple[ModelProtocol] = None) -> None:`
+##### `__init__(primary_class: type[ModelProtocol], secondary_class: type[ModelProtocol], primary_to_add: ModelProtocol = None, primary_to_remove: ModelProtocol = None, secondary_to_add: list[ModelProtocol] | None = None, secondary_to_remove: list[ModelProtocol] | None = None, primary: ModelProtocol = None, secondary: ModelProtocol | tuple[ModelProtocol, ...] = None) -> None:`
 
 ##### `@staticmethod single_model_precondition() -> None:`
 
@@ -1160,7 +1223,7 @@ secondary.data[foreign_id_column]. An owner model.
 - secondary_to_add: list[ModelProtocol]
 - secondary_to_remove: list[ModelProtocol]
 - primary: ModelProtocol
-- secondary: ModelProtocol | tuple[ModelProtocol]
+- secondary: ModelProtocol | tuple[ModelProtocol, ...]
 - _primary: ModelProtocol | None
 - _secondary: ModelProtocol | None
 - foreign_id_column: str
@@ -1217,7 +1280,7 @@ is set on the owner model.
 - secondary_to_add: list[ModelProtocol]
 - secondary_to_remove: list[ModelProtocol]
 - primary: ModelProtocol
-- secondary: ModelProtocol | tuple[ModelProtocol]
+- secondary: ModelProtocol | tuple[ModelProtocol, ...]
 - _primary: ModelProtocol | None
 - _secondary: ModelProtocol | None
 - foreign_id_column: str
@@ -1264,7 +1327,7 @@ and HasMany. An instance of this class is set on the owned model.
 - secondary_to_add: list[ModelProtocol]
 - secondary_to_remove: list[ModelProtocol]
 - primary: ModelProtocol
-- secondary: ModelProtocol | tuple[ModelProtocol]
+- secondary: ModelProtocol | tuple[ModelProtocol, ...]
 - _primary: ModelProtocol | None
 - _secondary: ModelProtocol | None
 - foreign_id_column: str
@@ -1306,7 +1369,7 @@ This requires the use of a pivot.
 - secondary_to_add: list[ModelProtocol]
 - secondary_to_remove: list[ModelProtocol]
 - primary: ModelProtocol
-- secondary: ModelProtocol | tuple[ModelProtocol]
+- secondary: ModelProtocol | tuple[ModelProtocol, ...]
 - _primary: ModelProtocol | None
 - _secondary: ModelProtocol | None
 - pivot: type[ModelProtocol]
@@ -1368,9 +1431,9 @@ something similar. IDs are sorted for deterministic hashing via HashedModel.
 - secondary_to_add: list[ModelProtocol]
 - secondary_to_remove: list[ModelProtocol]
 - primary: ModelProtocol
-- secondary: tuple[ModelProtocol]
+- secondary: tuple[ModelProtocol, ...]
 - _primary: ModelProtocol | None
-- _secondary: tuple[ModelProtocol]
+- _secondary: tuple[ModelProtocol, ...]
 - foreign_id_column: str
 
 #### Methods
@@ -1412,7 +1475,7 @@ HashedModel.
 - secondary_to_add: list[ModelProtocol]
 - secondary_to_remove: list[ModelProtocol]
 - primary: ModelProtocol
-- secondary: tuple[ModelProtocol]
+- secondary: tuple[ModelProtocol, ...]
 - _primary: ModelProtocol | None
 - _secondary: ModelProtocol | None
 - foreign_id_column: str
@@ -1646,7 +1709,11 @@ Apply the backward migration.
 
 ## Functions
 
-### `dynamic_sqlmodel(connection_string: str | bytes, table_name: str = '', column_names: tuple[str] = ()) -> type[SqlModel]:`
+### `transactional(models_or_connstrings: type[SqlModel] | str):`
+
+Decorator to make the db ops in a function transactional.
+
+### `dynamic_sqlmodel(connection_string: str | bytes, table_name: str = '', column_names: tuple[str, ...] = ()) -> type[SqlModel]:`
 
 Generates a dynamic sqlite model for instantiating context managers. Raises
 TypeError for invalid connection_string or table_name.

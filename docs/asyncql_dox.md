@@ -168,13 +168,13 @@ Interface showing how a query builder should function.
 Initialize the instance. A class implementing AsyncModelProtocol or the str name
 of a table must be provided.
 
-##### `is_null(column: str | list[str] | tuple[str]) -> AsyncQueryBuilderProtocol:`
+##### `is_null(column: str | list[str] | tuple[str, ...]) -> AsyncQueryBuilderProtocol:`
 
 Save the 'column is null' clause, then return self. Raises TypeError for invalid
 column. If a list or tuple is supplied, each element is treated as a separate
 clause.
 
-##### `not_null(column: str | list[str] | tuple[str]) -> AsyncQueryBuilderProtocol:`
+##### `not_null(column: str | list[str] | tuple[str, ...]) -> AsyncQueryBuilderProtocol:`
 
 Save the 'column is not null' clause, then return self. Raises TypeError for
 invalid column. If a list or tuple is supplied, each element is treated as a
@@ -315,7 +315,7 @@ Insert a batch of records and return the number inserted.
 
 Find a record by its id and return it.
 
-##### `join(model_or_table: type[AsyncModelProtocol] | str, on: list[str], kind: str = 'inner', joined_table_columns: tuple[str] = ()) -> AsyncQueryBuilderProtocol:`
+##### `join(model_or_table: type[AsyncModelProtocol] | str, on: list[str], kind: str = 'inner', joined_table_columns: tuple[str, ...] = ()) -> AsyncQueryBuilderProtocol:`
 
 Prepares the query for a join over multiple tables/models. Raises TypeError or
 ValueError for invalid model, on, or kind. The `on` parameter must be a list of
@@ -330,6 +330,10 @@ Sets the columns to select.
 
 Adds a group by constraint.
 
+##### `distinct() -> AsyncQueryBuilderProtocol:`
+
+Mark the query as a distinct query.
+
 ##### `async get() -> list[AsyncModelProtocol] | list[AsyncJoinedModelProtocol] | list[RowProtocol]:`
 
 Run the query on the datastore and return a list of results. Return SqlModels
@@ -338,7 +342,9 @@ Return Rows when running a non-joined GROUP BY query.
 
 ##### `async count() -> int:`
 
-Returns the number of records matching the query.
+Returns the number of records matching the query. Includes joins. When the query
+is distinct, returns the number of distinct values of the selected column or,
+when grouped, the number of distinct groups.
 
 ##### `async take(number: int) -> list[AsyncModelProtocol] | list[AsyncJoinedModelProtocol] | list[RowProtocol]:`
 
@@ -369,7 +375,7 @@ result will be returned. If interpolate_params is False, the parameters will not
 be interpolated into the SQL str, instead including question marks, and an
 additional list of params will be returned along with the SQL str.
 
-##### `async execute_raw(sql: str) -> tuple[int, list[tuple[Any]]]:`
+##### `async execute_raw(sql: str) -> tuple[int, list[tuple[Any, ...]]]:`
 
 Execute raw SQL against the database. Return rowcount and fetchall results.
 
@@ -471,9 +477,7 @@ Context manager for sqlite. Automatically handles connection pooling.
 
 #### Annotations
 
-- _connections: dict[str, aiosqlite.Connection]
-- _cursors: dict[str, aiosqlite.Cursor]
-- _depths: dict[str, int]
+- _task_local: ContextVar[DictWrapper | None]
 - connection: aiosqlite.Connection
 - cursor: aiosqlite.Cursor
 - connection_info: str
@@ -501,7 +505,7 @@ General model for mapping a SQL row to an in-memory object.
 
 - table: str
 - id_column: str
-- columns: tuple
+- columns: tuple[str, ...]
 - id: str
 - name: str
 - query_builder_class: type[AsyncQueryBuilderProtocol]
@@ -649,6 +653,7 @@ Default binding is to aiosqlite.
 - params: list
 - order_column: str
 - order_dir: str
+- is_distinct: bool
 - limit: int
 - offset: int
 - joins: list[JoinSpec]
@@ -669,13 +674,13 @@ something other than a str.
 Initialize the instance. Must supply model_or_table or model or table. Must
 supply context_manager.
 
-##### `is_null(column: str | list[str] | tuple[str]) -> AsyncSqlQueryBuilder:`
+##### `is_null(column: str | list[str] | tuple[str, ...]) -> AsyncSqlQueryBuilder:`
 
 Save the 'column is null' clause, then return self. Raises TypeError for invalid
 column. If a list or tuple is supplied, each element is treated as a separate
 clause.
 
-##### `not_null(column: str | list[str] | tuple[str]) -> AsyncSqlQueryBuilder:`
+##### `not_null(column: str | list[str] | tuple[str, ...]) -> AsyncSqlQueryBuilder:`
 
 Save the 'column is not null' clause, then return self. Raises TypeError for
 invalid column. If a list or tuple is supplied, each element is treated as a
@@ -822,7 +827,7 @@ invalid items.
 
 Find a record by its id and return it.
 
-##### `join(model_or_table: type[AsyncSqlModel] | str, on: list[str], kind: str = 'inner', joined_table_columns: tuple[str] = ()) -> AsyncSqlQueryBuilder:`
+##### `join(model_or_table: type[AsyncSqlModel] | str, on: list[str], kind: str = 'inner', joined_table_columns: tuple[str, ...] = ()) -> AsyncSqlQueryBuilder:`
 
 Prepares the query for a join over multiple tables/models. Raises TypeError or
 ValueError for invalid model, on, or kind. The `on` parameter must be a list of
@@ -837,6 +842,10 @@ Sets the columns to select. Raises TypeError for invalid columns.
 
 Adds a GROUP BY constraint. Raises TypeError for invalid by.
 
+##### `distinct() -> AsyncSqlQueryBuilder:`
+
+Mark the query as a distinct query.
+
 ##### `async get() -> list[AsyncSqlModel] | list[AsyncJoinedModel] | list[Row]:`
 
 Run the query on the datastore and return a list of results. Return SqlModels
@@ -845,7 +854,9 @@ Return Rows when running a non-joined GROUP BY query.
 
 ##### `async count() -> int:`
 
-Returns the number of records matching the query.
+Returns the number of records matching the query. Includes joins. When the query
+is distinct, returns the number of distinct values of the selected column or,
+when grouped, the number of distinct groups.
 
 ##### `async take(limit: int) -> list[AsyncSqlModel] | list[AsyncJoinedModel] | list[Row]:`
 
@@ -879,7 +890,7 @@ result will be returned. If interpolate_params is False, the parameters will not
 be interpolated into the SQL str, instead including question marks, and an
 additional list of params will be returned along with the SQL str.
 
-##### `async execute_raw(sql: str) -> tuple[int, list[tuple[Any]]]:`
+##### `async execute_raw(sql: str) -> tuple[int, list[tuple[Any, ...]]]:`
 
 Execute raw SQL against the database. Return rowcount and fetchall results.
 
@@ -891,7 +902,7 @@ Model for preserving and restoring deleted AsyncHashedModel records.
 
 - table: str
 - id_column: str
-- columns: tuple
+- columns: tuple[str, ...]
 - id: str
 - name: str
 - query_builder_class: type[AsyncQueryBuilderProtocol]
@@ -928,7 +939,7 @@ Model for interacting with sql database using sha256 for id.
 
 - table: str
 - id_column: str
-- columns: tuple[str]
+- columns: tuple[str, ...]
 - id: str
 - name: str
 - query_builder_class: type[AsyncQueryBuilderProtocol]
@@ -936,7 +947,7 @@ Model for interacting with sql database using sha256 for id.
 - data: dict
 - data_original: MappingProxyType
 - _event_hooks: dict[str, list[Callable]]
-- columns_excluded_from_hash: tuple[str]
+- columns_excluded_from_hash: tuple[str, ...]
 - details: bytes
 
 #### Methods
@@ -990,7 +1001,7 @@ Class for attaching immutable details to a record.
 
 - table: str
 - id_column: str
-- columns: tuple
+- columns: tuple[str, ...]
 - id: str
 - name: str
 - query_builder_class: type[AsyncQueryBuilderProtocol]
@@ -998,7 +1009,7 @@ Class for attaching immutable details to a record.
 - data: dict
 - data_original: MappingProxyType
 - _event_hooks: dict[str, list[Callable]]
-- columns_excluded_from_hash: tuple[str]
+- columns_excluded_from_hash: tuple[str, ...]
 - details: bytes | None
 - related_model: str
 - related_id: str
@@ -1025,6 +1036,57 @@ Set the details column using either supplied data or by packifying
 self._details. Return self in monad pattern. Raises packify.UsageError or
 TypeError if details contains unseriazliable type.
 
+### `AsyncSqlTransaction`
+
+Async context manager for wrapping multiple SQL operations in a single
+transaction.
+
+#### Properties
+
+- cursor: Get the transaction's cursor for raw SQL operations.
+- connection: Get the transaction's connection for advanced operations.
+- is_committed: Check if the transaction has been committed.
+- is_rolled_back: Check if the transaction has been rolled back.
+
+#### Methods
+
+##### `__init__(model_or_connstring: type[AsyncSqlModel] | str = None) -> None:`
+
+Initialize the async transaction context manager. Raises `TypeError` if
+`model_or_connstring` is not an `AsyncSqlModel` subclass or `str`.
+
+##### `async __aenter__() -> AsyncSqlTransaction:`
+
+Enter the async transaction context and register it as active.
+
+##### `async __aexit__(exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: TracebackType | None) -> None:`
+
+Exit the transaction context, committing or rolling back.
+
+##### `async commit() -> None:`
+
+Manually commit the transaction early. After calling this, the transaction is
+considered complete and subsequent operations will not be part of this
+transaction.
+
+##### `async rollback() -> None:`
+
+Manually rollback the transaction. After calling this, the transaction is
+considered rolled back and subsequent operations will not be part of this
+transaction.
+
+### `AsyncMultiDBTransaction`
+
+Wrap multiple connections in a coordinated async transaction.
+
+#### Methods
+
+##### `__init__(models_or_connstrings: type[AsyncSqlModel] | str):`
+
+##### `async __aenter__():`
+
+##### `async __aexit__():`
+
 ### `Default(list)`
 
 Class for representing a default value for a column annotation.
@@ -1042,7 +1104,7 @@ Base class for setting up relations.
 - secondary_to_add: list[AsyncModelProtocol]
 - secondary_to_remove: list[AsyncModelProtocol]
 - primary: AsyncModelProtocol
-- secondary: AsyncModelProtocol | tuple[AsyncModelProtocol]
+- secondary: AsyncModelProtocol | tuple[AsyncModelProtocol, ...]
 - _primary: AsyncModelProtocol | None
 - _secondary: AsyncModelProtocol | None
 
@@ -1054,7 +1116,7 @@ precondition check fails.
 
 #### Methods
 
-##### `__init__(primary_class: type[AsyncModelProtocol], secondary_class: type[AsyncModelProtocol], primary_to_add: AsyncModelProtocol = None, primary_to_remove: AsyncModelProtocol = None, secondary_to_add: list[AsyncModelProtocol] | None = None, secondary_to_remove: list[AsyncModelProtocol] | None = None, primary: AsyncModelProtocol = None, secondary: AsyncModelProtocol | tuple[AsyncModelProtocol] = None) -> None:`
+##### `__init__(primary_class: type[AsyncModelProtocol], secondary_class: type[AsyncModelProtocol], primary_to_add: AsyncModelProtocol = None, primary_to_remove: AsyncModelProtocol = None, secondary_to_add: list[AsyncModelProtocol] | None = None, secondary_to_remove: list[AsyncModelProtocol] | None = None, primary: AsyncModelProtocol = None, secondary: AsyncModelProtocol | tuple[AsyncModelProtocol, ...] = None) -> None:`
 
 ##### `@staticmethod single_model_precondition() -> None:`
 
@@ -1114,7 +1176,7 @@ secondary.data[foreign_id_column]. An owner model.
 - secondary_to_add: list[AsyncModelProtocol]
 - secondary_to_remove: list[AsyncModelProtocol]
 - primary: AsyncModelProtocol
-- secondary: AsyncModelProtocol | tuple[AsyncModelProtocol]
+- secondary: AsyncModelProtocol | tuple[AsyncModelProtocol, ...]
 - _primary: AsyncModelProtocol | None
 - _secondary: AsyncModelProtocol | None
 - foreign_id_column: str
@@ -1173,7 +1235,7 @@ is set on the owner model.
 - secondary_to_add: list[AsyncModelProtocol]
 - secondary_to_remove: list[AsyncModelProtocol]
 - primary: AsyncModelProtocol
-- secondary: AsyncModelProtocol | tuple[AsyncModelProtocol]
+- secondary: AsyncModelProtocol | tuple[AsyncModelProtocol, ...]
 - _primary: AsyncModelProtocol | None
 - _secondary: AsyncModelProtocol | None
 - foreign_id_column: str
@@ -1223,7 +1285,7 @@ model.
 - secondary_to_add: list[AsyncModelProtocol]
 - secondary_to_remove: list[AsyncModelProtocol]
 - primary: AsyncModelProtocol
-- secondary: AsyncModelProtocol | tuple[AsyncModelProtocol]
+- secondary: AsyncModelProtocol | tuple[AsyncModelProtocol, ...]
 - _primary: AsyncModelProtocol | None
 - _secondary: AsyncModelProtocol | None
 - foreign_id_column: str
@@ -1267,7 +1329,7 @@ This requires the use of a pivot.
 - secondary_to_add: list[AsyncModelProtocol]
 - secondary_to_remove: list[AsyncModelProtocol]
 - primary: AsyncModelProtocol
-- secondary: AsyncModelProtocol | tuple[AsyncModelProtocol]
+- secondary: AsyncModelProtocol | tuple[AsyncModelProtocol, ...]
 - _primary: AsyncModelProtocol | None
 - _secondary: AsyncModelProtocol | None
 - pivot: type[AsyncModelProtocol]
@@ -1331,9 +1393,9 @@ deterministic hashing via HashedModel.
 - secondary_to_add: list[AsyncModelProtocol]
 - secondary_to_remove: list[AsyncModelProtocol]
 - primary: AsyncModelProtocol
-- secondary: tuple[AsyncModelProtocol]
+- secondary: tuple[AsyncModelProtocol, ...]
 - _primary: AsyncModelProtocol | None
-- _secondary: tuple[AsyncModelProtocol]
+- _secondary: tuple[AsyncModelProtocol, ...]
 - foreign_id_column: str
 
 #### Methods
@@ -1377,7 +1439,7 @@ HashedModel.
 - secondary_to_add: list[AsyncModelProtocol]
 - secondary_to_remove: list[AsyncModelProtocol]
 - primary: AsyncModelProtocol
-- secondary: tuple[AsyncModelProtocol]
+- secondary: tuple[AsyncModelProtocol, ...]
 - _primary: AsyncModelProtocol | None
 - _secondary: AsyncModelProtocol | None
 - foreign_id_column: str
@@ -1409,7 +1471,11 @@ produce a `ResourceWarning` if done within an async function.
 
 ## Functions
 
-### `async_dynamic_sqlmodel(connection_string: str | bytes, table_name: str = '', column_names: tuple[str] = ()) -> type[AsyncSqlModel]:`
+### `atransactional(models_or_connstrings: type[AsyncSqlModel] | str):`
+
+Decorator to make the async db ops in a function transactional.
+
+### `async_dynamic_sqlmodel(connection_string: str | bytes, table_name: str = '', column_names: tuple[str, ...] = ()) -> type[AsyncSqlModel]:`
 
 Generates a dynamic sqlite model for instantiating context managers. Raises
 TypeError for invalid connection_string or table_name.

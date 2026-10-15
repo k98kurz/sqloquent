@@ -172,13 +172,13 @@ Interface showing how a query builder should function.
 Initialize the instance. A class implementing AsyncModelProtocol or the str name
 of a table must be provided.
 
-##### `is_null(column: str | list[str] | tuple[str]) -> AsyncQueryBuilderProtocol:`
+##### `is_null(column: str | list[str] | tuple[str, ...]) -> AsyncQueryBuilderProtocol:`
 
 Save the 'column is null' clause, then return self. Raises TypeError for invalid
 column. If a list or tuple is supplied, each element is treated as a separate
 clause.
 
-##### `not_null(column: str | list[str] | tuple[str]) -> AsyncQueryBuilderProtocol:`
+##### `not_null(column: str | list[str] | tuple[str, ...]) -> AsyncQueryBuilderProtocol:`
 
 Save the 'column is not null' clause, then return self. Raises TypeError for
 invalid column. If a list or tuple is supplied, each element is treated as a
@@ -319,7 +319,7 @@ Insert a batch of records and return the number inserted.
 
 Find a record by its id and return it.
 
-##### `join(model_or_table: type[AsyncModelProtocol] | str, on: list[str], kind: str = 'inner', joined_table_columns: tuple[str] = ()) -> AsyncQueryBuilderProtocol:`
+##### `join(model_or_table: type[AsyncModelProtocol] | str, on: list[str], kind: str = 'inner', joined_table_columns: tuple[str, ...] = ()) -> AsyncQueryBuilderProtocol:`
 
 Prepares the query for a join over multiple tables/models. Raises TypeError or
 ValueError for invalid model, on, or kind. The `on` parameter must be a list of
@@ -334,6 +334,10 @@ Sets the columns to select.
 
 Adds a group by constraint.
 
+##### `distinct() -> AsyncQueryBuilderProtocol:`
+
+Mark the query as a distinct query.
+
 ##### `async get() -> list[AsyncModelProtocol] | list[AsyncJoinedModelProtocol] | list[RowProtocol]:`
 
 Run the query on the datastore and return a list of results. Return SqlModels
@@ -342,7 +346,9 @@ Return Rows when running a non-joined GROUP BY query.
 
 ##### `async count() -> int:`
 
-Returns the number of records matching the query.
+Returns the number of records matching the query. Includes joins. When the query
+is distinct, returns the number of distinct values of the selected column or,
+when grouped, the number of distinct groups.
 
 ##### `async take(number: int) -> list[AsyncModelProtocol] | list[AsyncJoinedModelProtocol] | list[RowProtocol]:`
 
@@ -373,7 +379,7 @@ result will be returned. If interpolate_params is False, the parameters will not
 be interpolated into the SQL str, instead including question marks, and an
 additional list of params will be returned along with the SQL str.
 
-##### `async execute_raw(sql: str) -> tuple[int, list[tuple[Any]]]:`
+##### `async execute_raw(sql: str) -> tuple[int, list[tuple[Any, ...]]]:`
 
 Execute raw SQL against the database. Return rowcount and fetchall results.
 

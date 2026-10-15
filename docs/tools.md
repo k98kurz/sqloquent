@@ -2,27 +2,27 @@
 
 ## Functions
 
-### `make_migration_create(name: str, connection_string: str = '', ctx: tuple = None) -> str:`
+### `make_migration_create(name: str, connection_string: str = '', ctx: tuple[str, ...] | list[str] | None = None) -> str:`
 
 Generate a migration scaffold from a table name to create a table.
 
-### `make_migration_alter(name: str, connection_string: str = '', ctx: tuple = None) -> str:`
+### `make_migration_alter(name: str, connection_string: str = '', ctx: tuple[str, ...] | list[str] | None = None) -> str:`
 
 Generate a migration scaffold from a table name to alter a table.
 
-### `make_migration_drop(name: str, connection_string: str = '', ctx: tuple = None) -> str:`
+### `make_migration_drop(name: str, connection_string: str = '', ctx: tuple[str, ...] | list[str] | None = None) -> str:`
 
 Generate a migration scaffold from a table name to drop a table.
 
-### `make_migration_from_model_path(model_name: str, model_path: str, connection_string: str = '', ctx: tuple = None) -> str:`
+### `make_migration_from_model_path(model_name: str, model_path: str, connection_string: str = '', ctx: tuple[str, ...] | list[str] | None = None) -> str:`
 
 Generate a migration from a model name and path.
 
-### `make_migration_from_model(model: ModelProtocol, model_name: str = None, connection_string: str = '', ctx: tuple = None) -> str:`
+### `make_migration_from_model(model: ModelProtocol, model_name: str = None, connection_string: str = '', ctx: tuple[str, ...] | list[str] | None = None) -> str:`
 
 Generate a migration from a model.
 
-### `publish_migrations(path: str, connection_string: str = '', ctx: tuple = None):`
+### `publish_migrations(path: str, connection_string: str = '', ctx: tuple[str, ...] | list[str] | None = None):`
 
 Publish the migrations for the DeletedModel, HashedModel, and Attachment.
 

@@ -181,13 +181,13 @@ Interface showing how a query builder should function.
 Initialize the instance. A class implementing ModelProtocol or the str name of a
 table must be provided.
 
-##### `is_null(column: str | list[str] | tuple[str]) -> QueryBuilderProtocol:`
+##### `is_null(column: str | list[str] | tuple[str, ...]) -> QueryBuilderProtocol:`
 
 Save the 'column is null' clause, then return self. Raises TypeError for invalid
 column. If a list or tuple is supplied, each element is treated as a separate
 clause.
 
-##### `not_null(column: str | list[str] | tuple[str]) -> QueryBuilderProtocol:`
+##### `not_null(column: str | list[str] | tuple[str, ...]) -> QueryBuilderProtocol:`
 
 Save the 'column is not null' clause, then return self. Raises TypeError for
 invalid column. If a list or tuple is supplied, each element is treated as a
@@ -328,7 +328,7 @@ Insert a batch of records and return the number inserted.
 
 Find a record by its id and return it.
 
-##### `join(model_or_table: type[ModelProtocol] | str, on: list[str], kind: str = 'inner', joined_table_columns: tuple[str] = ()) -> QueryBuilderProtocol:`
+##### `join(model_or_table: type[ModelProtocol] | str, on: list[str], kind: str = 'inner', joined_table_columns: tuple[str, ...] = ()) -> QueryBuilderProtocol:`
 
 Prepares the query for a join over multiple tables/models. Raises TypeError or
 ValueError for invalid model, on, or kind. The `on` parameter must be a list of
@@ -343,6 +343,10 @@ Sets the columns to select.
 
 Adds a group by constraint.
 
+##### `distinct() -> QueryBuilderProtocol:`
+
+Mark the query as a distinct query.
+
 ##### `get() -> list[ModelProtocol] | list[JoinedModelProtocol] | list[RowProtocol]:`
 
 Run the query on the datastore and return a list of results. Return SqlModels
@@ -351,7 +355,9 @@ Return Rows when running a non-joined GROUP BY query.
 
 ##### `count() -> int:`
 
-Returns the number of records matching the query.
+Returns the number of records matching the query. Includes joins. When the query
+is distinct, returns the number of distinct values of the selected column or,
+when grouped, the number of distinct groups.
 
 ##### `take(number: int) -> list[ModelProtocol] | list[JoinedModelProtocol] | list[RowProtocol]:`
 
@@ -382,7 +388,7 @@ result will be returned. If interpolate_params is False, the parameters will not
 be interpolated into the SQL str, instead including question marks, and an
 additional list of params will be returned along with the SQL str.
 
-##### `execute_raw(sql: str) -> tuple[int, list[tuple[Any]]]:`
+##### `execute_raw(sql: str) -> tuple[int, list[tuple[Any, ...]]]:`
 
 Execute raw SQL against the database. Return rowcount and fetchall results.
 

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sqloquent"
-version = "0.7.4"
+version = "0.8.0"
 authors = [
   { name="k98kurz", email="k98kurz@gmail.com" },
 ]
@@ -24,7 +24,7 @@ classifiers = [
   "Topic :: Database :: Front-Ends",
 ]
 dependencies = [
-  "packify >= 0.3.1",
+  "packify >= 0.3.4",
 ]
 
 [project.urls]
@@ -39,4 +39,35 @@ sqloquent = "sqloquent.tools:run_cli"
 asyncql = [
   "aiosqlite >= 0.19.0",
   "nest-asyncio == 1.6.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["sqloquent"]
+exclude = [
+  ".github",
+  "build",
+  "misc",
+  "tests",
+  "AGENTS.md",
+  "notes",
+  "references",
+  "scripts",
+  "temp",
+  "tickets",
+  "venv",
+]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+  ".github",
+  "build",
+  "misc",
+  "tests",
+  "AGENTS.md",
+  "notes",
+  "references",
+  "scripts",
+  "temp",
+  "tickets",
+  "venv",
 ]
